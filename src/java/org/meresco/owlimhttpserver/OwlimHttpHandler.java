@@ -10,9 +10,21 @@ public class OwlimHttpHandler {
         this.ts = ts;
     }
 
-    public void add(String queryString, String httpBody) {
+    public void updateRDF(String queryString, String httpBody) {
+        String identifier = queryString;
+        ts.delete(identifier);
+        ts.addRDF(identifier, httpBody, RDFFormat.RDFXML);
+    }
+
+    public void addRDF(String queryString, String httpBody) {
         String identifier = queryString;
         ts.addRDF(identifier, httpBody, RDFFormat.RDFXML);
     }
+
+    public void deleteRDF(String queryString) {
+        String identifier = queryString;
+        ts.delete(identifier);
+    }
+
 }
 
