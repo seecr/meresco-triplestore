@@ -8,8 +8,6 @@ import java.util.ArrayList;
 import org.openrdf.rio.RDFFormat;
 
 public class OwlimHttpHandlerTest {
-    interface TripleStore {};
-
     public class TSMock implements TripleStore {
         public List<String> adds = new ArrayList<String>();
 
@@ -24,8 +22,8 @@ public class OwlimHttpHandlerTest {
         OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
         String queryString = "identifier";
         String httpBody = "<rdf/>";
-        h.add(querystring, httpbody);
-        assertEquals(1, tsmock.adds.length());
+        h.add(queryString, httpBody);
+        assertEquals(1, tsmock.adds.size());
 
     }
 
