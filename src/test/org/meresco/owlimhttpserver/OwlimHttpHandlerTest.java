@@ -8,6 +8,11 @@ import java.util.ArrayList;
 import static org.meresco.owlimhttpserver.Utils.parseQS;
 
 import org.openrdf.rio.RDFFormat;
+import org.openrdf.model.Resource;
+import org.openrdf.model.URI;
+import org.openrdf.model.Value;
+import org.openrdf.repository.RepositoryResult;
+import org.openrdf.model.Statement;
 
 
 public class OwlimHttpHandlerTest {
@@ -27,6 +32,9 @@ public class OwlimHttpHandlerTest {
             return "<result/>";
         }
 
+        public RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj) {
+            throw new UnsupportedOperationException("!");
+        }
     }
 
 
