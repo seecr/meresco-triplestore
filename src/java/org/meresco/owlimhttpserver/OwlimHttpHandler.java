@@ -10,26 +10,24 @@ public class OwlimHttpHandler {
         this.ts = ts;
     }
 
-    public void updateRDF(String queryString, String httpBody) {
-        String identifier = queryString;
+    public void updateRDF(QueryParameters params, String httpBody) {
+        String identifier = params.singleValue("identifier");
         ts.delete(identifier);
         ts.addRDF(identifier, httpBody, RDFFormat.RDFXML);
     }
 
-    public void addRDF(String queryString, String httpBody) {
-        String identifier = queryString;
+    public void addRDF(QueryParameters params, String httpBody) {
+        String identifier = params.singleValue("identifier");
         ts.addRDF(identifier, httpBody, RDFFormat.RDFXML);
     }
 
-    public void deleteRDF(String queryString) {
-        String identifier = queryString;
+    public void deleteRDF(QueryParameters params) {
+        String identifier = params.singleValue("identifier");
         ts.delete(identifier);
     }
 
-    public String executeQuery(String queryString) {
-        // TODO: parse queryString properly!
-        String query = queryString.substring("query=".length());
-        System.out.println(query);
+    public String executeQuery(QueryParameters params) {
+        String query = params.singleValue("query");
         return ts.executeQuery(query);
     }
 
