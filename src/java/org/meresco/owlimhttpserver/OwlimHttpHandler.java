@@ -26,5 +26,13 @@ public class OwlimHttpHandler {
         ts.delete(identifier);
     }
 
+    public String executeQuery(String queryString) {
+        // TODO: parse queryString properly!
+        String query = queryString.substring("query=".length());
+        System.out.println(query);
+        return ts.executeQuery(query);
+    }
+
+
 }
 

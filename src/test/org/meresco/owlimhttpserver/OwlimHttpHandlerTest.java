@@ -11,16 +11,21 @@ import org.openrdf.rio.RDFFormat;
 
 public class OwlimHttpHandlerTest {
     public class TSMock implements TripleStore {
-        public List<String> adds = new ArrayList<String>();
-        public List<String> deletes = new ArrayList<String>();
+        public List<String> actions = new ArrayList<String>();
 
         public void addRDF(String identifier, String data, RDFFormat format) {
-            adds.add(data);
+            actions.add("add:" + identifier + "|" + data);
         }
 
         public void delete(String identifier) {
-            deletes.add(identifier);
+            actions.add("delete:" + identifier);
         }
+
+        public String executeQuery(String sparQL) {
+            actions.add("query:" + sparQL);
+            return "<result/>";
+        }
+
     }
 
 
@@ -30,7 +35,7 @@ public class OwlimHttpHandlerTest {
         String queryString = "identifier";
         String httpBody = "<rdf/>";
         h.addRDF(queryString, httpBody);
-        assertEquals(Arrays.asList(httpBody), tsmock.adds);
+        assertEquals(Arrays.asList("add:" + queryString + "|" + httpBody), tsmock.actions);
     }
 
     @Test public void testDeleteRDF() {
@@ -38,20 +43,40 @@ public class OwlimHttpHandlerTest {
         OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
         final String queryString = "identifier";
         h.deleteRDF(queryString);
-        assertEquals(Arrays.asList(queryString), tsmock.deletes);
+        assertEquals(Arrays.asList("delete:" + queryString), tsmock.actions);
     }
 
     @Test public void testUpdateRDF() {
         TSMock tsmock = new TSMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
-        String queryString = "identifier";
         String httpBody = "<rdf/>";
-        h.updateRDF(queryString, httpBody);
-        assertEquals(Arrays.asList(queryString), tsmock.deletes);
-        assertEquals(Arrays.asList(httpBody), tsmock.adds);
+        h.updateRDF("id0", httpBody);
+        assertEquals(Arrays.asList(
+                        "delete:id0",
+                        "add:id0|<rdf/>"), 
+                     tsmock.actions);
+        h.updateRDF("id1", httpBody);
+        h.updateRDF("id0", httpBody);
+        assertEquals(Arrays.asList(
+                        "delete:id0",
+                        "add:id0|<rdf/>", 
+                        "delete:id1",
+                        "add:id1|<rdf/>",
+                        "delete:id0",
+                        "add:id0|<rdf/>"), 
+                     tsmock.actions);
     }
 
+    @Test public void testSparQL() {
+        TSMock tsmock = new TSMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D"; 
+        String result = h.executeQuery(queryString);
+        
+        assertEquals(Arrays.asList("query:SELECT ?x ?y ?z WHERE { ?x ?y ?z}"), 
+                     tsmock.actions);
 
+    }
 
 
 }
