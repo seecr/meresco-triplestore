@@ -33,7 +33,6 @@ import org.openrdf.repository.sail.SailRepository;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParseException;
 
-
 public class OwlimTripleStore implements TripleStore {
     File dir;
     SailRepository repository;
