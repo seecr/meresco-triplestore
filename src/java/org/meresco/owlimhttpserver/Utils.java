@@ -2,11 +2,19 @@ package org.meresco.owlimhttpserver;
 
 import java.util.HashMap;
 import java.util.ArrayList;
+
 import java.net.URLDecoder;
-import java.io.UnsupportedEncodingException;
+
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
+import java.io.Writer;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
 
 class Utils {
     public static QueryParameters parseQS(String queryString) {
@@ -14,6 +22,10 @@ class Utils {
          * shamelessly copied from: http://stackoverflow.com/questions/1667278/parsing-queryString-strings-in-java
          */
         QueryParameters params = new QueryParameters();
+        if (queryString == null) {
+            return params;
+        }
+
         for (String param : queryString.split("&")) {
             if (param.indexOf('=') > 0) {
                 String[] pair = param.split("=");
@@ -70,5 +82,37 @@ class Utils {
         }
     }
 
-}
+    public static String read(InputStream in) {
+        StringBuilder contents = new StringBuilder();
 
+        BufferedReader input = null;
+        try { 
+            try {
+                input =  new BufferedReader(new InputStreamReader(in, "UTF-8"));
+                String line = null;
+                while (( line = input.readLine()) != null) {
+                  contents.append(line);
+                  contents.append(System.getProperty("line.separator"));
+                }
+            }
+            finally {
+                input.close();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return contents.toString().trim();
+    }
+
+    public static String getStackTrace(Throwable aThrowable) {
+        /* 
+         * shameless partial copy from: 
+         * http://www.javapractices.com/topic/TopicAction.do?Id=78 
+         */
+        final Writer result = new StringWriter();
+        final PrintWriter printWriter = new PrintWriter(result);
+        aThrowable.printStackTrace(printWriter);
+        return result.toString();
+    }
+
+}

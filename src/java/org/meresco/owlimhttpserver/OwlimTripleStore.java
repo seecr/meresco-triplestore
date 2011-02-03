@@ -110,7 +110,7 @@ public class OwlimTripleStore implements TripleStore {
                 tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, sparQL);
                 tupleQueryResult = tupleQuery.evaluate();
                 ByteArrayOutputStream o = new ByteArrayOutputStream();
-                QueryResultIO.write(tupleQueryResult, TupleQueryResultFormat.SPARQL, o);
+                QueryResultIO.write(tupleQueryResult, TupleQueryResultFormat.JSON, o);
                 result = o.toString("UTF-8");
                 tupleQueryResult.close();
             } catch (QueryEvaluationException e) {

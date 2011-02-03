@@ -2,9 +2,23 @@ package org.meresco.owlimhttpserver;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpPrincipal;
+import com.sun.net.httpserver.HttpContext;
+import com.sun.net.httpserver.Headers;
+
+import java.net.InetSocketAddress;
+
+import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
+
 import static org.meresco.owlimhttpserver.Utils.parseQS;
 
 import org.openrdf.rio.RDFFormat;
@@ -35,6 +49,87 @@ public class OwlimHttpHandlerTest {
         public RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj) {
             throw new UnsupportedOperationException("!");
         }
+    }
+
+
+    public class OwlimHttpHandlerMock extends OwlimHttpHandler {
+        public List<Object> actions = new ArrayList<Object>();
+        private Exception _exception = null;
+
+        public OwlimHttpHandlerMock() { super(null); }
+        public OwlimHttpHandlerMock(Exception e) { 
+            super(null); 
+            _exception = e; 
+        }
+
+        public void updateRDF(QueryParameters params, String httpBody) {
+            if (_exception != null) {
+                throw new RuntimeException(_exception);
+            }
+            actions.add("updateRDF");
+            actions.add(params);
+            actions.add(httpBody);
+        }
+        public void addRDF(QueryParameters params, String httpBody) {
+            if (_exception != null) {
+                throw new RuntimeException(_exception);
+            }
+            actions.add("addRDF");
+            actions.add(params);
+            actions.add(httpBody);
+        }
+        public void deleteRDF(QueryParameters params) {
+            if (_exception != null) {
+                throw new RuntimeException(_exception);
+            }
+            actions.add("deleteRDF");
+            actions.add(params);
+        }
+        public String executeQuery(QueryParameters params) {
+            if (_exception != null) {
+                throw new RuntimeException(_exception);
+            }
+            actions.add("executeQuery");
+            actions.add(params);
+            return "QUERYRESULT";
+        }
+    }
+
+    public class HttpExchangeMock extends HttpExchange {
+        private java.net.URI _requestURI;
+        private String _requestBody;
+        private ByteArrayOutputStream _responseStream;
+        public int responseCode;
+        public String responseBody;
+
+        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
+            super();
+            _requestURI = new java.net.URI(requestURI);
+            _requestBody = requestBody;
+            _responseStream = new ByteArrayOutputStream();
+        }
+
+        public String getOutput() { return _responseStream.toString(); }
+        public java.net.URI getRequestURI() { return _requestURI; }
+        public HttpPrincipal getPrincipal() { return null; }
+        public void setStreams(InputStream i, OutputStream o) {}
+        public void setAttribute(Object o) {}
+        public void setAttribute(String s, Object o) {}
+        public Object getAttribute(String s) { return null; }
+        public String getProtocol() { return ""; }
+        public InetSocketAddress getLocalAddress() { return null; }
+        public InetSocketAddress getRemoteAddress() { return null; }
+        public int getResponseCode() { return 0; }
+        public void sendResponseHeaders(int responseCode, long l) {
+            this.responseCode = responseCode;
+        }
+        public OutputStream getResponseBody() { return _responseStream;  }
+        public InputStream getRequestBody() { return new ByteArrayInputStream(_requestBody.getBytes()); }
+        public void close() {};
+        public HttpContext getHttpContext() { return null; }
+        public String getRequestMethod() { return ""; }
+        public Headers getResponseHeaders() { return null; }
+        public Headers getRequestHeaders() { return null; }
     }
 
 
@@ -87,5 +182,74 @@ public class OwlimHttpHandlerTest {
 
     }
 
+    @Test public void testAddDispatch() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
 
+        HttpExchangeMock exchange = new HttpExchangeMock("/add?id=IDENTIFIER", "<rdf/>");
+        h.handle(exchange);
+        assertEquals(3, h.actions.size());
+        assertEquals("addRDF", h.actions.get(0));
+        QueryParameters qp = (QueryParameters) h.actions.get(1);
+        assertEquals("IDENTIFIER", qp.singleValue("id"));
+        assertEquals("<rdf/>", h.actions.get(2));
+
+        assertEquals(200, exchange.responseCode);
+    }
+
+    @Test public void testUpdateDispatch() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/update?id=IDENTIFIER", "<rdf/>");
+        h.handle(exchange);
+        assertEquals(3, h.actions.size());
+        assertEquals("updateRDF", h.actions.get(0));
+        QueryParameters qp = (QueryParameters) h.actions.get(1);
+        assertEquals("IDENTIFIER", qp.singleValue("id"));
+        assertEquals("<rdf/>", h.actions.get(2));
+        assertEquals(200, exchange.responseCode);
+    }
+
+    @Test public void testDeleteDispatch() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/delete?id=IDENTIFIER", "");
+        h.handle(exchange);
+        assertEquals(2, h.actions.size());
+        assertEquals("deleteRDF", h.actions.get(0));
+        QueryParameters qp = (QueryParameters) h.actions.get(1);
+        assertEquals("IDENTIFIER", qp.singleValue("id"));
+        assertEquals(200, exchange.responseCode);
+    }
+
+    @Test public void testQueryDispatch() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SPARQL+STATEMENT", "");
+        h.handle(exchange);
+        assertEquals(2, h.actions.size());
+        assertEquals("executeQuery", h.actions.get(0));
+        QueryParameters qp = (QueryParameters) h.actions.get(1);
+        assertEquals("SPARQL STATEMENT", qp.singleValue("query"));
+        assertEquals(200, exchange.responseCode);
+        assertEquals("QUERYRESULT", exchange.getOutput());
+    }
+
+    @Test public void test404ForOtherRequests() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/", "");
+        h.handle(exchange);
+        assertEquals(0, h.actions.size());
+        assertEquals(404, exchange.responseCode);
+    }
+    
+    @Test public void test500ForExceptions() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception());
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/add", "");
+        h.handle(exchange);
+        assertEquals(0, h.actions.size());
+        assertEquals(500, exchange.responseCode);
+        assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception"));
+    }
 }

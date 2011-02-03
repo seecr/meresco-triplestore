@@ -75,7 +75,7 @@ public class OwlimTripleStoreTest {
 
         ts.addRDF("uri:id0", rdf, RDFFormat.RDFXML);
         answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}");
-        assertTrue(answer.indexOf("<literal>A.M. Özman Yürekli</literal>") > -1);
-        assertTrue(answer.endsWith("</sparql>\n"));
+        assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
+        assertTrue(answer.endsWith("\n}"));
     }
 }

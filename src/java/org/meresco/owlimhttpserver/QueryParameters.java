@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
 
-
 class QueryParameters extends HashMap<String, ArrayList<String>> {
     public String singleValue(String key) {
         List<String> l = get(key);
