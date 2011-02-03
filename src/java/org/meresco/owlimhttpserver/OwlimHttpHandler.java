@@ -24,34 +24,40 @@ public class OwlimHttpHandler implements HttpHandler {
         String path = requestURI.getPath();
         QueryParameters queryParameters = Utils.parseQS(requestURI.getQuery());
         OutputStream outputStream = exchange.getResponseBody();
-        
+       
         try {
-            
-            if (path.equals("/add")) {
-                String body = Utils.read(exchange.getRequestBody());
-                addRDF(queryParameters, body);
-            } else if (path.equals("/update")) {
-                String body = Utils.read(exchange.getRequestBody());
-                updateRDF(queryParameters, body);
-            } else if (path.equals("/delete")) {
-                deleteRDF(queryParameters);
-            } else if (path.equals("/query")) {
-                String response = "";
-                response = executeQuery(queryParameters);
+            try {
+                
+                if (path.equals("/add")) {
+                    String body = Utils.read(exchange.getRequestBody());
+                    addRDF(queryParameters, body);
+                } else if (path.equals("/update")) {
+                    String body = Utils.read(exchange.getRequestBody());
+                    updateRDF(queryParameters, body);
+                } else if (path.equals("/delete")) {
+                    deleteRDF(queryParameters);
+                } else if (path.equals("/query")) {
+                    String response = "";
+                    response = executeQuery(queryParameters);
+                    exchange.sendResponseHeaders(200, 0);
+                    _writeResponse(response, outputStream);
+                    return;
+                } else {
+                    exchange.sendResponseHeaders(404, 0);
+                    return;
+                }
+            } catch (RuntimeException e) {
+                exchange.sendResponseHeaders(500, 0);
+                String response = Utils.getStackTrace(e);
                 _writeResponse(response, outputStream);
-            } else {
-                exchange.sendResponseHeaders(404, 0);
                 return;
+
             }
-        } catch (RuntimeException e) {
-            exchange.sendResponseHeaders(500, 0);
-            String response = Utils.getStackTrace(e);
-            _writeResponse(response, outputStream);
-            return;
 
+            exchange.sendResponseHeaders(200, 0);
+        } finally {
+            exchange.close();
         }
-
-        exchange.sendResponseHeaders(200, 0);
     }
 
     private void _writeResponse(String response, OutputStream stream) {

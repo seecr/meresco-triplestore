@@ -224,12 +224,12 @@ public class OwlimHttpHandlerTest {
     @Test public void testQueryDispatch() throws Exception {
         OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
 
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SPARQL+STATEMENT", "");
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
         h.handle(exchange);
         assertEquals(2, h.actions.size());
         assertEquals("executeQuery", h.actions.get(0));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
-        assertEquals("SPARQL STATEMENT", qp.singleValue("query"));
+        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
         assertEquals(200, exchange.responseCode);
         assertEquals("QUERYRESULT", exchange.getOutput());
     }
