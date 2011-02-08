@@ -1,6 +1,6 @@
 #!/bin/bash
 
-OWLIMJARS="/usr/share/java/libowlim-core3-gcj9/*-.jar"
+OWLIMJARS=$(find /usr/share/java/libowlim-core3-gcj9 -type f -name "*.jar")
 SESAME=jars/openrdf-sesame-2.3.2-onejar.jar
 
 BUILDDIR=./build
@@ -9,7 +9,7 @@ TARGET=owlimhttpserver.jar
 test -d $BUILDDIR && rm -r $BUILDDIR
 mkdir $BUILDDIR
 
-CP="$SESAME:$(ls -1 $OWLIMJARS | tr '\n' ':')"
+CP="$SESAME:$(echo $OWLIMJARS | tr ' ' ':')"
 
 javaFiles=$(find src/java -name "*.java")
 javac -d $BUILDDIR -cp $CP $javaFiles
