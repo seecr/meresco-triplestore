@@ -1,9 +1,9 @@
 #!/bin/bash
 
-OWLIMJARS="/usr/share/java/libowlim-core3-gcj9/*-.jar"
-SESAME=jars/openrdf-sesame-2.3.2-onejar.jar
+OWLIMJARS=$(find /usr/share/java/libowlim-core3-gcj9 -type f -name "*.jar")
+MY_JARS=$(find /usr/share/java/owlimhttpserver -type f -name "*.jar")
 
-CP="$SESAME:$(ls -1 $OWLIMJARS | tr '\n' ':')owlimhttpserver.jar"
+CP="$(echo ${MY_JARS} | tr ' ' ':'):$(echo ${OWLIMJARS} | tr ' ' ':')"
 
-java -cp $CP org.meresco.owlimhttpserver.OwlimServer $@
+java -cp ${CP} org.meresco.owlimhttpserver.OwlimServer $@
 
