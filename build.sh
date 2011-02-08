@@ -1,10 +1,15 @@
 #!/bin/bash
 
+VERSION=$1
+
 OWLIMJARS=$(find /usr/share/java/libowlim-core3-gcj9 -type f -name "*.jar")
 SESAME=jars/openrdf-sesame-2.3.2-onejar.jar
 
 BUILDDIR=./build
 TARGET=owlimhttpserver.jar
+if [ "${VERSION}" != "" ]; then
+    TARGET=owlimhttpserver-${VERSION}.jar
+fi
 
 test -d $BUILDDIR && rm -r $BUILDDIR
 mkdir $BUILDDIR
