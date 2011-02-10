@@ -1,0 +1,2 @@
+libowlim-core3-gcj9 (>= 3.3)
+libowlim-core3-gcj9 (<< 3.4)
