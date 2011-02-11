@@ -27,5 +27,5 @@ MY_JARS=$(find /usr/share/java/owlimhttpserver -type f -name "*.jar")
 
 CP="$(echo ${MY_JARS} | tr ' ' ':'):$(echo ${OWLIMJARS} | tr ' ' ':')"
 
-java -cp ${CP} org.meresco.owlimhttpserver.OwlimServer $@
+exec java -cp ${CP} org.meresco.owlimhttpserver.OwlimServer $@
 
