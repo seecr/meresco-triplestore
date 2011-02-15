@@ -24,6 +24,7 @@ package org.meresco.owlimhttpserver;
 
 import java.util.List;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 
 import org.junit.Test;
@@ -44,11 +45,13 @@ import org.openrdf.rio.RDFFormat;
 public class OwlimTripleStoreTest {
     OwlimTripleStore ts;
     File tempdir;
+    File rdfTempDir;
 
     @Before
     public void setUp() throws Exception {
         tempdir = createTempDirectory();
-        ts = new OwlimTripleStore(tempdir, "storageName");
+        rdfTempDir = createTempDirectory();
+        ts = new OwlimTripleStore(tempdir, "storageName", rdfTempDir);
     }
 
     @After
@@ -59,6 +62,7 @@ public class OwlimTripleStoreTest {
     @Test
     public void testOne() {
         assertEquals(tempdir.getAbsolutePath(), ts.dir.getAbsolutePath());
+        assertEquals(rdfTempDir.getAbsolutePath(), ts.rdfDir.getAbsolutePath());
         assertTrue(new File(new File(tempdir, "storageName"), "entities").isFile());
     }
 
@@ -97,6 +101,18 @@ public class OwlimTripleStoreTest {
 
         ts.addRDF("uri:id0", rdf, RDFFormat.RDFXML);
         answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}");
+        assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
+        assertTrue(answer.endsWith("\n}"));
+    }
+
+    @Test
+    public void testLoadRdfFilesOnStartup() throws Exception {
+        FileWriter tmpFile = new FileWriter(rdfTempDir.getAbsolutePath() + "/uri:tmpfile.rdf");
+        tmpFile.write(rdf);
+        tmpFile.close();
+
+        OwlimTripleStore ts = new OwlimTripleStore(tempdir, "storageName", rdfTempDir);
+        String answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}");
         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
         assertTrue(answer.endsWith("\n}"));
     }

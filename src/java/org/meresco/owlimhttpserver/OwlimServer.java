@@ -30,18 +30,19 @@ public class OwlimServer {
         Integer port; 
         String storeLocation;
         String storeName;
+        String rdfDirectory;
 
         try {
             port = new Integer(args[0]);
             storeLocation = args[1];
             storeName = args[2];
+            rdfDirectory = args[3];
         } catch(Exception e) {
-            System.out.println("Arguments: <port> <storeLocation> <storeName>");
+            System.out.println("Arguments: <port> <storeLocation> <storeName> <rdfFileDirectory>");
             return;
         }
 
-        File storeLocationFile = new File(storeLocation);
-        TripleStore tripleStore = new OwlimTripleStore(storeLocationFile, storeName);
+        TripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName, new File(rdfDirectory));
         OwlimHttpHandler handler = new OwlimHttpHandler(tripleStore);
         OwlimHttpServer httpServer = new OwlimHttpServer(port, 15);
 

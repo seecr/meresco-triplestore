@@ -23,6 +23,7 @@
 package org.meresco.owlimhttpserver;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.OutputStream;
@@ -57,10 +58,12 @@ import org.openrdf.rio.RDFParseException;
 
 public class OwlimTripleStore implements TripleStore {
     File dir;
+    File rdfDir;
     SailRepository repository;
 
-    public OwlimTripleStore(File directory, String storageName) {
+    public OwlimTripleStore(File directory, String storageName, File rdfDirectory) {
         dir = directory;
+        rdfDir = rdfDirectory;
         SailImpl owlimSail = new SailImpl();
         repository = new SailRepository(owlimSail);
         owlimSail.setParameter(Repository.PARAM_STORAGE_FOLDER, storageName);
@@ -69,6 +72,14 @@ public class OwlimTripleStore implements TripleStore {
             repository.setDataDir(directory);
             repository.initialize();
         } catch (RepositoryException e) {
+            throw new RuntimeException(e);
+        }
+        
+        try {
+            for (File file : rdfDir.listFiles()) {
+                addRDF(file.getName(), Utils.read(new FileInputStream(file)), RDFFormat.RDFXML);
+            }
+        } catch(IOException e) {
             throw new RuntimeException(e);
         }
     }
