@@ -24,10 +24,11 @@ package org.meresco.owlimhttpserver;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
+import java.lang.Math;
 
 public class OwlimHttpServerTest {
 
     @Test public void testOne() throws Exception {
-        OwlimHttpServer s = new OwlimHttpServer(6000, 15);
+        OwlimHttpServer s = new OwlimHttpServer((int)(5000+Math.random()*1000), 15);
     }
 }
