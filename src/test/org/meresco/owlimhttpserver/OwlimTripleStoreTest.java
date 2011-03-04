@@ -111,6 +111,9 @@ public class OwlimTripleStoreTest {
         tmpFile.write(rdf);
         tmpFile.close();
 
+        FileWriter tmpFile2 = new FileWriter(rdfTempDir.getAbsolutePath() + "/.ignoreMe.txt");
+        tmpFile2.close();
+
         OwlimTripleStore ts = new OwlimTripleStore(tempdir, "storageName", rdfTempDir);
         String answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}");
         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);

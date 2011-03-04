@@ -77,7 +77,10 @@ public class OwlimTripleStore implements TripleStore {
         
         try {
             for (File file : rdfDir.listFiles()) {
-                addRDF(file.getName(), Utils.read(new FileInputStream(file)), RDFFormat.RDFXML);
+                String fileName = file.getName();
+                if (fileName.endsWith(".rdf")) {
+                    addRDF(fileName, Utils.read(new FileInputStream(file)), RDFFormat.RDFXML);
+                }
             }
         } catch(IOException e) {
             throw new RuntimeException(e);
