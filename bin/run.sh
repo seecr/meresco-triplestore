@@ -22,7 +22,7 @@
 #
 ## end license ##
 
-OWLIMJARS=$(find /usr/share/java/libowlim-core3-gcj9 -type f -name "*.jar")
+OWLIMJARS=$(find /usr/share/java/owlim-lite-java -type f -name "*.jar")
 MY_JARS=$(find /usr/share/java/owlimhttpserver -type f -name "*.jar")
 
 CP="$(echo ${MY_JARS} | tr ' ' ':'):$(echo ${OWLIMJARS} | tr ' ' ':')"

@@ -24,8 +24,7 @@
 
 VERSION=$1
 
-OWLIMJARS=$(find /usr/share/java/libowlim-core3-gcj9 -type f -name "*.jar")
-SESAME=jars/openrdf-sesame-2.3.2-onejar.jar
+OWLIMJARS=$(find /usr/share/java/owlim-lite-java/ -type f -name "*.jar")
 
 BUILDDIR=./build
 TARGET=owlimhttpserver.jar
@@ -36,7 +35,7 @@ fi
 test -d $BUILDDIR && rm -r $BUILDDIR
 mkdir $BUILDDIR
 
-CP="$SESAME:$(echo $OWLIMJARS | tr ' ' ':')"
+CP="$(echo $OWLIMJARS | tr ' ' ':')"
 
 javaFiles=$(find src/java -name "*.java")
 javac -d $BUILDDIR -cp $CP $javaFiles
