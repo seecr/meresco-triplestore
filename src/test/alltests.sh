@@ -22,29 +22,33 @@
 #
 ## end license ##
 
-rm -r ../../build/
-mkdir ../../build
-
+BUILDDIR=../../build/
+test -d ${BUILDDIR} && rm -rf ${BUILDDIR}
+mkdir ${BUILDDIR}
 
 JUNIT=/usr/share/java/junit4.jar
+if [ ! -f ${JUNIT} ]; then
+    echo "JUnit is not installed. Please install the junit4 package."
+    exit 1
+fi
 
 CP="$JUNIT:$(ls -1 /usr/share/java/owlim-lite-java/*.jar | tr '\n' ':')../../build"
 
 javaFiles=$(find ../java -name "*.java")
-javac -d ../../build -cp $CP $javaFiles
+javac -d ${BUILDDIR} -cp $CP $javaFiles
 if [ "$?" != "0" ]; then
     echo "Build failed"
     exit 1
 fi
 
 javaFiles=$(find . -name "*.java")
-javac -d ../../build -cp $CP $javaFiles
+javac -d ${BUILDDIR} -cp $CP $javaFiles
 if [ "$?" != "0" ]; then
     echo "Test Build failed"
     exit 1
 fi
 
-testClasses=$(cd ../../build; find . -name "*Test.class" | sed 's,.class,,g' | tr '/' '.' | sed 's,..,,')
+testClasses=$(cd ${BUILDDIR}; find . -name "*Test.class" | sed 's,.class,,g' | tr '/' '.' | sed 's,..,,')
 echo "Running $testClasses"
 java -classpath ".:$CP" org.junit.runner.JUnitCore $testClasses
 
