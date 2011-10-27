@@ -73,8 +73,12 @@ public class OwlimTripleStore implements TripleStore {
         repository = new SailRepository(owlimSail);
         owlimSail.setParameter(Repository.PARAM_STORAGE_FOLDER, storageName);
         owlimSail.setParameter("ruleset", "empty");
+        startup();
+    }
+
+    public void startup() {
         try {
-            repository.setDataDir(directory);
+            repository.setDataDir(dir);
             repository.initialize();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);

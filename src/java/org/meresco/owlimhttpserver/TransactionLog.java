@@ -3,11 +3,8 @@ package org.meresco.owlimhttpserver;
 
 import java.io.IOException;
 import java.io.File;
-import java.io.FileWriter;
-import java.io.BufferedWriter;
 import java.util.Arrays;
 
-import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.io.FileUtils;
 
 public class TransactionLog {
@@ -17,12 +14,20 @@ public class TransactionLog {
 
     TransactionLog() {}
 
-    public TransactionLog(TripleStore tripleStore, File baseDir) {
+    public TransactionLog(TripleStore tripleStore, File baseDir) throws IOException {
         this.tripleStore = tripleStore;
         this.transactionLogDir = new File(baseDir, "transactionLog");
         this.transactionLogDir.mkdir();
         this.tempLogDir = new File(baseDir, "tempLog");
         this.tempLogDir.mkdir();
+        clearTempLogDir();
+    }
+
+    public void init() throws Exception {
+        if (recoverTripleStore()) {
+            persistTripleStore();
+            System.out.println("Recovering from transactionlog completed");
+        }
     }
 
     public void add(String identifier, String filedata) throws TransactionLogException {
@@ -55,24 +60,12 @@ public class TransactionLog {
         }
     }
 
-    String prepare(String action, String identifier, String filename, String filedata) {
+    String prepare(String action, String identifier, String filename, String filedata) throws Exception {
         File filepath = new File(this.tempLogDir, filename); 
         while (filepath.exists()) {
             filepath = new File(filepath + "_1");
         }
-
-        try {
-            FileWriter fstream = new FileWriter(filepath);
-            BufferedWriter out = new BufferedWriter(fstream);
-            out.write("<transaction_item>" +
-                "<action>" + action + "</action>" +
-                "<identifier>" + StringEscapeUtils.escapeXml(identifier) + "</identifier>" + 
-                "<filedata>" + StringEscapeUtils.escapeXml(filedata) + "</filedata>" +
-                "</transaction_item>");
-            out.close();
-        } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
-        }
+        new TransactionItem(action, identifier, filedata).write(filepath);
         return filepath.getName();
     }
 
@@ -117,8 +110,34 @@ public class TransactionLog {
        this.transactionLogDir.mkdir();
     }
 
+    void clearTempLogDir() throws IOException {
+        for (String filename: this.tempLogDir.list()) {
+            rollback(filename);
+        }
+    }
+
     void persistTripleStore() throws IOException {
         this.tripleStore.shutdown();
         clear();
+        this.tripleStore.startup();
+    }
+
+    boolean recoverTripleStore() throws Exception {
+        String[] transactionItemFiles = getTransactionItemFiles();
+        if (transactionItemFiles.length > 0) {
+            System.out.println("Recovering " + String.valueOf(transactionItemFiles.length) + " files from transactionlog");
+        } else {
+            return false;
+        }
+
+        for(String filename: transactionItemFiles) {
+            TransactionItem item = TransactionItem.read(new File (this.transactionLogDir, filename));
+            if (item.getAction().equals("addRDF")) {
+                this.tripleStore.addRDF(item.getIdentifier(), item.getFiledata());
+            } else if (item.getAction().equals("delete")) {
+                this.tripleStore.delete(item.getIdentifier());
+            }
+        }
+        return true;
     }
 }

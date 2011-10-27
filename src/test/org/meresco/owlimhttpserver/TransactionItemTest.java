@@ -61,7 +61,7 @@ public class TransactionItemTest {
     }
 
     @Test
-    public void testReadTransactionItem() throws IOException, ParserConfigurationException, SAXException, XPathExpressionException {
+    public void testReadTransactionItem() throws Exception {
         String action = "addRDF";
         String identifier = "record1";
         String filedata = "<x>ignored</x>";

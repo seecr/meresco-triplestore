@@ -37,5 +37,9 @@ public class TSMock implements TripleStore {
     public void shutdown() {
         actions.add("shutdown");
     }
+    
+    public void startup() {
+        actions.add("startup");
+    }
 }
 

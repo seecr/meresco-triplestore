@@ -43,6 +43,8 @@ public interface TripleStore {
 
     void shutdown();
 
+    void startup();
+
     void undoCommit();
 }
 
