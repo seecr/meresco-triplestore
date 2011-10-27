@@ -193,4 +193,10 @@ public class OwlimTripleStore implements TripleStore {
         }
     }
 
+    public void shutdown() {
+        throw new RuntimeException();
+    }
+
+    public void undoCommit() {}
+
 }

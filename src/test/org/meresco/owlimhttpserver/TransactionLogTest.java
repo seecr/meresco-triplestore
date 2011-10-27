@@ -45,7 +45,7 @@ import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
 public class TransactionLogTest {
     TransactionLog transactionLog;
     File tempdir;
-    TripleStore tsMock;
+    TSMock tsMock;
 
     @Before
     public void setUp() throws Exception {
@@ -239,9 +239,138 @@ public class TransactionLogTest {
         }
         transactionLog = new MyTransactionLog(tsMock, tempdir);
         try {
+            transactionLog.doProcess("addRDF", "record", "data");
+            fail("Should raise an Exception");
+        } catch (TransactionLogException e) {}
+        assertTrue(rollback.get(0));
+    }
+
+    @Test
+    public void testRollbackWhenAddRDFFailes() {
+        final List<Boolean> rollback = new ArrayList<Boolean>();
+        class MyTripleStore extends OwlimTripleStore {
+            public void addRDF(String identifier, String body) {
+                throw new RuntimeException();
+            }
+        }
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(TripleStore tripleStore, File baseDir) {
+                super(tripleStore, baseDir);
+            }
+            void rollback(String filename) {
+                rollback.add(true);
+            }
+        }
+        TransactionLog transactionLog = new MyTransactionLog(new MyTripleStore(), tempdir);
+        try {
             transactionLog.add("record", "data");
             fail("Should raise an Exception");
-        } catch (Exception e) {}
+        } catch (TransactionLogException e) {}
         assertTrue(rollback.get(0));
+    }
+
+    @Test
+    public void testRollbackWhenDeleteFailes() {
+        final List<Boolean> rollback = new ArrayList<Boolean>();
+        class MyTripleStore extends OwlimTripleStore {
+            public void delete(String identifier, String body) {
+                throw new RuntimeException();
+            }
+        }
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(TripleStore tripleStore, File baseDir) {
+                super(tripleStore, baseDir);
+            }
+            void rollback(String filename) {
+                rollback.add(true);
+            }
+        }
+        TransactionLog transactionLog = new MyTransactionLog(new MyTripleStore(), tempdir);
+        try {
+            transactionLog.delete("record");
+            fail("Should raise an Exception");
+        } catch (TransactionLogException e) {}
+        assertTrue(rollback.get(0));
+    }
+
+    @Test
+    public void testRollbackAll() {
+        final List<String> rollback = new ArrayList<String>();
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(TripleStore tripleStore, File baseDir) {
+                super(tripleStore, baseDir);
+            }
+            void rollback(String filename) {
+                rollback.add(filename);
+            }
+        }
+        
+        transactionLog = new MyTransactionLog(tsMock, tempdir);
+        transactionLog.rollbackAll("record");
+        assertEquals("record", rollback.get(0));
+        assertEquals("undoCommit", tsMock.actions.get(0));
+    }
+
+    @Test
+    public void testRollbackWhenCommitFailes() {
+        final List<Boolean> rollbackAll = new ArrayList<Boolean>();
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(TripleStore tripleStore, File baseDir) {
+                super(tripleStore, baseDir);
+            }
+            void commit(String filename) {
+                throw new RuntimeException();
+            }
+            void rollbackAll(String filename) {
+                rollbackAll.add(true);
+            }
+        }
+        transactionLog = new MyTransactionLog(tsMock, tempdir);
+        try {
+            transactionLog.doProcess("addRDF", "record", "data");
+            fail("Should raise an Exception");
+        } catch (TransactionLogException e) {}
+        assertTrue(rollbackAll.get(0));
+    }
+
+    @Test
+    public void testClearTransactionLog() throws TransactionLogException, IOException {
+        transactionLog.add("record", "data");
+        assertEquals(1, transactionLog.getTransactionItemFiles().length);
+        transactionLog.clear();
+        assertEquals(0, transactionLog.getTransactionItemFiles().length);
+    }
+
+    @Test
+    public void testClearWhenShutdownSuccesFull() throws TransactionLogException, IOException {
+        addFilesToTransactionLog();
+        assertEquals(2, transactionLog.getTransactionItemFiles().length);
+        transactionLog.persistTripleStore();
+        assertEquals(0, transactionLog.getTransactionItemFiles().length);
+    }
+
+    @Test
+    public void testClearNotWhenShutdownFails() throws TransactionLogException, IOException {
+        addFilesToTransactionLog();
+        assertEquals(2, transactionLog.getTransactionItemFiles().length);
+
+        class MyTripleStore extends OwlimTripleStore {
+            public void shutdown() {
+                throw new RuntimeException();
+            }
+        }
+        transactionLog = new TransactionLog(new MyTripleStore(), tempdir);
+        try {
+            transactionLog.persistTripleStore();
+            fail("Should raise an error");
+        } catch (Exception e) {
+            assertEquals(2, transactionLog.getTransactionItemFiles().length);
+        }
+    }
+
+
+    private void addFilesToTransactionLog() throws TransactionLogException {
+        transactionLog.add("testRecord.rdf", "<x>ignored</x>");
+        transactionLog.delete("testRecord.rdf");
     }
 }

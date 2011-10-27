@@ -1,12 +1,14 @@
 
 package org.meresco.owlimhttpserver;
 
+import java.io.IOException;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.BufferedWriter;
 import java.util.Arrays;
 
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.io.FileUtils;
 
 public class TransactionLog {
     TripleStore tripleStore;
@@ -44,7 +46,13 @@ public class TransactionLog {
             rollback(filename);
             throw new TransactionLogException(e);
         }
-        commit(filename);
+
+        try {
+            commit(filename);
+        } catch (Exception e) {
+            rollbackAll(filename);
+            throw new TransactionLogException(e);
+        }
     }
 
     String prepare(String action, String identifier, String filename, String filedata) {
@@ -81,6 +89,11 @@ public class TransactionLog {
         new File(this.tempLogDir, filename).delete();
     }
 
+    void rollbackAll(String filename) {
+        this.tripleStore.undoCommit();
+        rollback(filename);
+    }
+
     File getTempLogDir() {
         return this.tempLogDir;
     }
@@ -97,5 +110,15 @@ public class TransactionLog {
 
     String getTime() {
         return String.valueOf(System.currentTimeMillis());
+    }
+
+    void clear() throws IOException {
+       FileUtils.deleteDirectory(this.transactionLogDir);
+       this.transactionLogDir.mkdir();
+    }
+
+    void persistTripleStore() throws IOException {
+        this.tripleStore.shutdown();
+        clear();
     }
 }

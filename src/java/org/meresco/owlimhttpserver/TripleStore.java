@@ -40,5 +40,9 @@ public interface TripleStore {
     String executeQuery(String sparQL);
 
     RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj);
+
+    void shutdown();
+
+    void undoCommit();
 }
 

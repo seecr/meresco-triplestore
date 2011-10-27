@@ -29,5 +29,13 @@ public class TSMock implements TripleStore {
     public RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj) {
         throw new UnsupportedOperationException("!");
     }
+
+    public void undoCommit() {
+        actions.add("undoCommit");
+    }
+
+    public void shutdown() {
+        actions.add("shutdown");
+    }
 }
 
