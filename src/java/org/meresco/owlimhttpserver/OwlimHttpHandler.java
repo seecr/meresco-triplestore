@@ -36,8 +36,6 @@ import java.io.Writer;
 
 import java.net.URI;
 
-import org.openrdf.rio.RDFFormat;
-
 public class OwlimHttpHandler implements HttpHandler {
     TripleStore ts;
     public OwlimHttpHandler(TripleStore ts) {
@@ -98,12 +96,12 @@ public class OwlimHttpHandler implements HttpHandler {
     public void updateRDF(QueryParameters params, String httpBody) {
         String identifier = params.singleValue("identifier");
         ts.delete(identifier);
-        ts.addRDF(identifier, httpBody, RDFFormat.RDFXML);
+        ts.addRDF(identifier, httpBody);
     }
 
     public void addRDF(QueryParameters params, String httpBody) {
         String identifier = params.singleValue("identifier");
-        ts.addRDF(identifier, httpBody, RDFFormat.RDFXML);
+        ts.addRDF(identifier, httpBody);
     }
 
     public void deleteRDF(QueryParameters params) {

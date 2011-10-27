@@ -25,6 +25,7 @@
 VERSION=$1
 
 OWLIMJARS=$(find /usr/share/java/owlim-lite-java/ -type f -name "*.jar")
+JARS=$(find jars -type f -name "*.jar")
 
 BUILDDIR=./build
 TARGET=owlimhttpserver.jar
@@ -35,7 +36,7 @@ fi
 test -d $BUILDDIR && rm -r $BUILDDIR
 mkdir $BUILDDIR
 
-CP="$(echo $OWLIMJARS | tr ' ' ':')"
+CP="$(echo $OWLIMJARS | tr ' ' ':'):$(echo $JARS | tr ' ' ':')"
 
 javaFiles=$(find src/java -name "*.java")
 javac -d $BUILDDIR -cp $CP $javaFiles

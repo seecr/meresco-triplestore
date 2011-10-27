@@ -34,7 +34,10 @@ if [ ! -f ${JUNIT} ]; then
     exit 1
 fi
 
-CP="$JUNIT:$(ls -1 /usr/share/java/owlim-lite-java/*.jar | tr '\n' ':')../../build"
+OWLIMJARS=$(find /usr/share/java/owlim-lite-java/ -type f -name "*.jar")
+JARS=$(find ../../jars -type f -name "*.jar")
+
+CP="$JUNIT:$(echo $OWLIMJARS | tr ' ' ':'):$(echo $JARS | tr ' ' ':'):../../build"
 
 javaFiles=$(find ../java -name "*.java")
 javac -d ${BUILDDIR} -cp $CP $javaFiles

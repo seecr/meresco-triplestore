@@ -46,7 +46,6 @@ import java.util.ArrayList;
 
 import static org.meresco.owlimhttpserver.Utils.parseQS;
 
-import org.openrdf.rio.RDFFormat;
 import org.openrdf.model.Resource;
 import org.openrdf.model.URI;
 import org.openrdf.model.Value;
@@ -55,26 +54,6 @@ import org.openrdf.model.Statement;
 
 
 public class OwlimHttpHandlerTest {
-    public class TSMock implements TripleStore {
-        public List<String> actions = new ArrayList<String>();
-
-        public void addRDF(String identifier, String data, RDFFormat format) {
-            actions.add("add:" + identifier + "|" + data);
-        }
-
-        public void delete(String identifier) {
-            actions.add("delete:" + identifier);
-        }
-
-        public String executeQuery(String sparQL) {
-            actions.add("executeQuery:" + sparQL);
-            return "<result/>";
-        }
-
-        public RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj) {
-            throw new UnsupportedOperationException("!");
-        }
-    }
 
 
     public class OwlimHttpHandlerMock extends OwlimHttpHandler {

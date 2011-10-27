@@ -26,11 +26,13 @@
 package org.meresco.owlimhttpserver;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.lang.RuntimeException;
 
 import org.junit.Test;
 import org.junit.Before;
@@ -39,20 +41,17 @@ import static org.junit.Assert.*;
 
 import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
 import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
-import org.openrdf.repository.RepositoryResult;
-import org.openrdf.model.Statement;
-import org.openrdf.model.impl.URIImpl;
-import org.openrdf.model.impl.LiteralImpl;
-
 
 public class TransactionLogTest {
     TransactionLog transactionLog;
     File tempdir;
+    TripleStore tsMock;
 
     @Before
     public void setUp() throws Exception {
         tempdir = createTempDirectory();
-        transactionLog = new TransactionLog(tempdir);
+        tsMock = new TSMock();
+        transactionLog = new TransactionLog(tsMock, tempdir);
     }
 
     @After
@@ -87,7 +86,7 @@ public class TransactionLogTest {
         String expectedXml = "<transaction_item>" +
                 "<action>addRDF</action>" +
                 "<identifier>testRecord</identifier>" + 
-                "<filedata>" + xml + "</filedata>" +
+                "<filedata>&lt;x&gt;ignored&lt;/x&gt;</filedata>" +
             "</transaction_item>";
         FileInputStream fileInputStream = new FileInputStream(new File(transactionLog.getTransactionLogDir(), files[0]));
         assertEquals(expectedXml, Utils.read(fileInputStream));
@@ -95,12 +94,14 @@ public class TransactionLogTest {
 
     @Test
     public void testCheckIsAddedToLogWhenExists() {
-        File filenameTransactionLog;
+        String filenameTransactionLog;
         String filename = String.valueOf(System.currentTimeMillis());
         filenameTransactionLog = transactionLog.prepare("addRDF", "testRecord", filename, "<x>ignored</x>");
-        assertEquals(filename, filenameTransactionLog.getName());
+        assertEquals(filename, filenameTransactionLog);
         filenameTransactionLog = transactionLog.prepare("addRDF", "testRecord", filename, "<x>ignored</x>");
-        assertEquals(filename + "_0", filenameTransactionLog.getName());
+        assertEquals(filename + "_1", filenameTransactionLog);
+        filenameTransactionLog = transactionLog.prepare("addRDF", "testRecord", filename, "<x>ignored</x>");
+        assertEquals(filename + "_1_1", filenameTransactionLog);
         transactionLog.commit(filename);
         String[] files = transactionLog.getTransactionItemFiles();
         assertEquals(1, files.length);
@@ -118,5 +119,129 @@ public class TransactionLogTest {
         transactionLog.commit(filename);
         String[] files = transactionLog.getTransactionItemFiles();
         assertEquals(3, files.length);
+        assertEquals(filename, files[0]);
+        assertEquals(filename + "_1", files[1]);
+        assertEquals(filename + "_1_1", files[2]);
+    }
+
+    @Test
+    public void testEscapeIdentifier() throws FileNotFoundException {
+        String filename = String.valueOf(System.currentTimeMillis());
+        transactionLog.prepare("addRDF", "<testRecord>", filename, "<x>ignored</x>");
+        String expectedXml = "<transaction_item>" +
+                "<action>addRDF</action>" +
+                "<identifier>&lt;testRecord&gt;</identifier>" + 
+                "<filedata>&lt;x&gt;ignored&lt;/x&gt;</filedata>" +
+            "</transaction_item>";
+        FileInputStream fileInputStream = new FileInputStream(new File(transactionLog.getTempLogDir(), filename));
+        assertEquals(expectedXml, Utils.read(fileInputStream));
+    }
+
+    @Test
+    public void testAddSuccesfullRecord() throws FileNotFoundException, TransactionLogException {
+        transactionLog.add("record", "<x>ignored</x>");
+        String[] files = transactionLog.getTransactionItemFiles();
+        assertEquals(1, files.length);
+        String expectedXml = "<transaction_item>" +
+                "<action>addRDF</action>" +
+                "<identifier>record</identifier>" + 
+                "<filedata>&lt;x&gt;ignored&lt;/x&gt;</filedata>" +
+            "</transaction_item>";
+        FileInputStream fileInputStream = new FileInputStream(new File(transactionLog.getTransactionLogDir(), files[0]));
+        assertEquals(expectedXml, Utils.read(fileInputStream));
+    }
+
+    @Test
+    public void testAddDeleteRecord() throws FileNotFoundException, TransactionLogException {
+        transactionLog.delete("record");
+        String[] files = transactionLog.getTransactionItemFiles();
+        assertEquals(1, files.length);
+        String expectedXml = "<transaction_item>" +
+                "<action>delete</action>" +
+                "<identifier>record</identifier>" + 
+                "<filedata></filedata>" +
+            "</transaction_item>";
+        FileInputStream fileInputStream = new FileInputStream(new File(transactionLog.getTransactionLogDir(), files[0]));
+        assertEquals(expectedXml, Utils.read(fileInputStream));
+    }
+
+    @Test
+    public void testAddNotWhenFailed() {
+        class MyTripleStore extends OwlimTripleStore {
+            public void addRDF(String identifier, String body) {
+                throw new RuntimeException();
+            }
+        }
+        TransactionLog transactionLog = new TransactionLog(new MyTripleStore(), tempdir);
+        try {
+            transactionLog.add("record", "<x>ignored</x>");
+            fail("Should raise an TransactionLogException");
+        } catch (TransactionLogException e) {}
+        String[] files = transactionLog.getTransactionItemFiles();
+        assertEquals(0, files.length);
+    }
+
+    @Test
+    public void testAddWhenAlreadyExistsInTemp() throws FileNotFoundException, TransactionLogException{
+        final String time = String.valueOf(System.currentTimeMillis());
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(TripleStore tripleStore, File baseDir) {
+                super(tripleStore, baseDir);
+            }
+            String getTime() {
+                return time;
+            }
+        }
+        transactionLog = new MyTransactionLog(tsMock, tempdir);
+        transactionLog.prepare("addRDF", "testRecord", time, "<x>ignored</x>");
+
+        transactionLog.add("testRecord", "data");
+        String[] files = transactionLog.getTransactionItemFiles();
+        assertEquals(1, files.length);
+        FileInputStream fileInputStream = new FileInputStream(new File(transactionLog.getTransactionLogDir(), files[0]));
+        assertTrue(Utils.read(fileInputStream).contains("data"));
+    }
+
+    @Test
+    public void testRollback() {
+        String filename = String.valueOf(System.currentTimeMillis());
+        transactionLog.prepare("addRDF", "record1", filename, "data");
+        transactionLog.prepare("addRDF", "record1", filename + "_1", "data");
+        transactionLog.rollback(filename);
+        String[] tmpFiles = transactionLog.getTempLogDir().list();
+        String[] expected = {filename + "_1"};
+        assertArrayEquals(expected, tmpFiles); 
+    }
+
+    @Test
+    public void testRollbackNothingToDo() {
+        String filename = String.valueOf(System.currentTimeMillis());
+        transactionLog.prepare("addRDF", "record1", filename + "_1", "data");
+        transactionLog.rollback(filename);
+        String[] tmpFiles = transactionLog.getTempLogDir().list();
+        String[] expected = {filename + "_1"};
+        assertArrayEquals(expected, tmpFiles); 
+    }
+
+    @Test
+    public void testRollbackWhenPrepareFailes() {
+        final List<Boolean> rollback = new ArrayList<Boolean>();
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(TripleStore tripleStore, File baseDir) {
+                super(tripleStore, baseDir);
+            }
+            String prepare(String action, String identifier, String filename, String filedata) {
+                throw new RuntimeException();
+            }
+            void rollback(String filename) {
+                rollback.add(true);
+            }
+        }
+        transactionLog = new MyTransactionLog(tsMock, tempdir);
+        try {
+            transactionLog.add("record", "data");
+            fail("Should raise an Exception");
+        } catch (Exception e) {}
+        assertTrue(rollback.get(0));
     }
 }

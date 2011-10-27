@@ -64,6 +64,8 @@ public class OwlimTripleStore implements TripleStore {
     File rdfDir;
     SailRepository repository;
 
+    OwlimTripleStore() {}
+
     public OwlimTripleStore(File directory, String storageName, File rdfDirectory) {
         dir = directory;
         rdfDir = rdfDirectory;
@@ -82,7 +84,7 @@ public class OwlimTripleStore implements TripleStore {
             for (File file : rdfDir.listFiles()) {
                 String fileName = file.getName();
                 if (fileName.endsWith(".rdf")) {
-                    addRDF(fileName, Utils.read(new FileInputStream(file)), RDFFormat.RDFXML);
+                    addRDF(fileName, Utils.read(new FileInputStream(file)));
                 }
             }
         } catch(IOException e) {
@@ -90,14 +92,14 @@ public class OwlimTripleStore implements TripleStore {
         }
     }
 
-    public void addRDF(String identifier, String rdfData, RDFFormat format) {
+    public void addRDF(String identifier, String rdfData) {
         URI context = new URIImpl(identifier);
         StringReader reader = new StringReader(rdfData);
         RepositoryConnection conn = null;
         try {
             conn = repository.getConnection();
             conn.setAutoCommit(false);
-            conn.add(reader, "", format, context);
+            conn.add(reader, "", RDFFormat.RDFXML, context);
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {

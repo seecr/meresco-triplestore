@@ -42,9 +42,6 @@ import org.openrdf.model.Statement;
 import org.openrdf.model.impl.URIImpl;
 import org.openrdf.model.impl.LiteralImpl;
 
-import org.openrdf.rio.RDFFormat;
-
-
 public class OwlimTripleStoreTest {
     OwlimTripleStore ts;
     File tempdir;
@@ -81,7 +78,7 @@ public class OwlimTripleStoreTest {
     @Test
     public void testAddRDFGetStatements() throws Exception {
         long startingPoint = ts.size();
-        ts.addRDF("uri:id0", rdf, RDFFormat.RDFXML);
+        ts.addRDF("uri:id0", rdf);
         RepositoryResult<Statement> statements = ts.getStatements(null, null, null);
         assertEquals(startingPoint + 2, statements.asList().size());
         List<Statement> statementList = ts.getStatements(new URIImpl("http://www.example.org/index.html"), null, null).asList();
@@ -92,7 +89,7 @@ public class OwlimTripleStoreTest {
 
     @Test
     public void testDelete() throws Exception {
-        ts.addRDF("uri:id0", rdf, RDFFormat.RDFXML);
+        ts.addRDF("uri:id0", rdf);
         long startingPoint = ts.size();
         ts.delete("uri:id0");
         assertEquals(startingPoint - 2, ts.size());
@@ -102,7 +99,7 @@ public class OwlimTripleStoreTest {
     public void testSparql() throws Exception {
         String answer = null;
 
-        ts.addRDF("uri:id0", rdf, RDFFormat.RDFXML);
+        ts.addRDF("uri:id0", rdf);
         answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}");
         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
         assertTrue(answer.endsWith("\n}"));
