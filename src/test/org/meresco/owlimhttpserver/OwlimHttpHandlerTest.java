@@ -60,9 +60,9 @@ public class OwlimHttpHandlerTest {
         public List<Object> actions = new ArrayList<Object>();
         private Exception _exception = null;
 
-        public OwlimHttpHandlerMock() { super(null); }
+        public OwlimHttpHandlerMock() { super(null, null); }
         public OwlimHttpHandlerMock(Exception e) { 
-            super(null); 
+            super(null, null); 
             _exception = e; 
         }
 
@@ -137,32 +137,35 @@ public class OwlimHttpHandlerTest {
     }
 
 
-    @Test public void testAddRDF() {
+    @Test public void testAddRDF() throws TransactionLogException {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
         String queryString = "identifier=identifier";
         String httpBody = "<rdf/>";
         h.addRDF(parseQS(queryString), httpBody);
-        assertEquals(Arrays.asList("add:identifier" + "|" + httpBody), tsmock.actions);
+        assertEquals(Arrays.asList("add:identifier" + "|" + httpBody), tlmock.actions);
     }
 
-    @Test public void testDeleteRDF() {
+    @Test public void testDeleteRDF() throws TransactionLogException {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
         String queryString = "identifier=identifier";
         h.deleteRDF(parseQS(queryString));
-        assertEquals(Arrays.asList("delete:identifier"), tsmock.actions);
+        assertEquals(Arrays.asList("delete:identifier"), tlmock.actions);
     }
 
-    @Test public void testUpdateRDF() {
+    @Test public void testUpdateRDF() throws TransactionLogException {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
         String httpBody = "<rdf/>";
         h.updateRDF(parseQS("identifier=id0"), httpBody);
         assertEquals(Arrays.asList(
                         "delete:id0",
                         "add:id0|<rdf/>"), 
-                     tsmock.actions);
+                     tlmock.actions);
         h.updateRDF(parseQS("identifier=id1"), httpBody);
         h.updateRDF(parseQS("identifier=id0"), httpBody);
         assertEquals(Arrays.asList(
@@ -172,12 +175,13 @@ public class OwlimHttpHandlerTest {
                         "add:id1|<rdf/>",
                         "delete:id0",
                         "add:id0|<rdf/>"), 
-                     tsmock.actions);
+                     tlmock.actions);
     }
 
-    @Test public void testSparQL() {
+    @Test public void testSparQL() throws TransactionLogException {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
         String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D"; 
         String result = h.executeQuery(parseQS(queryString));
         

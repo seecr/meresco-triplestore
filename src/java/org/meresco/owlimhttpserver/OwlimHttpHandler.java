@@ -37,9 +37,12 @@ import java.io.Writer;
 import java.net.URI;
 
 public class OwlimHttpHandler implements HttpHandler {
-    TripleStore ts;
-    public OwlimHttpHandler(TripleStore ts) {
-        this.ts = ts;
+    TransactionLog transactionLog;
+    TripleStore tripleStore;
+
+    public OwlimHttpHandler(TransactionLog transactionLog, TripleStore tripleStore) {
+        this.transactionLog = transactionLog;
+        this.tripleStore = tripleStore;
     }
 
     public void handle(HttpExchange exchange) throws IOException {
@@ -69,7 +72,7 @@ public class OwlimHttpHandler implements HttpHandler {
                     exchange.sendResponseHeaders(404, 0);
                     return;
                 }
-            } catch (RuntimeException e) {
+            } catch (Exception e) {
                 exchange.sendResponseHeaders(500, 0);
                 String response = Utils.getStackTrace(e);
                 _writeResponse(response, outputStream);
@@ -93,24 +96,24 @@ public class OwlimHttpHandler implements HttpHandler {
         }
     }
 
-    public void updateRDF(QueryParameters params, String httpBody) {
+    public void updateRDF(QueryParameters params, String httpBody) throws TransactionLogException {
         String identifier = params.singleValue("identifier");
-        ts.delete(identifier);
-        ts.addRDF(identifier, httpBody);
+        transactionLog.delete(identifier);
+        transactionLog.add(identifier, httpBody);
     }
 
-    public void addRDF(QueryParameters params, String httpBody) {
+    public void addRDF(QueryParameters params, String httpBody) throws TransactionLogException {
         String identifier = params.singleValue("identifier");
-        ts.addRDF(identifier, httpBody);
+        transactionLog.add(identifier, httpBody);
     }
 
-    public void deleteRDF(QueryParameters params) {
+    public void deleteRDF(QueryParameters params) throws TransactionLogException {
         String identifier = params.singleValue("identifier");
-        ts.delete(identifier);
+        transactionLog.delete(identifier);
     }
 
     public String executeQuery(QueryParameters params) {
         String query = params.singleValue("query");
-        return ts.executeQuery(query);
+        return tripleStore.executeQuery(query);
     }
 }

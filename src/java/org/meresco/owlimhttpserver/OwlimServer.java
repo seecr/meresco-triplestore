@@ -46,7 +46,8 @@ public class OwlimServer {
         }
 
         TripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName, new File(rdfDirectory));
-        OwlimHttpHandler handler = new OwlimHttpHandler(tripleStore);
+        TransactionLog transactionLog = new TransactionLog(tripleStore, new File(storeLocation, "transactionLog"));
+        OwlimHttpHandler handler = new OwlimHttpHandler(transactionLog, tripleStore);
         OwlimHttpServer httpServer = new OwlimHttpServer(port, 15);
 
         httpServer.setHandler(handler);
