@@ -94,7 +94,7 @@ class IntegrationState(object):
 #                f.write('%s = %s\n' % item)
 
     def initialize(self):
-        self._startOwlimServer()
+        self.startOwlimServer()
 
         waitingTime = self._createDatabase()
         print 'Waiting for search.'
@@ -124,7 +124,7 @@ class IntegrationState(object):
             exit(1)
         return waitingTime
 
-    def _startOwlimServer(self):
+    def startOwlimServer(self):
         self._startServer('owlim', 'run.sh', 'http://localhost:%s/sparql' % self.owlimPort, port=self.owlimPort, storeLocation=self.owlimDataDir)
 
     def _startServer(self, serviceName, binScript, serviceReadyUrl, port, storeLocation, redirect=True):
@@ -155,6 +155,10 @@ class IntegrationState(object):
     def _stopServer(self, serviceName):
         kill(self.pids[serviceName], SIGTERM)
         waitpid(self.pids[serviceName], WNOHANG)
+
+    def restartOwlimServer(self):
+        self._stopServer('owlim')
+        self.startOwlimServer()
 
     def tearDown(self):
         for serviceName in self.pids.keys():

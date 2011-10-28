@@ -33,25 +33,25 @@ public class OwlimServer {
         Integer port; 
         String storeLocation;
         String storeName;
-        String rdfDirectory;
 
         try {
             port = new Integer(args[0]);
             storeLocation = args[1];
             storeName = args[2];
-            rdfDirectory = args[3];
         } catch(Exception e) {
-            System.out.println("Arguments: <port> <storeLocation> <storeName> <rdfFileDirectory>");
+            System.out.println("Arguments: <port> <storeLocation> <storeName>");
             return;
         }
 
-        TripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName, new File(rdfDirectory));
+        OwlimTripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName);
         TransactionLog transactionLog = new TransactionLog(tripleStore, new File(storeLocation));
         transactionLog.init();
         OwlimHttpHandler handler = new OwlimHttpHandler(transactionLog, tripleStore);
         OwlimHttpServer httpServer = new OwlimHttpServer(port, 15);
 
         registerShutdownHandler(tripleStore, transactionLog);
+
+        System.out.println("Triplestore started with " + String.valueOf(tripleStore.size()) + " statements");
 
         httpServer.setHandler(handler);
         httpServer.start();
@@ -63,7 +63,7 @@ public class OwlimServer {
             @Override
             public void run()
             {
-                System.out.println("Shutting down triple store. Please wait...");
+                System.out.println("Shutting down triplestore. Please wait...");
                 try {
                     tripleStore.shutdown();
                     transactionLog.clear();

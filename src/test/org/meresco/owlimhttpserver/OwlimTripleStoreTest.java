@@ -45,13 +45,11 @@ import org.openrdf.model.impl.LiteralImpl;
 public class OwlimTripleStoreTest {
     OwlimTripleStore ts;
     File tempdir;
-    File rdfTempDir;
 
     @Before
     public void setUp() throws Exception {
         tempdir = createTempDirectory();
-        rdfTempDir = createTempDirectory();
-        ts = new OwlimTripleStore(tempdir, "storageName", rdfTempDir);
+        ts = new OwlimTripleStore(tempdir, "storageName");
     }
 
     @After
@@ -62,7 +60,6 @@ public class OwlimTripleStoreTest {
     @Test
     public void testOne() {
         assertEquals(tempdir.getAbsolutePath(), ts.dir.getAbsolutePath());
-        assertEquals(rdfTempDir.getAbsolutePath(), ts.rdfDir.getAbsolutePath());
         assertTrue(new File(new File(tempdir, "storageName"), "entities").isFile());
     }
 
@@ -104,27 +101,12 @@ public class OwlimTripleStoreTest {
         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
         assertTrue(answer.endsWith("\n}"));
     }
-
-    @Test
-    public void testLoadRdfFilesOnStartup() throws Exception {
-        FileWriter tmpFile = new FileWriter(rdfTempDir.getAbsolutePath() + "/uri:tmpfile.rdf");
-        tmpFile.write(rdf);
-        tmpFile.close();
-
-        FileWriter tmpFile2 = new FileWriter(rdfTempDir.getAbsolutePath() + "/.ignoreMe.txt");
-        tmpFile2.close();
-
-        OwlimTripleStore ts = new OwlimTripleStore(tempdir, "storageName", rdfTempDir);
-        String answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}");
-        assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
-        assertTrue(answer.endsWith("\n}"));
-    }
-
+    
     @Test
     public void testShutdown() throws Exception {
         ts.addRDF("uri:id0", rdf);
         ts.shutdown();
-        OwlimTripleStore ts = new OwlimTripleStore(tempdir, "storageName", rdfTempDir);
+        OwlimTripleStore ts = new OwlimTripleStore(tempdir, "storageName");
         RepositoryResult<Statement> statements = ts.getStatements(null, null, null);
         assertEquals(2, statements.asList().size());
     }
@@ -132,7 +114,7 @@ public class OwlimTripleStoreTest {
     @Test
     public void testShutdownFails() throws Exception {
         File tsPath = new File(tempdir, "anotherOne");
-        ts = new OwlimTripleStore(tempdir, "anotherOne", rdfTempDir);
+        ts = new OwlimTripleStore(tempdir, "anotherOne");
         ts.shutdown();
         ts.startup();
         File contextFile = new File(tsPath, "Contexts.ids");
