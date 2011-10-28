@@ -51,7 +51,27 @@ public class OwlimServer {
         OwlimHttpHandler handler = new OwlimHttpHandler(transactionLog, tripleStore);
         OwlimHttpServer httpServer = new OwlimHttpServer(port, 15);
 
+        registerShutdownHandler(tripleStore, transactionLog);
+
         httpServer.setHandler(handler);
         httpServer.start();
+    }
+
+    static void registerShutdownHandler(final TripleStore tripleStore, final TransactionLog transactionLog) {
+        Runtime.getRuntime().addShutdownHook(new Thread()
+        {
+            @Override
+            public void run()
+            {
+                System.out.println("Shutting down triple store. Please wait...");
+                try {
+                    tripleStore.shutdown();
+                    transactionLog.clear();
+                    System.out.println("Shutdown completed.");
+                } catch (Exception e) {
+                    System.out.println("Shutdown failed.");
+                } 
+            }
+        });        
     }
 }
