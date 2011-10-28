@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 
 import com.ontotext.trree.owlim_ext.Repository;
 import com.ontotext.trree.owlim_ext.SailImpl;
@@ -197,8 +198,23 @@ public class OwlimTripleStore implements TripleStore {
         }
     }
 
-    public void shutdown() {
-        throw new RuntimeException();
+    public void shutdown() throws Exception {
+        OutputStream os = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(os);
+        try {
+            System.setErr(ps);
+            repository.shutDown();
+            if (!os.toString().equals("")) {
+                throw new RepositoryException(os.toString());
+            }   
+        } catch (RepositoryException e) {
+            e.printStackTrace();
+            throw e;
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println(os.toString());
+            throw e;
+        }   
     }
 
     public void undoCommit() {}

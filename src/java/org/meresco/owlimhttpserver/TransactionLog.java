@@ -17,9 +17,9 @@ public class TransactionLog {
     public TransactionLog(TripleStore tripleStore, File baseDir) throws IOException {
         this.tripleStore = tripleStore;
         this.transactionLogDir = new File(baseDir, "transactionLog");
-        this.transactionLogDir.mkdir();
+        this.transactionLogDir.mkdirs();
         this.tempLogDir = new File(baseDir, "tempLog");
-        this.tempLogDir.mkdir();
+        this.tempLogDir.mkdirs();
         clearTempLogDir();
     }
 
@@ -116,7 +116,7 @@ public class TransactionLog {
         }
     }
 
-    void persistTripleStore() throws IOException {
+    void persistTripleStore() throws Exception {
         this.tripleStore.shutdown();
         clear();
         this.tripleStore.startup();

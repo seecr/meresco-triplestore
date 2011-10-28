@@ -41,7 +41,7 @@ public interface TripleStore {
 
     RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj);
 
-    void shutdown();
+    void shutdown() throws Exception;
 
     void startup();
 

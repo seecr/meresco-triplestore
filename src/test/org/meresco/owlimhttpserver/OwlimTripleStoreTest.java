@@ -119,4 +119,29 @@ public class OwlimTripleStoreTest {
         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
         assertTrue(answer.endsWith("\n}"));
     }
+
+    @Test
+    public void testShutdown() throws Exception {
+        ts.addRDF("uri:id0", rdf);
+        ts.shutdown();
+        OwlimTripleStore ts = new OwlimTripleStore(tempdir, "storageName", rdfTempDir);
+        RepositoryResult<Statement> statements = ts.getStatements(null, null, null);
+        assertEquals(2, statements.asList().size());
+    }
+
+    @Test
+    public void testShutdownFails() throws Exception {
+        File tsPath = new File(tempdir, "anotherOne");
+        ts = new OwlimTripleStore(tempdir, "anotherOne", rdfTempDir);
+        ts.shutdown();
+        ts.startup();
+        File contextFile = new File(tsPath, "Contexts.ids");
+        Runtime.getRuntime().exec("chmod 0000 " + contextFile);
+        try {
+            ts.shutdown();
+            fail("Triplestore shouldn't shutdown correctly");
+        } catch (Exception e) {
+            assertTrue(e.toString().contains("org.openrdf.repository.RepositoryException"));
+        }
+    }
 }

@@ -342,7 +342,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testClearWhenShutdownSuccesFull() throws TransactionLogException, IOException {
+    public void testClearWhenShutdownSuccesFull() throws Exception {
         addFilesToTransactionLog();
         assertEquals(2, transactionLog.getTransactionItemFiles().length);
         transactionLog.persistTripleStore();
@@ -369,7 +369,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testStartupAfterShutdown() throws TransactionLogException, IOException {
+    public void testStartupAfterShutdown() throws Exception {
         addFilesToTransactionLog();
         assertEquals(2, transactionLog.getTransactionItemFiles().length);
 
