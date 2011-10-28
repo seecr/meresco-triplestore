@@ -24,6 +24,8 @@
 
 OWLIMJARS=$(find /usr/share/java/owlim-lite-java -type f -name "*.jar")
 MY_JARS=$(find /usr/share/java/owlimhttpserver -type f -name "*.jar")
+../build.sh                                      # DO_NOT_DISTRIBUTE
+MY_JARS=$(find .. -type f -name "*.jar")         # DO_NOT_DISTRIBUTE
 
 CP="$(echo ${MY_JARS} | tr ' ' ':'):$(echo ${OWLIMJARS} | tr ' ' ':')"
 
