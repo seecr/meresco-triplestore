@@ -2,6 +2,8 @@
 # 
 # A Python binding using HTTP to communicate with an Owlim HTTP Server. 
 # 
+# Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
+# Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
 # Copyright (C) 2011 Seecr (Seek You Too B.V.) http://seecr.nl
 # 
 # This file is part of "OwlimHttpClient"
@@ -22,5 +24,17 @@
 # 
 ## end license ##
 
-from owlimhttpclient import OwlimHttpClient
-from jsonresult2dict import JsonResult2Dict
+from meresco.core import Observable
+from simplejson import loads
+
+
+class JsonResult2Dict(Observable):
+    def executeQuery(self, *args, **kwargs):
+        result = []
+        jsonString = self.any.executeQuery(*args, **kwargs)
+        json = loads(jsonString)
+        for i in json['results']['bindings']:
+            result.append(dict([(key, value['value']) for (key, value) in i.items()]))
+
+        return result
+
