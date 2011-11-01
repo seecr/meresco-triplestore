@@ -1,5 +1,5 @@
 python-meresco-core (>= 3.1.7)
 python-meresco-core (<< 3.2)
-cq2utils (>= 5.4)
-cq2utils (<< 6)
+python-cq2utils (>= 5.4)
+python-cq2utils (<< 6)
 python-simplejson
