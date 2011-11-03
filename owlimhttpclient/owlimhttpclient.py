@@ -28,6 +28,8 @@ from urllib import urlopen, urlencode
 from simplejson import loads
 from meresco.components.sorteditertools import WrapIterable
 
+from weightless.http import httpget
+
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
 class OwlimHttpClient(object):
@@ -35,13 +37,14 @@ class OwlimHttpClient(object):
         self.port = port
 
     def executeQuery(self, query):
-        url = "http://localhost:%s/query?%s" % (self.port, urlencode(dict(query=query)))
+        path = "/query?%s" % urlencode(dict(query=query))
         try:
-            return urlopen(url).read()
-        except Exception, e:
-            print "Exception in OwlimHttpClient>>executeQuery:", query
-            print str(e)
-            return JSON_EMPTY_RESULT
+            response = yield httpget("localhost", self.port, path)
+        except BaseException, e:
+            print "==============================>>", str(e), str(type(e))
+            raise Exception(e)
+        header,body = response.split("\r\n\r\n", 1)
+        raise StopIteration(body)
 
     def add(self, identifier, partname, data):
         url = "http://localhost:%s/update?%s" % (self.port, urlencode(dict(identifier=identifier)))
@@ -52,9 +55,11 @@ class OwlimHttpClient(object):
         urlopen(url).read()
 
     def getStatements(self, subj=None, pred=None, obj=None):
-        results = self.executeQuery(self._createSparQL(subj, pred, obj))
+        print "=============> hallo"
+        results = yield self.executeQuery(self._createSparQL(subj, pred, obj))
+        print "=============> hier?", results
         jsonData = loads(results)
-        return WrapIterable(_results(jsonData, subj, pred, obj))
+        raise StopIteration(WrapIterable(_results(jsonData, subj, pred, obj)))
 
     def _createSparQL(self, subj=None, pred=None, obj=None):
         statement = "SELECT"
