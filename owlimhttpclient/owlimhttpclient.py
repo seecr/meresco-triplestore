@@ -38,11 +38,7 @@ class OwlimHttpClient(object):
 
     def executeQuery(self, query):
         path = "/query?%s" % urlencode(dict(query=query))
-        try:
-            response = yield httpget("localhost", self.port, path)
-        except BaseException, e:
-            print "==============================>>", str(e), str(type(e))
-            raise Exception(e)
+        response = yield httpget("localhost", self.port, path)
         header,body = response.split("\r\n\r\n", 1)
         raise StopIteration(body)
 
@@ -55,9 +51,7 @@ class OwlimHttpClient(object):
         urlopen(url).read()
 
     def getStatements(self, subj=None, pred=None, obj=None):
-        print "=============> hallo"
         results = yield self.executeQuery(self._createSparQL(subj, pred, obj))
-        print "=============> hier?", results
         jsonData = loads(results)
         raise StopIteration(WrapIterable(_results(jsonData, subj, pred, obj)))
 
