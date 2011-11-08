@@ -25,9 +25,9 @@
 from distutils.core import setup
 
 setup(
-    name='owlimhttpclient',
+    name='meresco-owlim',
     packages=[
-        'owlimhttpclient',
+        'meresco.owlim',
     ],
     version='%VERSION%',
     url='http://www.seecr.nl',
