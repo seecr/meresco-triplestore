@@ -28,7 +28,7 @@ from meresco.core import Observable
 
 from cq2utils import CQ2TestCase, CallTrace
 
-from owlimhttpclient import JsonResult2Dict
+from meresco.owlim import JsonResult2Dict
 
 class JsonResult2DictTest(CQ2TestCase):
     def _setupResult(self, result):

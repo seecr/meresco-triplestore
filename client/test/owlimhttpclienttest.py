@@ -28,21 +28,22 @@ from cq2utils import CQ2TestCase, CallTrace
 
 from meresco.core import be, Observable
 
-from owlimhttpclient import OwlimHttpClient
+from meresco.owlim import HttpClient
 
 class OwlimHttpClientTest(CQ2TestCase):
 
     def testCreateSparQL(self):
-        client = OwlimHttpClient(port=9999)
+        client = HttpClient(port=9999)
         self.assertEquals("SELECT ?s ?p ?o WHERE { ?s ?p ?o }", client._createSparQL(subj=None, pred=None, obj=None))
 
         self.assertEquals("SELECT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", client._createSparQL(subj="http://cq2.org/person/0001"))
         
         self.assertEquals("SELECT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", client._createSparQL(subj="http://cq2.org/person/0001", pred="http://xmlns.com/foaf/0.1/name"))
 
-    def testGetStatements(self):
-        client = OwlimHttpClient(port=9999)
-        client.executeQuery = lambda *args, **kwargs: RESULT_JSON
+    def to_be_moved_to_integrationtest_testGetStatements(self):
+        client = HttpClient(port=9999)
+        def _executeQuery(*args, **kwargs):
+            raise StopIteration(RESULT_JSON)
         result = list(client.getStatements())
         self.assertEquals([
             (   u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 
