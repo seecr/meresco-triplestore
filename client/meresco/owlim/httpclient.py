@@ -32,7 +32,7 @@ from weightless.http import httpget
 
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
-class OwlimHttpClient(object):
+class HttpClient(object):
     def __init__(self, port):
         self.port = port
 

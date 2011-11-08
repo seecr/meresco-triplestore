@@ -33,7 +33,7 @@ path.insert(0, '..')
 
 import unittest
 
-from owlimhttpclienttest import OwlimHttpClientTest
+from httpclienttest import HttpClientTest
 from jsonresult2dicttest import JsonResult2DictTest
 
 if __name__ == '__main__':

@@ -30,7 +30,7 @@ from meresco.core import be, Observable
 
 from meresco.owlim import HttpClient
 
-class OwlimHttpClientTest(CQ2TestCase):
+class HttpClientTest(CQ2TestCase):
 
     def testCreateSparQL(self):
         client = HttpClient(port=9999)

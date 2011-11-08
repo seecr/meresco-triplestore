@@ -22,5 +22,5 @@
 # 
 ## end license ##
 
-from owlimhttpclient import OwlimHttpClient as HttpClient
+from httpclient import HttpClient
 from jsonresult2dict import JsonResult2Dict
