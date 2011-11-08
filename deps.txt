@@ -1,0 +1,3 @@
+openjdk-6-jre-headless
+owlim-lite-java (>= 4.2)
+owlim-lite-java (<< 4.3)
