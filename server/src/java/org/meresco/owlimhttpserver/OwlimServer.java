@@ -30,20 +30,53 @@ package org.meresco.owlimhttpserver;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.PosixParser;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.MissingOptionException;
+
 public class OwlimServer {
     public static void main(String[] args) throws Exception {
         Integer port; 
         String storeLocation;
         String storeName;
+        Option option;
 
+        Options options = new Options();
+
+        // Port Number
+        option = new Option("p", "port", true, "Port number");
+        option.setType(Integer.class);
+        option.setRequired(true);
+        options.addOption(option);
+
+        // Triplestore name
+        option = new Option("n", "name", true, "Name of the triplestore");
+        option.setType(String.class);
+        option.setRequired(true);
+        options.addOption(option);
+
+        // Triplestore location
+        option = new Option("d", "directory", true, "Directory in which triplestore is located");
+        option.setType(String.class);
+        option.setRequired(true);
+        options.addOption(option);
+
+        PosixParser parser = new PosixParser();
+        CommandLine commandLine = null;
         try {
-            port = new Integer(args[0]);
-            storeLocation = args[1];
-            storeName = args[2];
-        } catch(Exception e) {
-            System.out.println("Arguments: <port> <storeLocation> <storeName>");
-            return;
+            commandLine = parser.parse(options, args);
+        } catch (MissingOptionException e) {
+            HelpFormatter helpFormatter = new HelpFormatter();
+            helpFormatter.printHelp("run-server" , options);
+            System.exit(1);
         }
+
+        port = new Integer(commandLine.getOptionValue("p"));
+        storeLocation = commandLine.getOptionValue("d");
+        storeName = commandLine.getOptionValue("n");
 
         OwlimTripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName);
         TransactionLog transactionLog = new TransactionLog(tripleStore, new File(storeLocation));
