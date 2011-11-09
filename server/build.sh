@@ -32,9 +32,9 @@ OWLIMJARS=$(find /usr/share/java/owlim-lite-java/ -type f -name "*.jar")
 JARS=$(find jars -type f -name "*.jar")
 
 BUILDDIR=./build
-TARGET=owlimhttpserver.jar
+TARGET=meresco-owlim.jar
 if [ "${VERSION}" != "" ]; then
-    TARGET=owlimhttpserver-${VERSION}.jar
+    TARGET=meresco-owlim-${VERSION}.jar
 fi
 
 test -d $BUILDDIR && rm -r $BUILDDIR
