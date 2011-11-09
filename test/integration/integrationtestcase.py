@@ -87,8 +87,8 @@ class IntegrationState(object):
         self.owlimPort = PortNumberGenerator.next()
 
     def initialize(self):
-        self._startServer('owlim', 'run.sh', 'http://localhost:%s/sparql' % self.owlimPort, port=self.owlimPort, storeLocation=self.owlimDataDir)
-
+        self.startOwlimServer()
+            
     def _startServer(self, serviceName, binScript, serviceReadyUrl, redirect=True, **kwargs):
         stdoutfile = join(self.integrationTempdir, "stdouterr-%s.log" % serviceName)
         stdouterrlog = open(stdoutfile, 'w')
@@ -122,6 +122,13 @@ class IntegrationState(object):
     def _stopServer(self, serviceName):
         kill(self.pids[serviceName], SIGTERM)
         waitpid(self.pids[serviceName], WNOHANG)
+
+    def restartOwlimServer(self):
+        self._stopServer('owlim')
+        self.startOwlimServer()
+
+    def startOwlimServer(self):
+        self._startServer('owlim', 'run.sh', 'http://localhost:%s/sparql' % self.owlimPort, port=self.owlimPort, directory=self.owlimDataDir)
 
     def tearDown(self):
         for serviceName in self.pids.keys():

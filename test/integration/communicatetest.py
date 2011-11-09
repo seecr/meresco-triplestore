@@ -1,6 +1,7 @@
 from integration import IntegrationTestCase
 
+from meresco.owlim import HttpClient
+
 class CommunicateTest(IntegrationTestCase):
     def testOne(self):
-        self.fail()
-
+        client = HttpClient(port=self.owlimPort)
