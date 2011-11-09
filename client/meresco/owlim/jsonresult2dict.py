@@ -28,7 +28,17 @@
 
 from meresco.core import Observable
 from simplejson import loads
+from literal import Literal
+from uri import Uri
 
+typeMapping = {
+    'literal': Literal,
+    'uri': Uri,
+}
+
+def fromDict(dictionary):
+    mappedType = typeMapping.get(dictionary['type'], None)
+    return mappedType.fromDict(dictionary) if mappedType else dictionary['value']
 
 class JsonResult2Dict(Observable):
     def executeQuery(self, *args, **kwargs):
@@ -36,7 +46,7 @@ class JsonResult2Dict(Observable):
         jsonString = self.any.executeQuery(*args, **kwargs)
         json = loads(jsonString)
         for i in json['results']['bindings']:
-            result.append(dict([(key, value['value']) for (key, value) in i.items()]))
+            result.append(dict([(key, fromDict(value)) for (key, value) in i.items()]))
 
         return result
 

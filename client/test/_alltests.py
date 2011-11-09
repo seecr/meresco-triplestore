@@ -37,6 +37,9 @@ import unittest
 
 from httpclienttest import HttpClientTest
 from jsonresult2dicttest import JsonResult2DictTest
+from literaltest import LiteralTest
+from uritest import UriTest
+
 
 if __name__ == '__main__':
     unittest.main()

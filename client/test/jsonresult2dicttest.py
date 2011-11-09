@@ -30,7 +30,7 @@ from meresco.core import Observable
 
 from cq2utils import CQ2TestCase, CallTrace
 
-from meresco.owlim import JsonResult2Dict
+from meresco.owlim import JsonResult2Dict, Literal, Uri
 
 class JsonResult2DictTest(CQ2TestCase):
     def _setupResult(self, result):
@@ -49,13 +49,13 @@ class JsonResult2DictTest(CQ2TestCase):
 
 PARSED_RESULT_JSON = [
     {
-        u'y': u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 
-        u'x': u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 
-        u'z': u'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'
+        u'y': Uri(value=u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), 
+        u'x': Uri(value=u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), 
+        u'z': Literal(value=u'word', lang="eng")
     }, {
-        u'y': u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 
-        u'x': u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject', 
-        u'z': u'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'
+        u'y': Uri(value=u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), 
+        u'x': Uri(value=u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'), 
+        u'z': Literal(value=u'woord', lang="dut")
     }
 ]
 
@@ -66,12 +66,12 @@ RESULT_JSON = """{
         "results": {
                 "bindings": [
                         {
-                                "z": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#Property" }, 
+                                "z": { "type": "literal", "xml:lang": "eng", "value": "word" }, 
                                 "y": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" }, 
                                 "x": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" }
                         }, 
                         {
-                                "z": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#Property" }, 
+                                "z": { "type": "literal", "xml:lang": "dut", "value": "woord" }, 
                                 "y": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" }, 
                                 "x": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#subject" }
                         } 
