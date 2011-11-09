@@ -32,7 +32,6 @@ if __name__ == '__main__':
 
     runner = TestRunner()
     runner.addGroup('default', [
-            'integration.communicatetest.CommunicateTest',
             'integration.owlimtest.OwlimTest',
         ],
         groupSetUp = lambda: globalSetUp(fastMode, 'default'),

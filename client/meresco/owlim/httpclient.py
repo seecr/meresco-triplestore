@@ -35,7 +35,7 @@ from weightless.http import httpget
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
 class HttpClient(object):
-    def __init__(self, port):
+    def __init__(self, port, httpgetMethod=httpget):
         self.port = port
 
     def executeQuery(self, query):
