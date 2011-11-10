@@ -36,7 +36,6 @@ path.insert(0, '../client')
 import unittest
 
 from client.httpclienttest import HttpClientTest
-from client.jsonresult2dicttest import JsonResult2DictTest
 from client.literaltest import LiteralTest
 from client.uritest import UriTest
 

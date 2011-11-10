@@ -32,6 +32,9 @@ from meresco.components.sorteditertools import WrapIterable
 
 from weightless.http import httpget
 
+from literal import Literal
+from uri import Uri
+
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
 class HttpClient(object):
@@ -42,7 +45,7 @@ class HttpClient(object):
         path = "/query?%s" % urlencode(dict(query=query))
         response = yield httpget("localhost", self.port, path)
         header,body = response.split("\r\n\r\n", 1)
-        raise StopIteration(body)
+        raise StopIteration(_parseJson2Dict(body))
 
     def add(self, identifier, partname, data):
         url = "http://localhost:%s/update?%s" % (self.port, urlencode(dict(identifier=identifier)))
@@ -53,8 +56,11 @@ class HttpClient(object):
         urlopen(url).read()
 
     def getStatements(self, subj=None, pred=None, obj=None):
-        results = yield self.executeQuery(self._createSparQL(subj, pred, obj))
-        jsonData = loads(results)
+        query = self._createSparQL(subj, pred, obj)
+        path = "/query?%s" % urlencode(dict(query=query))
+        response = yield httpget("localhost", self.port, path)
+        header,body = response.split("\r\n\r\n", 1)
+        jsonData = loads(body)
         raise StopIteration(WrapIterable(_results(jsonData, subj, pred, obj)))
 
     def _createSparQL(self, subj=None, pred=None, obj=None):
@@ -82,7 +88,26 @@ class HttpClient(object):
 
 def _results(jsonData, subj, pred, obj):
     for i in jsonData['results']['bindings']:
-        resultSubject = i['s']['value']  if 's' in i else subj
-        resultPredicate = i['p']['value']  if 'p' in i else pred
-        resultObject = i['o']['value']  if 'o' in i else obj
+        resultSubject = fromDict(i['s'])  if 's' in i else Uri(subj)
+        resultPredicate = fromDict(i['p'])  if 'p' in i else Uri(pred)
+        resultObject = fromDict(i['o'])  if 'o' in i else Literal(obj)
         yield resultSubject, resultPredicate, resultObject
+
+typeMapping = {
+    'literal': Literal,
+    'uri': Uri,
+}
+
+def fromDict(dictionary):
+    mappedType = typeMapping.get(dictionary['type'], None)
+    return mappedType.fromDict(dictionary) if mappedType else dictionary['value']
+
+def _parseJson2Dict(jsonString):
+    result = []
+    json = loads(jsonString)
+    for i in json['results']['bindings']:
+        result.append(dict([(key, fromDict(value)) for (key, value) in i.items()]))
+
+    return result
+
+

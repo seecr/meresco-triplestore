@@ -31,13 +31,13 @@ from meresco.owlim import Literal
 class LiteralTest(CQ2TestCase):
     def testWithoutLang(self):
         l = Literal.fromDict({"type": "literal", "value": "http://www.rnaproject.org/data/rnax/odw/InformationConcept"})
-        self.assertEquals("http://www.rnaproject.org/data/rnax/odw/InformationConcept", l.value())
-        self.assertEquals(None, l.lang())
+        self.assertEquals("http://www.rnaproject.org/data/rnax/odw/InformationConcept", l.value)
+        self.assertEquals(None, l.lang)
     
     def testWithLang(self):
         l = Literal.fromDict({"type": "literal", "xml:lang": "eng", "value": "http://www.rnaproject.org/data/rnax/odw/InformationConcept"})
-        self.assertEquals("http://www.rnaproject.org/data/rnax/odw/InformationConcept", l.value())
-        self.assertEquals("eng", l.lang())
+        self.assertEquals("http://www.rnaproject.org/data/rnax/odw/InformationConcept", l.value)
+        self.assertEquals("eng", l.lang)
 
     def testEquals(self):
         l1 = Literal.fromDict({"type": "literal", "xml:lang": "eng", "value": "VALUE"})

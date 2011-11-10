@@ -25,7 +25,6 @@
 ## end license ##
 
 from httpclient import HttpClient
-from jsonresult2dict import JsonResult2Dict
 
 from literal import Literal
 from uri import Uri

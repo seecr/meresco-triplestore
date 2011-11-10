@@ -30,7 +30,7 @@ from cq2utils import CQ2TestCase, CallTrace
 
 from meresco.core import be, Observable
 
-from meresco.owlim import HttpClient
+from meresco.owlim import HttpClient, Uri, Literal
 
 class HttpClientTest(CQ2TestCase):
 
@@ -41,6 +41,27 @@ class HttpClientTest(CQ2TestCase):
         self.assertEquals("SELECT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", client._createSparQL(subj="http://cq2.org/person/0001"))
         
         self.assertEquals("SELECT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", client._createSparQL(subj="http://cq2.org/person/0001", pred="http://xmlns.com/foaf/0.1/name"))
+
+    def testExecuteQuery(self):
+        client = HttpClient(port=9999)
+        gen = client.executeQuery('SPARQL')
+        result = self.retrieveResult(gen, serverResult=RESULT_JSON)
+        self.assertEquals(PARSED_RESULT_JSON, result)
+
+    def testGetStatements(self):
+        client = HttpClient(port=9999)
+        gen = client.getStatements(subj='uri:subject')
+        result = self.retrieveResult(gen, serverResult=RESULT_JSON)
+        self.assertEquals(RESULT_SPO, list(result))
+        
+
+    def retrieveResult(self, gen, serverResult):
+        httpget = gen.next()
+        try:
+            gen.send('HEADER\r\n\r\n%s' % serverResult)
+            self.fail('expect StopIteration')
+        except StopIteration, e:
+            return e.args[0]
 
     def to_be_moved_to_integrationtest_testGetStatements(self):
         client = HttpClient(port=9999)
@@ -57,6 +78,18 @@ class HttpClientTest(CQ2TestCase):
                 u'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'
             )], result)
         
+PARSED_RESULT_JSON = [
+    {
+        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), 
+        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), 
+        u'o': Literal(u'word', lang="eng")
+    }, {
+        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), 
+        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'), 
+        u'o': Literal(u'woord', lang="dut")
+    }
+]
+RESULT_SPO = [ (d['s'], d['p'], d['o']) for d in PARSED_RESULT_JSON]
 
 RESULT_JSON = """{
         "head": {
@@ -65,12 +98,12 @@ RESULT_JSON = """{
         "results": {
                 "bindings": [
                         {
-                                "o": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#Property" }, 
+                                "o": { "type": "literal", "xml:lang": "eng", "value": "word" }, 
                                 "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" }, 
                                 "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" }
                         }, 
                         {
-                                "o": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#Property" }, 
+                                "o": { "type": "literal", "xml:lang": "dut", "value": "woord" }, 
                                 "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" }, 
                                 "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#subject" }
                         } 
