@@ -27,7 +27,7 @@
 ## end license ##
 
 OWLIMJARS=$(find /usr/share/java/owlim-lite-java -type f -name "*.jar")
-MY_JARS=$(find /usr/share/java/owlimhttpserver -type f -name "*.jar")
+MY_JARS=$(find /usr/share/java/meresco-owlim -type f -name "*.jar")
 
 (                                               # DO_NOT_DISTRIBUTE
     cd ..                                       # DO_NOT_DISTRIBUTE
