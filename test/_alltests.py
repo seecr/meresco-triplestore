@@ -31,14 +31,14 @@ system("find .. -name '*.pyc' | xargs rm -f")
 if isdir('../deps.d'):
     for d in listdir('../deps.d'):
         path.insert(0, join('../deps.d', d))
-path.insert(0, '..')
+path.insert(0, '../client')
 
 import unittest
 
-from httpclienttest import HttpClientTest
-from jsonresult2dicttest import JsonResult2DictTest
-from literaltest import LiteralTest
-from uritest import UriTest
+from client.httpclienttest import HttpClientTest
+from client.jsonresult2dicttest import JsonResult2DictTest
+from client.literaltest import LiteralTest
+from client.uritest import UriTest
 
 
 if __name__ == '__main__':
