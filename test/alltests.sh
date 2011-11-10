@@ -27,4 +27,10 @@
 
 export LANG=en_US.UTF-8
 export PYTHONPATH=.:$PYTHONPATH
+echo 'Owlim Client test'
 python _alltests.py "$@"
+echo 'Owlim Server test'
+(
+    cd ../server/src/test
+    ./alltests.sh
+)
