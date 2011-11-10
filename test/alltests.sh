@@ -27,10 +27,27 @@
 
 export LANG=en_US.UTF-8
 export PYTHONPATH=.:$PYTHONPATH
-echo 'Owlim Client test'
-python _alltests.py "$@"
-echo 'Owlim Server test'
-(
-    cd ../server/src/test
-    ./alltests.sh
-)
+tests="client server"
+option=$1
+if [ "$option" == "--client" ]; then
+    tests="client"
+    shift
+elif [ "$option" == "--server" ]; then
+    tests="server"
+    shift
+fi
+
+
+for type in $tests; do
+    if [ "$type" == "client" ]; then
+        echo 'Owlim Client test'
+        python _alltests.py "$@"
+    fi
+    if [ "$type" == "server" ]; then
+        echo 'Owlim Server test'
+        (
+            cd ../server/src/test
+            ./alltests.sh "$@"
+        )
+    fi
+done
