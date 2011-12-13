@@ -60,7 +60,15 @@ class HttpClient(object):
         path = "/query?%s" % urlencode(dict(query=query))
         response = yield httpget("localhost", self.port, path)
         header,body = response.split("\r\n\r\n", 1)
-        jsonData = loads(body)
+        try:
+            jsonData = loads(body)
+        except:
+            print 'FAILURE'
+            print 'query', query
+            print 'path', path
+            print 'header', header
+            print 'body', body
+            raise
         raise StopIteration(WrapIterable(_results(jsonData, subj, pred, obj)))
 
     def _createSparQL(self, subj=None, pred=None, obj=None):
