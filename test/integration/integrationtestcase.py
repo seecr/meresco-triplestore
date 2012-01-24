@@ -11,25 +11,23 @@ from __future__ import with_statement
 from os.path import isdir, join, abspath, dirname, basename
 from os import system, listdir
 from sys import stdout
-
-from utils import postRequest, postMultipartForm 
-
-from cq2utils import CQ2TestCase
 from random import randint, choice
 from time import sleep, time 
 from hashlib import md5
-
-from lxml.etree import XMLSyntaxError, parse
 from StringIO import StringIO
 from subprocess import Popen
 from signal import SIGTERM
 from os import waitpid, kill, WNOHANG
 from urllib import urlopen, urlencode
 from re import DOTALL, compile
+from traceback import print_exc
+from lxml.etree import XMLSyntaxError, parse
 
+from seecr.test import SeecrTestCase
 from meresco.components import readConfig
 
-from traceback import print_exc
+from utils import postRequest, postMultipartForm 
+
 
 mypath = dirname(abspath(__file__))
 binDir = join(dirname(dirname(mypath)), 'server', 'bin')
@@ -48,9 +46,10 @@ class PortNumberGenerator(object):
 
 scriptTagRegex = compile("<script[\s>].*?</script>", DOTALL)
 
-class IntegrationTestCase(CQ2TestCase):
+
+class IntegrationTestCase(SeecrTestCase):
     def setUp(self):
-        CQ2TestCase.setUp(self)
+        SeecrTestCase.setUp(self)
         global state
         self.state = state
 
@@ -72,6 +71,7 @@ class IntegrationTestCase(CQ2TestCase):
         except XMLSyntaxError:
             print body 
             raise
+
 
 class IntegrationState(object):
     def __init__(self, stateName, fastMode):
@@ -133,6 +133,7 @@ class IntegrationState(object):
     def tearDown(self):
         for serviceName in self.pids.keys():
             self._stopServer(serviceName)
+
 
 def globalSetUp(fast, stateName):
     global state, fastMode

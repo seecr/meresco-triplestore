@@ -24,11 +24,12 @@
 # 
 ## end license ##
 
-from cq2utils import CQ2TestCase
+from seecr.test import SeecrTestCase
 
 from meresco.owlim import Uri
 
-class UriTest(CQ2TestCase):
+
+class UriTest(SeecrTestCase):
     def testCreate(self):
         u = Uri.fromDict({"type": "uri", "value": "http://www.rnaproject.org/data/rnax/odw/InformationConcept"})
         self.assertEquals("http://www.rnaproject.org/data/rnax/odw/InformationConcept", u)

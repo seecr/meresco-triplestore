@@ -24,11 +24,12 @@
 # 
 ## end license ##
 
-from cq2utils import CQ2TestCase
+from seecr.test import SeecrTestCase
 
 from meresco.owlim import Literal
 
-class LiteralTest(CQ2TestCase):
+
+class LiteralTest(SeecrTestCase):
     def testWithoutLang(self):
         l = Literal.fromDict({"type": "literal", "value": "http://www.rnaproject.org/data/rnax/odw/InformationConcept"})
         self.assertEquals("http://www.rnaproject.org/data/rnax/odw/InformationConcept", l.value)

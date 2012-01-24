@@ -28,12 +28,12 @@
 
 from urllib import urlopen, urlencode
 from simplejson import loads
-from meresco.components.sorteditertools import WrapIterable
 
 from weightless.http import httpget
 
 from literal import Literal
 from uri import Uri
+
 
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
@@ -69,7 +69,7 @@ class HttpClient(object):
             print 'header', header
             print 'body', body
             raise
-        raise StopIteration(WrapIterable(_results(jsonData, subj, pred, obj)))
+        raise StopIteration(_results(jsonData, subj, pred, obj))
 
     def _createSparQL(self, subj=None, pred=None, obj=None):
         statement = "SELECT"

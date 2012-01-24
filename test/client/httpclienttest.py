@@ -26,14 +26,13 @@
 # 
 ## end license ##
 
-from cq2utils import CQ2TestCase, CallTrace
+from seecr.test import SeecrTestCase, CallTrace
 
 from meresco.core import be, Observable
-
 from meresco.owlim import HttpClient, Uri, Literal
 
-class HttpClientTest(CQ2TestCase):
 
+class HttpClientTest(SeecrTestCase):
     def testCreateSparQL(self):
         client = HttpClient(port=9999)
         self.assertEquals("SELECT ?s ?p ?o WHERE { ?s ?p ?o }", client._createSparQL(subj=None, pred=None, obj=None))
@@ -53,7 +52,6 @@ class HttpClientTest(CQ2TestCase):
         gen = client.getStatements(subj='uri:subject')
         result = self.retrieveResult(gen, serverResult=RESULT_JSON)
         self.assertEquals(RESULT_SPO, list(result))
-        
 
     def retrieveResult(self, gen, serverResult):
         httpget = gen.next()

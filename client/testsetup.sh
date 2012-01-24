@@ -29,7 +29,7 @@ set -e
 rm -rf tmp build
 
 python setup.py install --root tmp
-cp -r test tmp/test
+cp -r ../test tmp/test
 find tmp -name '*.py' -exec sed '/DO_NOT_DISTRIBUTE/d' -i {} \;
 
 cp meresco/__init__.py tmp/usr/local/lib/python2.6/dist-packages/meresco
@@ -38,7 +38,7 @@ export PYTHONPATH=`pwd`/tmp/usr/local/lib/python2.6/dist-packages
 
 testtorun=$1
 if [ -z "$testtorun" ]; then
-    testtorun="alltests.sh"
+    testtorun="alltests.sh --client"
 fi
 
 (
@@ -47,3 +47,4 @@ cd tmp/test
 )
 
 rm -rf tmp build
+
