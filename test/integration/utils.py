@@ -32,6 +32,7 @@ from urllib import urlencode
 from cq2utils.wrappers import wrapp
 from sys import stdout
 
+
 def _socket(port, timeOutInSeconds):
     sok = socket()
     sok.connect(('localhost', port))

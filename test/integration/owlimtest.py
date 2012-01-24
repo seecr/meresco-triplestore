@@ -34,8 +34,8 @@ from simplejson import loads
 from urllib import urlopen
 from signal import SIGKILL
 
-class OwlimTest(IntegrationTestCase):
 
+class OwlimTest(IntegrationTestCase):
     def testOne(self):
         self.assertTrue('"vars": [ "x" ]' in urlopen("http://localhost:%s/query?query=SELECT ?x WHERE {}" % self.owlimPort).read())
 
@@ -102,3 +102,4 @@ class OwlimTest(IntegrationTestCase):
     </rdf:RDF>""", parse=False)
         json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testDelete"}' % self.owlimPort).read())
         self.assertEquals(1, len(json['results']['bindings']))
+
