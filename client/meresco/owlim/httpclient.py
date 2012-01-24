@@ -39,7 +39,7 @@ from uri import Uri
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
 class HttpClient(object):
-    def __init__(self, host, port, httpgetMethod=httpget):
+    def __init__(self, host, port):
         self.host = host
         self.port = port
 
