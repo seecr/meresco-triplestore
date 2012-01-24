@@ -120,7 +120,8 @@ public class OwlimTripleStoreTest {
         ts.shutdown();
         ts.startup();
         File contextFile = new File(tsPath, "Contexts.ids");
-        Runtime.getRuntime().exec("chmod 0000 " + contextFile);
+        Process process = Runtime.getRuntime().exec("chmod 0000 " + contextFile);
+        process.waitFor();
         try {
             ts.shutdown();
             fail("Triplestore shouldn't shutdown correctly");
