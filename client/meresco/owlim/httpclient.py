@@ -29,7 +29,6 @@
 from urllib import urlopen, urlencode
 from simplejson import loads
 
-from meresco.core.generatorutils import asyncnoreturnvalue
 from weightless.http import httpget, httppost
 
 from literal import Literal
