@@ -28,13 +28,46 @@
 
 from seecr.test import SeecrTestCase, CallTrace
 
+from weightless.core import compose
+from weightless.io import Suspend
+from weightless.http import httppost
 from meresco.core import be, Observable
 from meresco.owlim import HttpClient, Uri, Literal
 
 
 class HttpClientTest(SeecrTestCase):
+    def testAdd(self):
+        client = HttpClient(host="localhost", port=9999)
+        g = compose(client.add(identifier="id", partname="ignored", data=rdfData))
+        self._resultFromServerResponse(g, "SOME RESPONSE")
+
+        g = compose(client.add(identifier="id", partname="ignored", data=rdfData))
+        self.assertRaises(
+            IOError, 
+            lambda: self._resultFromServerResponse(g, "Error description", responseStatus='500'))
+
+        toSend = []
+        client._send = lambda path, body: toSend.append((path, body))
+        list(compose(client.add(identifier="id", partname="ignored", data=rdfData)))
+        self.assertEquals([("/update?identifier=id", rdfData)], toSend)
+
+    def testDelete(self):
+        client = HttpClient(host="localhost", port=9999)
+        g = compose(client.delete(identifier="id"))
+        self._resultFromServerResponse(g, "SOME RESPONSE")
+
+        g = compose(client.delete(identifier="id"))
+        self.assertRaises(
+            IOError, 
+            lambda: self._resultFromServerResponse(g, "Error description", responseStatus="500"))
+
+        toSend = []
+        client._send = lambda path, body: toSend.append((path, body))
+        list(compose(client.delete(identifier="id")))
+        self.assertEquals([("/delete?identifier=id", None)], toSend)
+
     def testCreateSparQL(self):
-        client = HttpClient(port=9999)
+        client = HttpClient(host="localhost", port=9999)
         self.assertEquals("SELECT ?s ?p ?o WHERE { ?s ?p ?o }", client._createSparQL(subj=None, pred=None, obj=None))
 
         self.assertEquals("SELECT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", client._createSparQL(subj="http://cq2.org/person/0001"))
@@ -42,27 +75,31 @@ class HttpClientTest(SeecrTestCase):
         self.assertEquals("SELECT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", client._createSparQL(subj="http://cq2.org/person/0001", pred="http://xmlns.com/foaf/0.1/name"))
 
     def testExecuteQuery(self):
-        client = HttpClient(port=9999)
-        gen = client.executeQuery('SPARQL')
-        result = self.retrieveResult(gen, serverResult=RESULT_JSON)
+        client = HttpClient(host="localhost", port=9999)
+        gen = compose(client.executeQuery('SPARQL'))
+        result = self._resultFromServerResponse(gen, RESULT_JSON)
         self.assertEquals(PARSED_RESULT_JSON, result)
 
     def testGetStatements(self):
-        client = HttpClient(port=9999)
-        gen = client.getStatements(subj='uri:subject')
-        result = self.retrieveResult(gen, serverResult=RESULT_JSON)
+        client = HttpClient(host="localhost", port=9999)
+        gen = compose(client.getStatements(subj='uri:subject'))
+        result = self._resultFromServerResponse(gen, RESULT_JSON)
         self.assertEquals(RESULT_SPO, list(result))
 
-    def retrieveResult(self, gen, serverResult):
-        httpget = gen.next()
+    def _resultFromServerResponse(self, g, data, responseStatus='200'):
+        s = g.next()
+        self.assertEquals(Suspend, type(s))
+        s(CallTrace('reactor'), lambda: None)
+        s.resume('HTTP/1.1 %s\r\n\r\n%s' % (responseStatus, data))
         try:
-            gen.send('HEADER\r\n\r\n%s' % serverResult)
-            self.fail('expect StopIteration')
+            g.next()
+            self.fail("expected StopIteration")
         except StopIteration, e:
-            return e.args[0]
+            if len(e.args) > 0:
+                return e.args[0]
 
     def to_be_moved_to_integrationtest_testGetStatements(self):
-        client = HttpClient(port=9999)
+        client = HttpClient(host="localhost", port=9999)
         def _executeQuery(*args, **kwargs):
             raise StopIteration(RESULT_JSON)
         result = list(client.getStatements())
@@ -109,3 +146,4 @@ RESULT_JSON = """{
         }
 }"""
 
+rdfData = "<rdf>should be RDF</rdf>"

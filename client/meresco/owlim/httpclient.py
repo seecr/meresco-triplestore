@@ -29,7 +29,8 @@
 from urllib import urlopen, urlencode
 from simplejson import loads
 
-from weightless.http import httpget
+from meresco.core.generatorutils import asyncnoreturnvalue
+from weightless.http import httpget, httppost
 
 from literal import Literal
 from uri import Uri
@@ -38,28 +39,30 @@ from uri import Uri
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
 class HttpClient(object):
-    def __init__(self, port, httpgetMethod=httpget):
+    def __init__(self, host, port, httpgetMethod=httpget):
+        self.host = host
         self.port = port
+
+    def add(self, identifier, partname, data):
+        path = "/update?%s" % urlencode(dict(identifier=identifier))
+        yield self._send(path=path, body=data)
+
+    def delete(self, identifier, *args, **kwargs):
+        path = "/delete?%s" % urlencode(dict(identifier=identifier))
+        yield self._send(path=path, body=None)
 
     def executeQuery(self, query):
         path = "/query?%s" % urlencode(dict(query=query))
-        response = yield httpget("localhost", self.port, path)
-        header,body = response.split("\r\n\r\n", 1)
+        response = yield httpget(self.host, self.port, path)
+        header, body = response.split("\r\n\r\n", 1)
         raise StopIteration(_parseJson2Dict(body))
-
-    def add(self, identifier, partname, data):
-        url = "http://localhost:%s/update?%s" % (self.port, urlencode(dict(identifier=identifier)))
-        urlopen(url, data).read()
-
-    def delete(self, identifier, *args, **kwargs):
-        url = "http://localhost:%s/delete?%s" % (self.port, urlencode(dict(identifier=identifier)))
-        urlopen(url).read()
 
     def getStatements(self, subj=None, pred=None, obj=None):
         query = self._createSparQL(subj, pred, obj)
         path = "/query?%s" % urlencode(dict(query=query))
         response = yield httpget("localhost", self.port, path)
-        header,body = response.split("\r\n\r\n", 1)
+        header, body = response.split("\r\n\r\n", 1)
+        self._verify200(header, response)
         try:
             jsonData = loads(body)
         except:
@@ -70,6 +73,18 @@ class HttpClient(object):
             print 'body', body
             raise
         raise StopIteration(_results(jsonData, subj, pred, obj))
+
+    def _send(self, path, body):
+        headers = None
+        if body:
+            headers={'Content-Type': 'text/xml', 'Content-Length': len(body)}
+        response = yield httppost(host=self.host, port=self.port, request=path, body=body, headers=headers)
+        header, body = response.split("\r\n\r\n", 1)
+        self._verify200(header, response)
+
+    def _verify200(self, header, response):
+        if not header.startswith('HTTP/1.1 200'):
+            raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
 
     def _createSparQL(self, subj=None, pred=None, obj=None):
         statement = "SELECT"
@@ -94,6 +109,7 @@ class HttpClient(object):
 
         return statement
 
+
 def _results(jsonData, subj, pred, obj):
     for i in jsonData['results']['bindings']:
         resultSubject = fromDict(i['s'])  if 's' in i else Uri(subj)
@@ -115,7 +131,5 @@ def _parseJson2Dict(jsonString):
     json = loads(jsonString)
     for i in json['results']['bindings']:
         result.append(dict([(key, fromDict(value)) for (key, value) in i.items()]))
-
     return result
-
 
