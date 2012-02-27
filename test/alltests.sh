@@ -41,7 +41,7 @@ fi
 for type in $tests; do
     if [ "$type" == "client" ]; then
         echo 'Owlim Client test'
-        python _alltests.py "$@"
+        python2.5 _alltests.py "$@"
     fi
     if [ "$type" == "server" ]; then
         echo 'Owlim Server test'
