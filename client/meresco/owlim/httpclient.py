@@ -38,27 +38,28 @@ from uri import Uri
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
 class HttpClient(object):
-    def __init__(self, port, httpgetMethod=httpget):
+    def __init__(self, host, port, httpgetMethod=httpget):
         self.port = port
+        self._host = host
 
     def executeQuery(self, query):
         path = "/query?%s" % urlencode(dict(query=query))
-        response = yield httpget("localhost", self.port, path)
+        response = yield httpget(self._host, self.port, path)
         header,body = response.split("\r\n\r\n", 1)
         raise StopIteration(_parseJson2Dict(body))
 
     def add(self, identifier, partname, data):
-        url = "http://localhost:%s/update?%s" % (self.port, urlencode(dict(identifier=identifier)))
+        url = "http://%s:%s/update?%s" % (self._host, self.port, urlencode(dict(identifier=identifier)))
         urlopen(url, data).read()
 
     def delete(self, identifier, *args, **kwargs):
-        url = "http://localhost:%s/delete?%s" % (self.port, urlencode(dict(identifier=identifier)))
+        url = "http://%s:%s/delete?%s" % (self._host, self.port, urlencode(dict(identifier=identifier)))
         urlopen(url).read()
 
     def getStatements(self, subj=None, pred=None, obj=None):
         query = self._createSparQL(subj, pred, obj)
         path = "/query?%s" % urlencode(dict(query=query))
-        response = yield httpget("localhost", self.port, path)
+        response = yield httpget(self._host, self.port, path)
         header,body = response.split("\r\n\r\n", 1)
         jsonData = loads(body)
         raise StopIteration(WrapIterable(_results(jsonData, subj, pred, obj)))

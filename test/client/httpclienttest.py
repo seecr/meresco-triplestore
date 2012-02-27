@@ -35,7 +35,7 @@ from meresco.owlim import HttpClient, Uri, Literal
 class HttpClientTest(CQ2TestCase):
 
     def testCreateSparQL(self):
-        client = HttpClient(port=9999)
+        client = HttpClient(host="localhost", port=9999)
         self.assertEquals("SELECT ?s ?p ?o WHERE { ?s ?p ?o }", client._createSparQL(subj=None, pred=None, obj=None))
 
         self.assertEquals("SELECT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", client._createSparQL(subj="http://cq2.org/person/0001"))
@@ -43,13 +43,13 @@ class HttpClientTest(CQ2TestCase):
         self.assertEquals("SELECT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", client._createSparQL(subj="http://cq2.org/person/0001", pred="http://xmlns.com/foaf/0.1/name"))
 
     def testExecuteQuery(self):
-        client = HttpClient(port=9999)
+        client = HttpClient(host="localhost", port=9999)
         gen = client.executeQuery('SPARQL')
         result = self.retrieveResult(gen, serverResult=RESULT_JSON)
         self.assertEquals(PARSED_RESULT_JSON, result)
 
     def testGetStatements(self):
-        client = HttpClient(port=9999)
+        client = HttpClient(host="localhost", port=9999)
         gen = client.getStatements(subj='uri:subject')
         result = self.retrieveResult(gen, serverResult=RESULT_JSON)
         self.assertEquals(RESULT_SPO, list(result))
@@ -64,7 +64,7 @@ class HttpClientTest(CQ2TestCase):
             return e.args[0]
 
     def to_be_moved_to_integrationtest_testGetStatements(self):
-        client = HttpClient(port=9999)
+        client = HttpClient(host="localhost", port=9999)
         def _executeQuery(*args, **kwargs):
             raise StopIteration(RESULT_JSON)
         result = list(client.getStatements())
