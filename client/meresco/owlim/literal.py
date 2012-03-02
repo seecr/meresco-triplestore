@@ -45,12 +45,7 @@ class Literal(object):
         return self.value
 
     def __repr__(self):
-        if self.lang:
-            return "%s(%s, lang=%s)" % (self.__class__.__name__, repr(self.value), repr(self.lang))
-        return "%s(%s)" % (self.__class__.__name__, repr(self.value))
-
-
-
-
-
+        template = "%%s(%%s%s)"        
+        template = template % (", lang=" + repr(self.lang) if self.lang else "")
+        return template % (self.__class__.__name__, repr(self.value))
 
