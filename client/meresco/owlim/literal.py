@@ -37,10 +37,19 @@ class Literal(object):
         self.lang = lang
 
     def __eq__(self, other):
-        return (isinstance(other, self.__class__) and self.__dict__ == other.__dict__)
+        return other.__class__ is self.__class__ and self.value == other.value and other.lang == self.lang
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def __str__(self):
+        if self.lang:
+            return "%s@%s" % (repr(self.value), self.lang)
+        return self.value
+
+    def __repr__(self):
+        if self.lang:
+            return "%s(%s, lang=%s)" % (self.__class__.__name__, repr(self.value), repr(self.lang))
+        return "%s(%s)" % (self.__class__.__name__, repr(self.value))
+
+
 
 
 

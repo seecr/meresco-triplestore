@@ -45,7 +45,7 @@ class HttpClient(object):
     def executeQuery(self, query):
         path = "/query?%s" % urlencode(dict(query=query))
         response = yield httpget(self._host, self.port, path)
-        header,body = response.split("\r\n\r\n", 1)
+        header, body = response.split("\r\n\r\n", 1)
         raise StopIteration(_parseJson2Dict(body))
 
     def add(self, identifier, partname, data):
