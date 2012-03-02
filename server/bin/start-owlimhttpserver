@@ -38,5 +38,5 @@ MY_JARS=$(find $mydir/.. -type f -name "*.jar") # DO_NOT_DISTRIBUTE
 
 CP="$(echo ${MY_JARS} | tr ' ' ':'):$(echo ${OWLIMJARS} | tr ' ' ':')"
 
-exec java -cp ${CP} org.meresco.owlimhttpserver.OwlimServer $@
+exec java -Xmx512m -cp ${CP} org.meresco.owlimhttpserver.OwlimServer $@
 

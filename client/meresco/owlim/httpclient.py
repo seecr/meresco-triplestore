@@ -30,10 +30,11 @@ from urllib import urlopen, urlencode
 from simplejson import loads
 from meresco.components.sorteditertools import WrapIterable
 
-from weightless.http import httpget
+from weightless.http import httpget, httppost
 
 from literal import Literal
 from uri import Uri
+
 
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
@@ -46,23 +47,39 @@ class HttpClient(object):
         path = "/query?%s" % urlencode(dict(query=query))
         response = yield httpget(self._host, self.port, path)
         header, body = response.split("\r\n\r\n", 1)
+        self._verify200(header, response)
         raise StopIteration(_parseJson2Dict(body))
 
     def add(self, identifier, partname, data):
         url = "http://%s:%s/update?%s" % (self._host, self.port, urlencode(dict(identifier=identifier)))
-        urlopen(url, data).read()
+        self._send(url, data)
 
     def delete(self, identifier, *args, **kwargs):
         url = "http://%s:%s/delete?%s" % (self._host, self.port, urlencode(dict(identifier=identifier)))
-        urlopen(url).read()
+        self._send(url, None)
 
     def getStatements(self, subj=None, pred=None, obj=None):
         query = self._createSparQL(subj, pred, obj)
         path = "/query?%s" % urlencode(dict(query=query))
         response = yield httpget(self._host, self.port, path)
-        header,body = response.split("\r\n\r\n", 1)
+        header, body = response.split("\r\n\r\n", 1)
+        self._verify200(header, response)
         jsonData = loads(body)
         raise StopIteration(WrapIterable(_results(jsonData, subj, pred, obj)))
+
+    def _send(self, path, body):
+        response = self._urlopen(path, body)
+        code = response.getcode()
+        if code != 200:
+            raise IOError("Expected status '200' from Owlim triplestore, but got: %s, %s" % (code, response.read()))
+        return response.read()
+
+    def _verify200(self, header, response):
+        if not header.startswith('HTTP/1.1 200'):
+            raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
+
+    def _urlopen(self, *args, **kwargs):
+        return urlopen(*args, **kwargs)
 
     def _createSparQL(self, subj=None, pred=None, obj=None):
         statement = "SELECT"

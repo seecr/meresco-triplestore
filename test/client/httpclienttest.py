@@ -6,7 +6,7 @@
 # 
 # Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
 # Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
-# Copyright (C) 2011 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
 # 
 # This file is part of "Meresco Owlim"
 # 
@@ -28,11 +28,43 @@
 
 from cq2utils import CQ2TestCase, CallTrace
 
+from weightless.core import compose
+from weightless.io import Suspend
 from meresco.core import be, Observable
 
 from meresco.owlim import HttpClient, Uri, Literal
 
+
 class HttpClientTest(CQ2TestCase):
+    def testAdd(self):
+        client = HttpClient(host="localhost", port=9999)
+        urlopens = []
+        response = CallTrace('response', returnValues=dict(getcode=200, read='BODY'))
+        def urlopen(path, data):
+            urlopens.append((path, data))
+            return response
+        client._urlopen = urlopen
+            
+        client.add(identifier="id", partname="ignored", data=rdfData)
+        self.assertEquals([("http://localhost:9999/update?identifier=id", rdfData)], urlopens)
+
+        response.returnValues['getcode'] = 500
+        self.assertRaises(IOError, lambda: client.add(identifier="id", partname="ignored", data=rdfData))
+
+    def testDelete(self):
+        client = HttpClient(host="localhost", port=9999)
+        urlopens = []
+        response = CallTrace('response', returnValues=dict(getcode=200, read='BODY'))
+        def urlopen(path, data):
+            urlopens.append((path, data))
+            return response
+        client._urlopen = urlopen
+            
+        client.delete(identifier="id")
+        self.assertEquals([("http://localhost:9999/delete?identifier=id", None)], urlopens)
+
+        response.returnValues['getcode'] = 500
+        self.assertRaises(IOError, lambda: client.delete(identifier="id"))
 
     def testCreateSparQL(self):
         client = HttpClient(host="localhost", port=9999)
@@ -44,24 +76,27 @@ class HttpClientTest(CQ2TestCase):
 
     def testExecuteQuery(self):
         client = HttpClient(host="localhost", port=9999)
-        gen = client.executeQuery('SPARQL')
-        result = self.retrieveResult(gen, serverResult=RESULT_JSON)
+        gen = compose(client.executeQuery('SPARQL'))
+        result = self._resultFromServerResponse(gen, RESULT_JSON)
         self.assertEquals(PARSED_RESULT_JSON, result)
 
     def testGetStatements(self):
         client = HttpClient(host="localhost", port=9999)
-        gen = client.getStatements(subj='uri:subject')
-        result = self.retrieveResult(gen, serverResult=RESULT_JSON)
+        gen = compose(client.getStatements(subj='uri:subject'))
+        result = self._resultFromServerResponse(gen, RESULT_JSON)
         self.assertEquals(RESULT_SPO, list(result))
         
-
-    def retrieveResult(self, gen, serverResult):
-        httpget = gen.next()
+    def _resultFromServerResponse(self, g, data, responseStatus='200'):
+        s = g.next()
+        self.assertEquals(Suspend, type(s))
+        s(CallTrace('reactor'), lambda: None)
+        s.resume('HTTP/1.1 %s\r\n\r\n%s' % (responseStatus, data))
         try:
-            gen.send('HEADER\r\n\r\n%s' % serverResult)
-            self.fail('expect StopIteration')
+            g.next()
+            self.fail("expected StopIteration")
         except StopIteration, e:
-            return e.args[0]
+            if len(e.args) > 0:
+                return e.args[0]
 
     def to_be_moved_to_integrationtest_testGetStatements(self):
         client = HttpClient(host="localhost", port=9999)
@@ -111,3 +146,4 @@ RESULT_JSON = """{
         }
 }"""
 
+rdfData = "<rdf>should be RDF</rdf>"
