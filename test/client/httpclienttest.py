@@ -26,6 +26,7 @@
 # 
 ## end license ##
 
+
 from cq2utils import CQ2TestCase, CallTrace
 
 from weightless.core import compose
@@ -35,11 +36,16 @@ from meresco.core import be, Observable
 from meresco.owlim import HttpClient, Uri, Literal
 
 
+class WhateverException(Exception):
+    @classmethod
+    def raise_(clz, *args, **kwargs):
+        raise clz()
+
 class HttpClientTest(CQ2TestCase):
     def testAdd(self):
         client = HttpClient(host="localhost", port=9999)
         urlopens = []
-        response = CallTrace('response', returnValues=dict(getcode=200, read='BODY'))
+        response = CallTrace('response', methods=dict(read=lambda *args, **kwargs: 'BODY'))
         def urlopen(path, data):
             urlopens.append((path, data))
             return response
@@ -48,13 +54,13 @@ class HttpClientTest(CQ2TestCase):
         client.add(identifier="id", partname="ignored", data=rdfData)
         self.assertEquals([("http://localhost:9999/update?identifier=id", rdfData)], urlopens)
 
-        response.returnValues['getcode'] = 500
-        self.assertRaises(IOError, lambda: client.add(identifier="id", partname="ignored", data=rdfData))
+        response.methods['read'] = WhateverException.raise_
+        self.assertRaises(WhateverException, lambda: client.add(identifier="id", partname="ignored", data=rdfData))
 
     def testDelete(self):
         client = HttpClient(host="localhost", port=9999)
         urlopens = []
-        response = CallTrace('response', returnValues=dict(getcode=200, read='BODY'))
+        response = CallTrace('response', methods=dict(read=lambda *args, **kwargs: 'BODY'))
         def urlopen(path, data):
             urlopens.append((path, data))
             return response
@@ -63,8 +69,8 @@ class HttpClientTest(CQ2TestCase):
         client.delete(identifier="id")
         self.assertEquals([("http://localhost:9999/delete?identifier=id", None)], urlopens)
 
-        response.returnValues['getcode'] = 500
-        self.assertRaises(IOError, lambda: client.delete(identifier="id"))
+        response.methods['read'] = WhateverException.raise_
+        self.assertRaises(WhateverException, lambda: client.delete(identifier="id"))
 
     def testCreateSparQL(self):
         client = HttpClient(host="localhost", port=9999)

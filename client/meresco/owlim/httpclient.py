@@ -26,7 +26,8 @@
 # 
 ## end license ##
 
-from urllib import urlopen, urlencode
+from urllib import urlencode
+from urllib2 import urlopen
 from simplejson import loads
 from meresco.components.sorteditertools import WrapIterable
 
@@ -69,9 +70,6 @@ class HttpClient(object):
 
     def _send(self, path, body):
         response = self._urlopen(path, body)
-        code = response.getcode()
-        if code != 200:
-            raise IOError("Expected status '200' from Owlim triplestore, but got: %s, %s" % (code, response.read()))
         return response.read()
 
     def _verify200(self, header, response):
