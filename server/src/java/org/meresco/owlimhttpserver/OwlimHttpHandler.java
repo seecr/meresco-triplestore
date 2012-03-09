@@ -43,7 +43,6 @@ public class OwlimHttpHandler implements HttpHandler {
     TripleStore tripleStore;
 
     public OwlimHttpHandler(TransactionLog transactionLog, TripleStore tripleStore) {
-        System.out.println("initializing OwlimHttpHandler");
         this.transactionLog = transactionLog;
         this.tripleStore = tripleStore;
     }
@@ -51,19 +50,18 @@ public class OwlimHttpHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         URI requestURI = exchange.getRequestURI();
         String path = requestURI.getPath();
-        QueryParameters queryParameters = Utils.parseQS(requestURI.getQuery());
+        String rawQueryString = requestURI.getRawQuery();
+        QueryParameters queryParameters = Utils.parseQS(rawQueryString);
         System.out.println("handle '" + path + "'");
         OutputStream outputStream = exchange.getResponseBody();
        
         try {
             try {
-                
                 if (path.equals("/add")) {
                     String body = Utils.read(exchange.getRequestBody());
                     addRDF(queryParameters, body);
                 } else if (path.equals("/update")) {
                     String body = Utils.read(exchange.getRequestBody());
-                    System.out.println("received update body of length: " + body.length());
                     updateRDF(queryParameters, body);
                 } else if (path.equals("/delete")) {
                     deleteRDF(queryParameters);

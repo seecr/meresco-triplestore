@@ -80,7 +80,7 @@ class HttpClient(object):
         return urlopen(*args, **kwargs)
 
     def _createSparQL(self, subj=None, pred=None, obj=None):
-        statement = "SELECT"
+        statement = "SELECT DISTINCT"
         if subj == None:
             statement += " ?s"
         if pred == None:

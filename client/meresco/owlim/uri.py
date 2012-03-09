@@ -32,3 +32,8 @@ class Uri(str):
     def fromDict(self, aDictionary):
         return Uri(aDictionary['value'])
 
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__, self.value)
+
+    def __eq__(self, other):
+        return other.__class__ is self.__class__ and other.value == self.value
