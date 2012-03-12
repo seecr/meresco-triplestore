@@ -45,11 +45,8 @@ class HttpClient(object):
         self._host = host
 
     def executeQuery(self, query):
-        path = "/query?%s" % urlencode(dict(query=query))
-        response = yield httpget(self._host, self.port, path)
-        header, body = response.split("\r\n\r\n", 1)
-        self._verify200(header, response)
-        raise StopIteration(_parseJson2Dict(body))
+        jsonData = yield self._sparqlQuery(query=query)
+        raise StopIteration(_parseJson2Dict(jsonData))
 
     def add(self, identifier, partname, data):
         url = "http://%s:%s/update?%s" % (self._host, self.port, urlencode(dict(identifier=identifier)))
@@ -61,20 +58,21 @@ class HttpClient(object):
 
     def getStatements(self, subj=None, pred=None, obj=None):
         query = self._createSparQL(subj, pred, obj)
+        jsonData = yield self._sparqlQuery(query=query)
+        raise StopIteration(WrapIterable(_results(jsonData, subj, pred, obj)))
+
+    def _sparqlQuery(self, query):
         path = "/query?%s" % urlencode(dict(query=query))
         response = yield httpget(self._host, self.port, path)
         header, body = response.split("\r\n\r\n", 1)
-        self._verify200(header, response)
+        if not header.startswith('HTTP/1.1 200'):
+            raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
         jsonData = loads(body)
-        raise StopIteration(WrapIterable(_results(jsonData, subj, pred, obj)))
-
+        raise StopIteration(jsonData)
+        
     def _send(self, path, body):
         response = self._urlopen(path, body)
         return response.read()
-
-    def _verify200(self, header, response):
-        if not header.startswith('HTTP/1.1 200'):
-            raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
 
     def _urlopen(self, *args, **kwargs):
         return urlopen(*args, **kwargs)
@@ -118,9 +116,8 @@ def fromDict(dictionary):
     mappedType = typeMapping.get(dictionary['type'], None)
     return mappedType.fromDict(dictionary) if mappedType else dictionary['value']
 
-def _parseJson2Dict(jsonString):
+def _parseJson2Dict(json):
     result = []
-    json = loads(jsonString)
     for i in json['results']['bindings']:
         result.append(dict([(key, fromDict(value)) for (key, value) in i.items()]))
 
