@@ -28,6 +28,7 @@ package org.meresco.owlimhttpserver;
 
 import java.io.IOException;
 import java.io.File;
+import java.io.RandomAccessFile;
 import java.util.Arrays;
 
 import org.apache.commons.io.FileUtils;
@@ -35,35 +36,50 @@ import org.apache.commons.io.FileUtils;
 public class TransactionLog {
     TripleStore tripleStore;
     File transactionLogDir;
+    File transactionLogFilePath;
     File tempLogDir;
+    File committedFilePath;
+    File committingFilePath;
+    RandomAccessFile transactionLog;
+    long maxSize;
 
     TransactionLog() {}
+
+    public TransactionLog(TripleStore tripleStore, File baseDir, double maxSizeInMb) throws IOException {
+        this(tripleStore, baseDir);
+        this.maxSize = (long) (maxSizeInMb * (double)1024 * (double)1024);
+    }
 
     public TransactionLog(TripleStore tripleStore, File baseDir) throws IOException {
         this.tripleStore = tripleStore;
         this.transactionLogDir = new File(baseDir, "transactionLog");
         this.transactionLogDir.mkdirs();
+        this.transactionLogFilePath = new File(this.transactionLogDir, "current");
+        System.out.println("Transaction log in " + this.transactionLogFilePath);
         this.tempLogDir = new File(baseDir, "tempLog");
         this.tempLogDir.mkdirs();
         clearTempLogDir();
+        this.committedFilePath = new File(baseDir, "committed");
+        this.committingFilePath = new File(baseDir, "committing");
     }
 
     public void init() throws Exception {
-        if (recoverTripleStore()) {
-            persistTripleStore();
-            System.out.println("Recovering from transactionlog completed");
+        recoverTripleStore();
+        if (!this.committedFilePath.exists()) {
+            this.committedFilePath.createNewFile();
         }
+        this.transactionLog = new RandomAccessFile(this.transactionLogFilePath, "rwd");
     }
 
-    public void add(String identifier, String filedata) throws TransactionLogException {
+    public void add(String identifier, String filedata) throws TransactionLogException, IOException {
         doProcess("addRDF", identifier, filedata);
     }
 
-    public void delete(String identifier) throws TransactionLogException {
+    public void delete(String identifier) throws TransactionLogException, IOException {
         doProcess("delete", identifier, "");
     }
 
-    void doProcess(String action, String identifier, String filedata) throws TransactionLogException {
+    void doProcess(String action, String identifier, String filedata) throws TransactionLogException, IOException {
         String filename = getTime();
         try {
             filename = prepare(action, identifier, filename, filedata);
@@ -77,12 +93,16 @@ public class TransactionLog {
             throw new TransactionLogException(e);
         }
 
+        long originalPosition = this.transactionLog.getFilePointer();
         try {
             commit(filename);
         } catch (Exception e) {
-            rollbackAll(filename);
+            rollbackAll(filename, originalPosition);
             throw new TransactionLogException(e);
         }
+
+
+        /* ROTATING */
     }
 
     String prepare(String action, String identifier, String filename, String filedata) throws Exception {
@@ -107,8 +127,10 @@ public class TransactionLog {
         new File(this.tempLogDir, filename).delete();
     }
 
-    void rollbackAll(String filename) {
+    void rollbackAll(String filename, long originalPosition) throws IOException {
         this.tripleStore.undoCommit();
+        this.transactionLog.setLength(originalPosition);
+        this.committingFilePath.renameTo(this.committedFilePath);
         rollback(filename);
     }
 

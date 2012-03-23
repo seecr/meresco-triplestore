@@ -41,6 +41,7 @@ import java.io.InputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
+import java.io.IOException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -139,7 +140,7 @@ public class OwlimHttpHandlerTest {
     }
 
 
-    @Test public void testAddRDF() throws TransactionLogException {
+    @Test public void testAddRDF() throws TransactionLogException, IOException {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
@@ -149,7 +150,7 @@ public class OwlimHttpHandlerTest {
         assertEquals(Arrays.asList("add:identifier" + "|" + httpBody), tlmock.actions);
     }
 
-    @Test public void testDeleteRDF() throws TransactionLogException {
+    @Test public void testDeleteRDF() throws TransactionLogException, IOException {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
@@ -158,7 +159,7 @@ public class OwlimHttpHandlerTest {
         assertEquals(Arrays.asList("delete:identifier"), tlmock.actions);
     }
 
-    @Test public void testUpdateRDF() throws TransactionLogException {
+    @Test public void testUpdateRDF() throws TransactionLogException, IOException {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);

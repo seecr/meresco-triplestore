@@ -51,14 +51,24 @@ public class TransactionLogTest {
 
     @Before
     public void setUp() throws Exception {
-        tempdir = createTempDirectory();
-        tsMock = new TSMock();
-        transactionLog = new TransactionLog(tsMock, tempdir);
+        setTransactionLog();
     }
 
     @After
     public void tearDown() throws Exception {
         deleteDirectory(tempdir);
+    }
+
+    public void setTransactionLog(double maxSizeInMb) throws Exception {
+        tempdir = createTempDirectory();
+        tsMock = new TSMock();
+        transactionLog = new TransactionLog(tsMock, tempdir, maxSizeInMb);
+    }
+        
+    public void setTransactionLog() throws Exception {
+        tempdir = createTempDirectory();
+        tsMock = new TSMock();
+        transactionLog = new TransactionLog(tsMock, tempdir);
     }
 
     @Test
@@ -140,7 +150,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testAddSuccesfullRecord() throws FileNotFoundException, TransactionLogException {
+    public void testAddSuccesfullRecord() throws FileNotFoundException, TransactionLogException, IOException {
         transactionLog.add("record", "<x>ignored</x>");
         String[] files = transactionLog.getTransactionItemFiles();
         assertEquals(1, files.length);
@@ -154,7 +164,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testAddDeleteRecord() throws FileNotFoundException, TransactionLogException {
+    public void testAddDeleteRecord() throws FileNotFoundException, TransactionLogException, IOException {
         transactionLog.delete("record");
         String[] files = transactionLog.getTransactionItemFiles();
         assertEquals(1, files.length);
@@ -308,7 +318,7 @@ public class TransactionLogTest {
         }
         
         transactionLog = new MyTransactionLog(tsMock, tempdir);
-        transactionLog.rollbackAll("record");
+        transactionLog.rollbackAll("record", 123);
         assertEquals("record", rollback.get(0));
         assertEquals("undoCommit", tsMock.actions.get(0));
     }
@@ -462,7 +472,7 @@ public class TransactionLogTest {
         assertEquals(0, transactionLog.getTempLogDir().list().length);
     }
 
-    private void addFilesToTransactionLog() throws TransactionLogException {
+    private void addFilesToTransactionLog() throws TransactionLogException, IOException {
         transactionLog.add("testRecord.rdf", "<x>ignored</x>");
         transactionLog.delete("testRecord.rdf");
     }

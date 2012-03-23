@@ -98,18 +98,18 @@ public class OwlimHttpHandler implements HttpHandler {
         }
     }
 
-    public void updateRDF(QueryParameters params, String httpBody) throws TransactionLogException {
+    public void updateRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
         String identifier = params.singleValue("identifier");
         transactionLog.delete(identifier);
         transactionLog.add(identifier, httpBody);
     }
 
-    public void addRDF(QueryParameters params, String httpBody) throws TransactionLogException {
+    public void addRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
         String identifier = params.singleValue("identifier");
         transactionLog.add(identifier, httpBody);
     }
 
-    public void deleteRDF(QueryParameters params) throws TransactionLogException {
+    public void deleteRDF(QueryParameters params) throws TransactionLogException, IOException {
         String identifier = params.singleValue("identifier");
         transactionLog.delete(identifier);
     }
