@@ -28,8 +28,13 @@ package org.meresco.owlimhttpserver;
 
 import java.io.IOException;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.RandomAccessFile;
+import java.io.FileReader;
+import java.io.BufferedReader;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import org.apache.commons.io.FileUtils;
 
@@ -42,6 +47,8 @@ public class TransactionLog {
     File committingFilePath;
     RandomAccessFile transactionLog;
     long maxSize;
+
+    final static long DATESTAMP_FACTOR = 1000;
 
     TransactionLog() {}
 
@@ -71,16 +78,16 @@ public class TransactionLog {
         this.transactionLog = new RandomAccessFile(this.transactionLogFilePath, "rwd");
     }
 
-    public void add(String identifier, String filedata) throws TransactionLogException, IOException {
+    public void add(String identifier, String filedata) throws TransactionLogException, FileNotFoundException, IOException {
         doProcess("addRDF", identifier, filedata);
     }
 
-    public void delete(String identifier) throws TransactionLogException, IOException {
+    public void delete(String identifier) throws TransactionLogException, FileNotFoundException, IOException {
         doProcess("delete", identifier, "");
     }
 
-    void doProcess(String action, String identifier, String filedata) throws TransactionLogException, IOException {
-        String filename = getTime();
+    void doProcess(String action, String identifier, String filedata) throws TransactionLogException, FileNotFoundException, IOException {
+        String filename = String.valueOf(getTime());
         try {
             filename = prepare(action, identifier, filename, filedata);
             if (action.equals("addRDF")) {
@@ -101,8 +108,33 @@ public class TransactionLog {
             throw new TransactionLogException(e);
         }
 
+        maybeRotate(originalPosition);
+    }
 
-        /* ROTATING */
+    void maybeRotate(long currentSize) throws FileNotFoundException, IOException {
+        if (currentSize < this.maxSize) {
+            return;
+        }
+        long newFilename = getTime();
+        ArrayList<Long> timeStamps = new ArrayList<Long>();
+        for (File file : this.transactionLogDir.listFiles()) {
+            if (file.getName() == "current") {
+                continue;
+            }
+            timeStamps.add(Long.valueOf(file.getName()));
+        }
+        Collections.sort(timeStamps);
+        long lastAddedTimeStamp = timeStamps.size() > 0 ? timeStamps.get(timeStamps.size() - 1) : 0;
+        if (newFilename < lastAddedTimeStamp) { // in theory: only small differences by ntp 
+            return;
+        }
+        try {
+            this.transactionLog.close();
+            File newFile = new File(this.transactionLogDir, String.valueOf(newFilename));
+            this.transactionLogFilePath.renameTo(newFile);
+        } finally {
+            this.transactionLog = new RandomAccessFile(this.transactionLogFilePath, "rwd");
+        }
     }
 
     String prepare(String action, String identifier, String filename, String filedata) throws Exception {
@@ -114,13 +146,20 @@ public class TransactionLog {
         return filepath.getName();
     }
 
-    void commit(String filename) {
+    void commit(String filename) throws IOException {
+        this.committedFilePath.renameTo(this.committingFilePath);
+        commit_do(filename);
+        this.committingFilePath.renameTo(this.committedFilePath);
+    }
+
+    void commit_do(String filename) throws IOException {
         File tmpFilepath = new File(this.tempLogDir, filename); 
-        File filepath = new File(this.transactionLogDir, filename);
-        while (filepath.exists()) {
-            filepath = new File(filepath + "_1");
+        BufferedReader br = new BufferedReader(new FileReader(tmpFilepath));
+        String line;
+        while ((line = br.readLine()) != null)   {
+            this.transactionLog.writeChars(line);
         }
-        tmpFilepath.renameTo(filepath);
+        tmpFilepath.delete();
     }
 
     void rollback(String filename) {
@@ -148,13 +187,18 @@ public class TransactionLog {
         return transactionItems;
     }
 
-    String getTime() {
-        return String.valueOf(System.currentTimeMillis());
+    long getTime() {
+        return System.currentTimeMillis() * DATESTAMP_FACTOR;
     }
 
     void clear() throws IOException {
-       FileUtils.deleteDirectory(this.transactionLogDir);
-       this.transactionLogDir.mkdir();
+        for (String filename : getTransactionItemFiles()) {
+            new File(this.transactionLogDir, filename).delete();
+        }
+    }
+
+    void clear(File transactionItemFile) throws IOException {
+        transactionItemFile.delete();
     }
 
     void clearTempLogDir() throws IOException {
@@ -163,13 +207,73 @@ public class TransactionLog {
         }
     }
 
-    void persistTripleStore() throws Exception {
+    void persistTripleStore(File transactionFile) throws Exception {
         this.tripleStore.shutdown();
-        clear();
+        clear(transactionFile);
         this.tripleStore.startup();
     }
 
     boolean recoverTripleStore() throws Exception {
+        String[] transactionItemFiles = getTransactionItemFiles();
+        if (transactionItemFiles.length == 0) {
+            return true;//MOET WEG
+        }
+
+        ArrayList<File> tsFiles = new ArrayList<File>();
+        long recoverSize = 0;
+        for (String s : transactionItemFiles) {
+            File tsFile = new File(this.transactionLogDir, s);
+            tsFiles.add(tsFile);
+            recoverSize += tsFile.length();
+        }
+        System.out.println("Recovering " + recoverSize + "Mb from transactionLog");
+
+        int totalCount = 0, totalSize = 0;
+        String tsItem = "";
+        for (File f : tsFiles) {
+            int count = 0;
+            BufferedReader br = new BufferedReader(new FileReader(f));
+            String line;
+            while ((line = br.readLine()) != null)   {
+                tsItem += line; 
+                if (!line.contains("</transaction_item>")) {
+                    continue;
+                }
+                count += 1;
+                totalSize += tsItem.length();
+                try {
+                    TransactionItem item = TransactionItem.read(tsItem);
+                    if (item.getAction().equals("addRDF")) {
+                        this.tripleStore.addRDF(item.getIdentifier(), item.getFiledata());
+                    } else if (item.getAction().equals("delete")) {
+                        this.tripleStore.delete(item.getIdentifier());
+                    }
+                    tsItem = "";
+                } catch (Exception e) {
+                    System.err.println(e);
+                    throw new TransactionLogException("Corrupted transaction_item in " + f.getName() + ". This should never occur.");
+                }
+            }
+            if (!tsItem.equals("")) {
+                if (!f.getName().equals(this.transactionLogFilePath.getName())) {
+                    throw new TransactionLogException("Last TransactionLog item in " + f.getName() + " is corrupted. This should never occur.");
+                } else if (!this.committingFilePath.exists()) {
+                    throw new TransactionLogException("Last TransactionLog item is incomplete while not in the committing state. This should never occur.");
+                }
+            }
+            if (count > 0) {
+                persistTripleStore(f);
+            }
+            totalCount += count;
+        }
+        if (this.committingFilePath.exists()) {
+            this.committingFilePath.delete();
+        }
+        System.out.println("Recovering of " + totalCount + " items completed.");
+        return false;//NIET NODIG MOET WEG
+    }
+
+    /*boolean xxxxrecoverTripleStore() throws Exception {
         String[] transactionItemFiles = getTransactionItemFiles();
         if (transactionItemFiles.length > 0) {
             System.out.println("Recovering " + String.valueOf(transactionItemFiles.length) + " files from transactionlog");
@@ -186,5 +290,5 @@ public class TransactionLog {
             }
         }
         return true;
-    }
+    }*/
 }

@@ -51,10 +51,10 @@ public class TransactionItem {
         this.filedata = filedata;
     }
 
-    public static TransactionItem read(File file) throws Exception {
+    public static TransactionItem read(String tsItem) throws Exception {
         try {
             DocumentBuilderFactory domFactory = DocumentBuilderFactory.newInstance();
-            Document doc = domFactory.newDocumentBuilder().parse(file);
+            Document doc = domFactory.newDocumentBuilder().parse(tsItem);
             XPathFactory factory = XPathFactory.newInstance();
 
             return new TransactionItem(
@@ -73,7 +73,7 @@ public class TransactionItem {
                 "<action>" + this.action + "</action>" +
                 "<identifier>" + StringEscapeUtils.escapeXml(this.identifier) + "</identifier>" + 
                 "<filedata>" + StringEscapeUtils.escapeXml(this.filedata) + "</filedata>" +
-                "</transaction_item>");
+                "</transaction_item>\n");
             out.close();
         } catch (Exception e) {
             throw new Exception("Error: " + e.getMessage());
