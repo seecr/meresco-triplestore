@@ -33,6 +33,8 @@ import java.util.ArrayList;
 import java.net.URLDecoder;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -109,15 +111,26 @@ class Utils {
         }
     }
 
+    public static String read(File f) throws IOException { 
+        BufferedReader br = new BufferedReader(new FileReader(f));
+        String data = "";
+        String line;
+        while ((line = br.readLine()) != null) {
+            data += line;
+        }
+        return data;
+    }
+    
     public static String read(InputStream in) {
-        StringBuilder contents = new StringBuilder();
-
-        BufferedReader input = null;
+    	StringBuilder contents = new StringBuilder();
+    	
+    	BufferedReader input = null;
         try { 
             try {
-                input =  new BufferedReader(new InputStreamReader(in, "UTF-8"));
+                input =  new BufferedReader(new InputStreamReader(in));
                 String line = null;
                 while (( line = input.readLine()) != null) {
+                	System.out.println(">>>>"+line);
                   contents.append(line);
                   contents.append(System.getProperty("line.separator"));
                 }

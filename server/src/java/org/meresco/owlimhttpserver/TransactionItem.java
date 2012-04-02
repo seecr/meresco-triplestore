@@ -27,9 +27,11 @@
 package org.meresco.owlimhttpserver;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -68,7 +70,7 @@ public class TransactionItem {
 
     public void write(File filepath) throws Exception {
         try {
-            BufferedWriter out = new BufferedWriter(new FileWriter(filepath));
+        	OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(filepath));
             out.write("<transaction_item>" +
                 "<action>" + this.action + "</action>" +
                 "<identifier>" + StringEscapeUtils.escapeXml(this.identifier) + "</identifier>" + 

@@ -26,12 +26,15 @@
 
 package org.meresco.owlimhttpserver;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.io.FileReader;
 import java.io.BufferedReader;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -153,12 +156,13 @@ public class TransactionLog {
     }
 
     void commit_do(String filename) throws IOException {
-        File tmpFilepath = new File(this.tempLogDir, filename); 
+        File tmpFilepath = new File(this.tempLogDir, filename);
         BufferedReader br = new BufferedReader(new FileReader(tmpFilepath));
         String line;
-        while ((line = br.readLine()) != null)   {
-            this.transactionLog.writeChars(line);
+        while ((line = br.readLine()) != null) {
+            this.transactionLog.write(line.getBytes("UTF-8"));
         }
+        this.transactionLog.close();
         tmpFilepath.delete();
     }
 
