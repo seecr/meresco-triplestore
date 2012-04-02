@@ -67,18 +67,14 @@ public class TransactionItemTest {
         String action = "addRDF";
         String identifier = "record1";
         String filedata = "<x>ignored</x>";
-        File filepath = new File(tempdir, identifier);
 
-        FileWriter fstream = new FileWriter(filepath);
-        BufferedWriter out = new BufferedWriter(fstream);
-        out.write("<transaction_item>" +
+        String tsItem = "<transaction_item>" +
             "<action>" + action + "</action>" +
             "<identifier>" + identifier + "</identifier>" + 
             "<filedata>" + StringEscapeUtils.escapeXml(filedata) + "</filedata>" +
-            "</transaction_item>");
-        out.close();
+            "</transaction_item>";
 
-        TransactionItem transactionItem = TransactionItem.read(filepath);
+        TransactionItem transactionItem = TransactionItem.read(tsItem);
         assertEquals(action, transactionItem.getAction());
         assertEquals(identifier, transactionItem.getIdentifier());
         assertEquals(filedata, transactionItem.getFiledata());

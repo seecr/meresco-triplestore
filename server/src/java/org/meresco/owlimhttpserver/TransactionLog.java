@@ -26,20 +26,15 @@
 
 package org.meresco.owlimhttpserver;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.io.FileReader;
-import java.io.BufferedReader;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
-
-import org.apache.commons.io.FileUtils;
 
 public class TransactionLog {
     TripleStore tripleStore;
@@ -71,6 +66,7 @@ public class TransactionLog {
         clearTempLogDir();
         this.committedFilePath = new File(baseDir, "committed");
         this.committingFilePath = new File(baseDir, "committing");
+        this.maxSize = (long) (500 * (double)1024 * (double)1024);
     }
 
     public void init() throws Exception {
@@ -121,7 +117,7 @@ public class TransactionLog {
         long newFilename = getTime();
         ArrayList<Long> timeStamps = new ArrayList<Long>();
         for (File file : this.transactionLogDir.listFiles()) {
-            if (file.getName() == "current") {
+            if (file.getName().equals("current")) {
                 continue;
             }
             timeStamps.add(Long.valueOf(file.getName()));
@@ -157,12 +153,12 @@ public class TransactionLog {
 
     void commit_do(String filename) throws IOException {
         File tmpFilepath = new File(this.tempLogDir, filename);
-        BufferedReader br = new BufferedReader(new FileReader(tmpFilepath));
+        BufferedLineReader blr = new BufferedLineReader(new FileReader(tmpFilepath));
         String line;
-        while ((line = br.readLine()) != null) {
-            this.transactionLog.write(line.getBytes("UTF-8"));
+        while ((line = blr.readLine()) != null) {
+            this.transactionLog.write(line.getBytes(Charset.defaultCharset()));
         }
-        this.transactionLog.close();
+        blr.close();
         tmpFilepath.delete();
     }
 
@@ -217,10 +213,10 @@ public class TransactionLog {
         this.tripleStore.startup();
     }
 
-    boolean recoverTripleStore() throws Exception {
+    void recoverTripleStore() throws Exception {
         String[] transactionItemFiles = getTransactionItemFiles();
         if (transactionItemFiles.length == 0) {
-            return true;//MOET WEG
+            return;
         }
 
         ArrayList<File> tsFiles = new ArrayList<File>();
@@ -230,16 +226,16 @@ public class TransactionLog {
             tsFiles.add(tsFile);
             recoverSize += tsFile.length();
         }
-        System.out.println("Recovering " + recoverSize + "Mb from transactionLog");
+        System.out.println("Recovering " + recoverSize / 1024 / 1024 + "Mb from transactionLog");
 
         int totalCount = 0, totalSize = 0;
         String tsItem = "";
         for (File f : tsFiles) {
             int count = 0;
-            BufferedReader br = new BufferedReader(new FileReader(f));
+            BufferedLineReader blr = new BufferedLineReader(new FileReader(f));
             String line;
-            while ((line = br.readLine()) != null)   {
-                tsItem += line; 
+            while ((line = blr.readLine()) != null) {
+            	tsItem += line; 
                 if (!line.contains("</transaction_item>")) {
                     continue;
                 }
@@ -269,12 +265,13 @@ public class TransactionLog {
                 persistTripleStore(f);
             }
             totalCount += count;
+            blr.close();
         }
         if (this.committingFilePath.exists()) {
             this.committingFilePath.delete();
         }
         System.out.println("Recovering of " + totalCount + " items completed.");
-        return false;//NIET NODIG MOET WEG
+        return;
     }
 
     /*boolean xxxxrecoverTripleStore() throws Exception {

@@ -37,5 +37,5 @@ MY_JARS=$(find .. -type f -name "*.jar")        # DO_NOT_DISTRIBUTE
 
 CP="$(echo ${MY_JARS} | tr ' ' ':'):$(echo ${OWLIMJARS} | tr ' ' ':')"
 
-exec java -cp ${CP} org.meresco.owlimhttpserver.OwlimServer $@
+exec java -Dfile.encoding="UTF-8" -cp ${CP} org.meresco.owlimhttpserver.OwlimServer $@
 

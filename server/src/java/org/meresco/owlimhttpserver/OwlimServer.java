@@ -29,6 +29,7 @@ package org.meresco.owlimhttpserver;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
@@ -36,9 +37,10 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.MissingOptionException;
+import org.apache.commons.lang3.CharSet;
 
 public class OwlimServer {
-    public static void main(String[] args) throws Exception {
+    public static int main(String[] args) throws Exception {
         Integer port; 
         String storeLocation;
         String storeName;
@@ -77,6 +79,11 @@ public class OwlimServer {
         port = new Integer(commandLine.getOptionValue("p"));
         storeLocation = commandLine.getOptionValue("d");
         storeName = commandLine.getOptionValue("n");
+        
+        if (Charset.defaultCharset() != Charset.forName("UTF-8")) {
+        	System.err.println("file.encoding must be UTF-8.");
+        	return 1;
+        }
 
         OwlimTripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName);
         TransactionLog transactionLog = new TransactionLog(tripleStore, new File(storeLocation));
@@ -90,6 +97,8 @@ public class OwlimServer {
 
         httpServer.setHandler(handler);
         httpServer.start();
+        
+        return 0;
     }
 
     static void registerShutdownHandler(final TripleStore tripleStore, final TransactionLog transactionLog) {

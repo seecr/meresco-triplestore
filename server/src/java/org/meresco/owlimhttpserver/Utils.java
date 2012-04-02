@@ -128,11 +128,10 @@ class Utils {
         try { 
             try {
                 input =  new BufferedReader(new InputStreamReader(in));
-                String line = null;
-                while (( line = input.readLine()) != null) {
-                	System.out.println(">>>>"+line);
-                  contents.append(line);
-                  contents.append(System.getProperty("line.separator"));
+                char[] buffer = new char[1024];
+                int length = 0;
+                while (( length = input.read(buffer)) != -1) {
+                	contents.append(String.valueOf(buffer, 0, length));
                 }
             }
             finally {
@@ -141,7 +140,7 @@ class Utils {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return contents.toString().trim();
+        return contents.toString();
     }
 
     public static String getStackTrace(Throwable aThrowable) {

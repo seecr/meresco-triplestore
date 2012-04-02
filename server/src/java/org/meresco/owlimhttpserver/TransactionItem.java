@@ -28,20 +28,13 @@ package org.meresco.owlimhttpserver;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.BufferedWriter;
-import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.StringReader;
 
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPathFactory;
-import javax.xml.xpath.XPathExpression;
-import javax.xml.xpath.XPathExpressionException;
-
 import org.w3c.dom.Document;
-import org.xml.sax.SAXException;
-
+import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.commons.lang3.StringEscapeUtils;
 
 public class TransactionItem {
@@ -56,7 +49,7 @@ public class TransactionItem {
     public static TransactionItem read(String tsItem) throws Exception {
         try {
             DocumentBuilderFactory domFactory = DocumentBuilderFactory.newInstance();
-            Document doc = domFactory.newDocumentBuilder().parse(tsItem);
+            Document doc = domFactory.newDocumentBuilder().parse(new ReaderInputStream(new StringReader(tsItem)));
             XPathFactory factory = XPathFactory.newInstance();
 
             return new TransactionItem(
