@@ -47,6 +47,7 @@ public class TransactionLog {
     long maxSize;
 
     final static long DATESTAMP_FACTOR = 1000;
+    final static String CURRENT_TRANSACTIONLOG_NAME = "current";
 
     TransactionLog() {}
 
@@ -59,7 +60,7 @@ public class TransactionLog {
         this.tripleStore = tripleStore;
         this.transactionLogDir = new File(baseDir, "transactionLog");
         this.transactionLogDir.mkdirs();
-        this.transactionLogFilePath = new File(this.transactionLogDir, "current");
+        this.transactionLogFilePath = new File(this.transactionLogDir, CURRENT_TRANSACTIONLOG_NAME);
         System.out.println("Transaction log in " + this.transactionLogFilePath);
         this.tempLogDir = new File(baseDir, "tempLog");
         this.tempLogDir.mkdirs();
@@ -115,15 +116,8 @@ public class TransactionLog {
             return;
         }
         long newFilename = getTime();
-        ArrayList<Long> timeStamps = new ArrayList<Long>();
-        for (File file : this.transactionLogDir.listFiles()) {
-            if (file.getName().equals("current")) {
-                continue;
-            }
-            timeStamps.add(Long.valueOf(file.getName()));
-        }
-        Collections.sort(timeStamps);
-        long lastAddedTimeStamp = timeStamps.size() > 0 ? timeStamps.get(timeStamps.size() - 1) : 0;
+        ArrayList<String> sortedTsFiles = getTransactionItemFiles();
+        long lastAddedTimeStamp = sortedTsFiles.size() > 1 ? Long.valueOf(sortedTsFiles.get(sortedTsFiles.size() - 2)) : 0;
         if (newFilename < lastAddedTimeStamp) { // in theory: only small differences by ntp 
             return;
         }
@@ -196,10 +190,24 @@ public class TransactionLog {
         return this.transactionLogDir;
     }
 
-    String[] getTransactionItemFiles() {
+    ArrayList<String> getTransactionItemFiles() {
         String[] transactionItems = this.transactionLogDir.list();
-        Arrays.sort(transactionItems);
-        return transactionItems;
+        ArrayList<Long> transactionItemsWithoutCurrent = new ArrayList<Long>();
+        ArrayList<String> result = new ArrayList<String>();
+        for (String t : transactionItems) {
+        	if (!t.equals(CURRENT_TRANSACTIONLOG_NAME)) {
+        		transactionItemsWithoutCurrent.add(Long.valueOf(t));
+        	}
+        }
+        
+        Collections.sort(transactionItemsWithoutCurrent);
+        for (Long t : transactionItemsWithoutCurrent) {
+            result.add(String.valueOf(t));
+        }
+        if (Arrays.binarySearch(transactionItems, CURRENT_TRANSACTIONLOG_NAME) != -1) {
+        	result.add(CURRENT_TRANSACTIONLOG_NAME);
+        }
+        return result;
     }
 
     long getTime() {
@@ -229,8 +237,8 @@ public class TransactionLog {
     }
 
     void recoverTripleStore() throws Exception {
-        String[] transactionItemFiles = getTransactionItemFiles();
-        if (transactionItemFiles.length == 0) {
+    	ArrayList<String> transactionItemFiles = getTransactionItemFiles();
+        if (transactionItemFiles.size() == 0) {
             return;
         }
 
