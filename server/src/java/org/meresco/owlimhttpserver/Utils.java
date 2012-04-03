@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server. 
  * 
- * Copyright (C) 2011 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  * 
  * This file is part of "Meresco Owlim"
@@ -27,14 +27,13 @@
 
 package org.meresco.owlimhttpserver;
 
-import java.util.HashMap;
 import java.util.ArrayList;
 
 import java.net.URLDecoder;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -103,7 +102,7 @@ class Utils {
         return path.delete();
     }
 
-    public void pause() {
+    public static void pause() {
         try {
             System.in.read();
         } catch (IOException e) {
@@ -112,7 +111,7 @@ class Utils {
     }
 
     public static String read(File f) throws IOException { 
-        BufferedReader br = new BufferedReader(new FileReader(f));
+        BufferedLineReader br = new BufferedLineReader(new FileReader(f));
         String data = "";
         String line;
         while ((line = br.readLine()) != null) {
@@ -142,6 +141,12 @@ class Utils {
         }
         return contents.toString();
     }
+    
+    public static void write(File f, String data) throws IOException {
+		FileWriter fw = new FileWriter(f);
+		fw.write(data);
+		fw.close();
+	}
 
     public static String getStackTrace(Throwable aThrowable) {
         /* 

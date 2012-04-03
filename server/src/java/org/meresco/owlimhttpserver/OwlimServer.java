@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server. 
  * 
- * Copyright (C) 2011 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  * 
  * This file is part of "Meresco Owlim"
@@ -28,7 +28,6 @@
 package org.meresco.owlimhttpserver;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.Charset;
 
 import org.apache.commons.cli.Option;
@@ -37,7 +36,6 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.MissingOptionException;
-import org.apache.commons.lang3.CharSet;
 
 public class OwlimServer {
     public static int main(String[] args) throws Exception {

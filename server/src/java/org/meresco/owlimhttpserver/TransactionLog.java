@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server. 
  * 
- * Copyright (C) 2011 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
  * 
  * This file is part of "Meresco Owlim"
  * 
@@ -130,7 +130,7 @@ public class TransactionLog {
         try {
             this.transactionLog.close();
             File newFile = new File(this.transactionLogDir, String.valueOf(newFilename));
-            this.transactionLogFilePath.renameTo(newFile);
+            renameFileTo(this.transactionLogFilePath, newFile);
         } finally {
             this.transactionLog = new RandomAccessFile(this.transactionLogFilePath, "rwd");
         }
@@ -146,9 +146,9 @@ public class TransactionLog {
     }
 
     void commit(String filename) throws IOException {
-        this.committedFilePath.renameTo(this.committingFilePath);
+        renameFileTo(this.committedFilePath, this.committingFilePath);
         commit_do(filename);
-        this.committingFilePath.renameTo(this.committedFilePath);
+        renameFileTo(this.committingFilePath, this.committedFilePath);
     }
 
     void commit_do(String filename) throws IOException {
@@ -159,21 +159,36 @@ public class TransactionLog {
             this.transactionLog.write(line.getBytes(Charset.defaultCharset()));
         }
         blr.close();
-        tmpFilepath.delete();
+        deleteFile(tmpFilepath);
     }
 
-    void rollback(String filename) {
-        new File(this.tempLogDir, filename).delete();
+    private void deleteFile(File tmpFilepath) throws IOException {
+		if (!tmpFilepath.delete()) {
+			throw new IOException("File could not be deleted.");
+		}
+	}
+
+	void rollback(String filename) throws IOException {
+		File tmpFile = new File(this.tempLogDir, filename);
+		if (tmpFile.isFile()) {
+			deleteFile(tmpFile);
+		}
     }
 
     void rollbackAll(String filename, long originalPosition) throws IOException {
         this.tripleStore.undoCommit();
         this.transactionLog.setLength(originalPosition);
-        this.committingFilePath.renameTo(this.committedFilePath);
+        renameFileTo(this.committingFilePath, this.committedFilePath);
         rollback(filename);
     }
 
-    File getTempLogDir() {
+    private void renameFileTo(File from, File to) throws IOException {
+		if (!from.renameTo(to)) {
+			throw new IOException("File " + from.getAbsolutePath() + " could not be moved to " + to.getAbsolutePath());
+		}
+	}
+
+	File getTempLogDir() {
         return this.tempLogDir;
     }
 
@@ -193,12 +208,12 @@ public class TransactionLog {
 
     void clear() throws IOException {
         for (String filename : getTransactionItemFiles()) {
-            new File(this.transactionLogDir, filename).delete();
+            deleteFile(new File(this.transactionLogDir, filename));
         }
     }
 
     void clear(File transactionItemFile) throws IOException {
-        transactionItemFile.delete();
+        deleteFile(transactionItemFile);
     }
 
     void clearTempLogDir() throws IOException {
@@ -251,12 +266,12 @@ public class TransactionLog {
                     tsItem = "";
                 } catch (Exception e) {
                     System.err.println(e);
-                    throw new TransactionLogException("Corrupted transaction_item in " + f.getName() + ". This should never occur.");
+                    throw new TransactionLogException("Corrupted transaction_item in " + f.getAbsolutePath() + ". This should never occur.");
                 }
             }
             if (!tsItem.equals("")) {
                 if (!f.getName().equals(this.transactionLogFilePath.getName())) {
-                    throw new TransactionLogException("Last TransactionLog item in " + f.getName() + " is corrupted. This should never occur.");
+                    throw new TransactionLogException("Last TransactionLog item in " + f.getAbsolutePath() + " is corrupted. This should never occur.");
                 } else if (!this.committingFilePath.exists()) {
                     throw new TransactionLogException("Last TransactionLog item is incomplete while not in the committing state. This should never occur.");
                 }
@@ -268,28 +283,9 @@ public class TransactionLog {
             blr.close();
         }
         if (this.committingFilePath.exists()) {
-            this.committingFilePath.delete();
+            deleteFile(this.committingFilePath);
         }
         System.out.println("Recovering of " + totalCount + " items completed.");
         return;
     }
-
-    /*boolean xxxxrecoverTripleStore() throws Exception {
-        String[] transactionItemFiles = getTransactionItemFiles();
-        if (transactionItemFiles.length > 0) {
-            System.out.println("Recovering " + String.valueOf(transactionItemFiles.length) + " files from transactionlog");
-        } else {
-            return false;
-        }
-
-        for(String filename: transactionItemFiles) {
-            TransactionItem item = TransactionItem.read(new File (this.transactionLogDir, filename));
-            if (item.getAction().equals("addRDF")) {
-                this.tripleStore.addRDF(item.getIdentifier(), item.getFiledata());
-            } else if (item.getAction().equals("delete")) {
-                this.tripleStore.delete(item.getIdentifier());
-            }
-        }
-        return true;
-    }*/
 }

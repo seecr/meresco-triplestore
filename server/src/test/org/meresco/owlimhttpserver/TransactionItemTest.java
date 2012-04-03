@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server. 
  * 
- * Copyright (C) 2011 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  * 
  * This file is part of "Meresco Owlim"
@@ -27,24 +27,12 @@
 
 package org.meresco.owlimhttpserver;
 
-import java.util.List;
-import java.util.ArrayList;
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.FileInputStream;
-import java.io.BufferedWriter;
-import java.lang.RuntimeException;
-
 import org.apache.commons.lang3.StringEscapeUtils;
-import org.xml.sax.SAXException;
 import org.junit.Test;
 import org.junit.Before;
 import org.junit.After;
 import static org.junit.Assert.*;
-
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPathExpressionException;
 
 import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
 import static org.meresco.owlimhttpserver.Utils.deleteDirectory;

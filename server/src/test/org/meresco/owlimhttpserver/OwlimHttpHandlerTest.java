@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server. 
  * 
- * Copyright (C) 2011 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  * 
  * This file is part of "Meresco Owlim"
@@ -48,12 +48,6 @@ import java.util.List;
 import java.util.ArrayList;
 
 import static org.meresco.owlimhttpserver.Utils.parseQS;
-
-import org.openrdf.model.Resource;
-import org.openrdf.model.URI;
-import org.openrdf.model.Value;
-import org.openrdf.repository.RepositoryResult;
-import org.openrdf.model.Statement;
 
 
 public class OwlimHttpHandlerTest {
