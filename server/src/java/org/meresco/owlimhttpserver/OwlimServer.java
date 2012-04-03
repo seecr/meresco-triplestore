@@ -38,7 +38,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.MissingOptionException;
 
 public class OwlimServer {
-    public static int main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
         Integer port; 
         String storeLocation;
         String storeName;
@@ -80,7 +80,7 @@ public class OwlimServer {
         
         if (Charset.defaultCharset() != Charset.forName("UTF-8")) {
         	System.err.println("file.encoding must be UTF-8.");
-        	return 1;
+            System.exit(1);
         }
 
         OwlimTripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName);
@@ -95,8 +95,6 @@ public class OwlimServer {
 
         httpServer.setHandler(handler);
         httpServer.start();
-        
-        return 0;
     }
 
     static void registerShutdownHandler(final TripleStore tripleStore, final TransactionLog transactionLog) {
