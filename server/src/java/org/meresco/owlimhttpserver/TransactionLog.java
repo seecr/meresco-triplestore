@@ -252,32 +252,34 @@ public class TransactionLog {
         System.out.println("Recovering " + recoverSize / 1024 / 1024 + "Mb from transactionLog");
 
         int totalCount = 0, totalSize = 0;
-        String tsItem = "";
+        StringBuilder tsItem = new StringBuilder();
         for (File f : tsFiles) {
             int count = 0;
             BufferedLineReader blr = new BufferedLineReader(new FileReader(f));
             String line;
             while ((line = blr.readLine()) != null) {
-            	tsItem += line; 
-                if (!line.contains("</transaction_item>")) {
+            	tsItem.append(line);
+            	if (!line.contains("</transaction_item>")) {
                     continue;
                 }
                 count += 1;
-                totalSize += tsItem.length();
                 try {
-                    TransactionItem item = TransactionItem.read(tsItem);
+                	TransactionItem item = TransactionItem.read(tsItem.toString());
                     if (item.getAction().equals("addRDF")) {
                         this.tripleStore.addRDF(item.getIdentifier(), item.getFiledata());
                     } else if (item.getAction().equals("delete")) {
                         this.tripleStore.delete(item.getIdentifier());
                     }
-                    tsItem = "";
+                    int itemLength = tsItem.length();
+                    printProgress(itemLength, totalSize);
+                    totalSize += itemLength;
+                    tsItem.setLength(0);
                 } catch (Exception e) {
                     System.err.println(e);
                     throw new TransactionLogException("Corrupted transaction_item in " + f.getAbsolutePath() + ". This should never occur.");
                 }
             }
-            if (!tsItem.equals("")) {
+            if (tsItem.length() > 0) {
                 if (!f.getName().equals(this.transactionLogFilePath.getName())) {
                     throw new TransactionLogException("Last TransactionLog item in " + f.getAbsolutePath() + " is corrupted. This should never occur.");
                 } else if (!this.committingFilePath.exists()) {
@@ -295,5 +297,17 @@ public class TransactionLog {
         }
         System.out.println("Recovering of " + totalCount + " items completed.");
         return;
+    }
+    
+    private void printProgress(long newItemSize, long totalSize) {
+    	long sizeInMb = totalSize / 1024 / 1024;
+    	long newSizeInMb = (totalSize + newItemSize) / 1024 / 1024;
+    	if (sizeInMb != newSizeInMb) {
+    		System.out.print('.');
+    		if (newSizeInMb % 50 == 0) {
+    			System.out.println(" " + newSizeInMb + "Mb");
+    		}
+    	}
+    	System.out.flush();
     }
 }

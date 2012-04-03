@@ -34,7 +34,7 @@ public class BufferedLineReader {
 	Reader reader;
 	String dataBuffer = "";
 	
-	final static int BUFFER_SIZE = 4096;
+	final static int BUFFER_SIZE = 1024*1024;
 	
 	public BufferedLineReader(Reader reader) {
 		this.reader = reader;
@@ -42,9 +42,10 @@ public class BufferedLineReader {
 	
 	public String readLine() throws IOException {
 		String newLine;
+		int offset = 0;
 		
 		while (true) {
-			if ((newLine = this.readLineFromBuffer()) != null) {
+			if ((newLine = this.readLineFromBuffer(offset)) != null) {
 				return newLine;
 			}
 
@@ -55,13 +56,14 @@ public class BufferedLineReader {
 				this.dataBuffer = null;
 				return result;
 			}
+			offset = this.dataBuffer.length();
 			this.dataBuffer += String.valueOf(buffer, 0, length);
 		}		
 	}
 	
-	private String readLineFromBuffer() {
+	private String readLineFromBuffer(int offset) {
 		int position;
-		if (this.dataBuffer != null && (position = this.dataBuffer.indexOf("\n")) != -1) {
+		if (this.dataBuffer != null && (position = this.dataBuffer.indexOf("\n", offset)) != -1) {
 			String result = this.dataBuffer.substring(0, position + 1);
 			this.dataBuffer = this.dataBuffer.substring(position + 1, this.dataBuffer.length());
 			return result;

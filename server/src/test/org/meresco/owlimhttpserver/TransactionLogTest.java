@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -38,9 +39,11 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.RuntimeException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 import org.junit.Before;
 import org.junit.After;
+
 import static org.junit.Assert.*;
 
 import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
@@ -50,15 +53,22 @@ public class TransactionLogTest {
     TransactionLog transactionLog;
     File tempdir;
     TSMock tsMock;
+    PrintStream orig_stdout;
+    OutputStream stdout;
 
     @Before
     public void setUp() throws Exception {
     	tempdir = createTempDirectory();
+    	stdout = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(stdout);
+        orig_stdout = System.out;
+        System.setOut(ps);
         setTransactionLog();
     }
 
     @After
     public void tearDown() throws Exception {
+    	System.setOut(orig_stdout);
         deleteDirectory(tempdir);
     }
 
@@ -720,6 +730,31 @@ public class TransactionLogTest {
     	String[] expected = {"add:test1.rdf|ignored", "add:test2.rdf|ignored", "shutdown", "startup", "add:test3.rdf|ignored", "shutdown", "startup"};
     	assertArrayEquals(expected, tsMock.actions.toArray());
     }
+    
+    @Test
+    public void testBigCurrentFileInTransactionLog() throws Exception {
+    	String filedata = StringUtils.repeat(StringUtils.repeat("ignored", 1024), 100);
+    	String tsItem = "<transaction_item>\n" +
+		"    <action>addRDF</action>\n" +
+		"    <identifier>test1.rdf</identifier>\n" +
+		"    <filedata>" + filedata + "</filedata>\n" +
+    	"</transaction_item>\n";
+    	FileWriter fw = new FileWriter(transactionLog.transactionLogFilePath);
+    	for (int i = 0; i < 100; i++) {
+    		fw.write(tsItem);
+    	}
+		fw.close();
+		class MyTSMock extends TSMock {
+			public void addRDF(String identifier, String data) {
+		        actions.add("add:" + identifier);
+		    }
+		}
+		tsMock = new MyTSMock();
+		transactionLog = new TransactionLog(tsMock, tempdir);
+        transactionLog.init();
+        assertEquals(StringUtils.repeat(".", 50) + " 50Mb", stdout.toString(), stdout.toString());
+    }
+    
     private void addFilesToTransactionLog() throws TransactionLogException, IOException {
         transactionLog.add("testRecord.rdf", "<x>ignored</x>");
         transactionLog.delete("testRecord.rdf");
