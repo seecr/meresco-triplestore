@@ -26,12 +26,12 @@
 
 package org.meresco.owlimhttpserver;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.RandomAccessFile;
 import java.io.FileReader;
-import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,14 +40,16 @@ public class TransactionLog {
     TripleStore tripleStore;
     File transactionLogDir;
     File transactionLogFilePath;
+    @Deprecated
     File tempLogDir;
     File committedFilePath;
     File committingFilePath;
-    RandomAccessFile transactionLog;
+    BufferedWriter transactionLog;
     long maxSize;
 
-    final static long DATESTAMP_FACTOR = 1000;
-    final static String CURRENT_TRANSACTIONLOG_NAME = "current";
+    private final static long DATESTAMP_FACTOR = 1000;
+    private final static String CURRENT_TRANSACTIONLOG_NAME = "current";
+    private static final int BUFFER_SIZE = 1024*1024;
 
     TransactionLog() {}
 
@@ -63,7 +65,6 @@ public class TransactionLog {
         this.transactionLogFilePath = new File(this.transactionLogDir, CURRENT_TRANSACTIONLOG_NAME);
         System.out.println("Transaction log in " + this.transactionLogFilePath);
         this.tempLogDir = new File(baseDir, "tempLog");
-        this.tempLogDir.mkdirs();
         clearTempLogDir();
         this.committedFilePath = new File(baseDir, "committed");
         this.committingFilePath = new File(baseDir, "committing");
@@ -75,7 +76,7 @@ public class TransactionLog {
         if (!this.committedFilePath.exists()) {
             this.committedFilePath.createNewFile();
         }
-        this.transactionLog = new RandomAccessFile(this.transactionLogFilePath, "rwd");
+        this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
     }
 
     public void add(String identifier, String filedata) throws TransactionLogException, FileNotFoundException, IOException {
@@ -87,32 +88,30 @@ public class TransactionLog {
     }
 
     void doProcess(String action, String identifier, String filedata) throws TransactionLogException, FileNotFoundException, IOException {
-        String filename = String.valueOf(getTime());
+    	TransactionItem tsItem = new TransactionItem(action, identifier, filedata);
         try {
-            filename = prepare(action, identifier, filename, filedata);
             if (action.equals("addRDF")) {
                 this.tripleStore.addRDF(identifier, filedata);
             } else if (action.equals("delete")) {
                 this.tripleStore.delete(identifier);
             }
         } catch (Exception e) {
-            rollback(filename);
             throw new TransactionLogException(e);
         }
 
-        long originalPosition = this.transactionLog.getFilePointer();
         try {
-            commit(filename);
+            commit(tsItem);
         } catch (Exception e) {
-            rollbackAll(filename, originalPosition);
-            throw new TransactionLogException(e);
+        	rollback();
+        	System.err.println(e);
+            throw new Error("Commit on transactionLog failed.");
         }
 
-        maybeRotate(originalPosition);
+        maybeRotate();
     }
 
-    void maybeRotate(long currentSize) throws FileNotFoundException, IOException {
-        if (currentSize < this.maxSize) {
+    void maybeRotate() throws FileNotFoundException, IOException {
+        if (transactionLogFilePath.length() < this.maxSize) {
             return;
         }
         long newFilename = getTime();
@@ -126,34 +125,19 @@ public class TransactionLog {
             File newFile = new File(this.transactionLogDir, String.valueOf(newFilename));
             renameFileTo(this.transactionLogFilePath, newFile);
         } finally {
-            this.transactionLog = new RandomAccessFile(this.transactionLogFilePath, "rwd");
+            this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
         }
     }
 
-    String prepare(String action, String identifier, String filename, String filedata) throws Exception {
-        File filepath = new File(this.tempLogDir, filename); 
-        while (filepath.exists()) {
-            filepath = new File(filepath + "_1");
-        }
-        new TransactionItem(action, identifier, filedata).write(filepath);
-        return filepath.getName();
-    }
-
-    void commit(String filename) throws IOException {
+    void commit(TransactionItem tsItem) throws IOException {
         renameFileTo(this.committedFilePath, this.committingFilePath);
-        commit_do(filename);
+        commit_do(tsItem);
         renameFileTo(this.committingFilePath, this.committedFilePath);
     }
 
-    void commit_do(String filename) throws IOException {
-        File tmpFilepath = new File(this.tempLogDir, filename);
-        BufferedLineReader blr = new BufferedLineReader(new FileReader(tmpFilepath));
-        String line;
-        while ((line = blr.readLine()) != null) {
-            this.transactionLog.write(line.getBytes(Charset.defaultCharset()));
-        }
-        blr.close();
-        deleteFile(tmpFilepath);
+    void commit_do(TransactionItem tsItem) throws IOException {
+    	this.transactionLog.write(tsItem.toString());
+    	this.transactionLog.flush();
     }
 
     private void deleteFile(File tmpFilepath) throws IOException {
@@ -162,18 +146,8 @@ public class TransactionLog {
 		}
 	}
 
-	void rollback(String filename) throws IOException {
-		File tmpFile = new File(this.tempLogDir, filename);
-		if (tmpFile.isFile()) {
-			deleteFile(tmpFile);
-		}
-    }
-
-    void rollbackAll(String filename, long originalPosition) throws IOException {
+    void rollback() {
         this.tripleStore.undoCommit();
-        this.transactionLog.setLength(originalPosition);
-        renameFileTo(this.committingFilePath, this.committedFilePath);
-        rollback(filename);
     }
 
     private void renameFileTo(File from, File to) throws IOException {
@@ -181,11 +155,7 @@ public class TransactionLog {
 			throw new IOException("File " + from.getAbsolutePath() + " could not be moved to " + to.getAbsolutePath());
 		}
 	}
-
-	File getTempLogDir() {
-        return this.tempLogDir;
-    }
-
+    
     File getTransactionLogDir() {
         return this.transactionLogDir;
     }
@@ -225,9 +195,13 @@ public class TransactionLog {
     }
 
     void clearTempLogDir() throws IOException {
+    	if (!this.tempLogDir.exists()) {
+    		return;
+    	}
         for (String filename: this.tempLogDir.list()) {
-            rollback(filename);
+            new File(this.tempLogDir, filename).delete();
         }
+        this.tempLogDir.delete();
     }
 
     void persistTripleStore(File transactionFile) throws Exception {

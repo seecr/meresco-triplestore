@@ -79,9 +79,11 @@ public class OwlimHttpHandler implements HttpHandler {
                 String response = Utils.getStackTrace(e);
                 _writeResponse(response, outputStream);
                 return;
-
+            } catch (Error e) {
+            	exchange.sendResponseHeaders(500, 0);
+            	_writeResponse(e.getMessage(), outputStream);
+            	throw e;
             }
-
             exchange.sendResponseHeaders(200, 0);
         } finally {
             exchange.close();

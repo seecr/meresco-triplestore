@@ -33,6 +33,7 @@ from os import remove, kill, waitpid, WNOHANG
 from simplejson import loads
 from urllib import urlopen
 from signal import SIGKILL
+from time import time
 
 
 class OwlimTest(IntegrationTestCase):
@@ -103,3 +104,21 @@ class OwlimTest(IntegrationTestCase):
         json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testDelete"}' % self.owlimPort).read())
         self.assertEquals(1, len(json['results']['bindings']))
 
+    def testPerformance(self):
+        totalTime = 0
+        for i in range(10):
+            postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description>
+            <rdf:type>uri:testFirst%s</rdf:type>
+        </rdf:Description>
+    </rdf:RDF>""" % i, parse=False)
+        for i in range(1000):
+            start = time()
+            postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description>
+            <rdf:type>uri:testSecond%s</rdf:type>
+        </rdf:Description>
+    </rdf:RDF>""" % i, parse=False)
+            totalTime += time() - start
+
+        self.assertTiming(0.003, totalTime / 500, 0.01)

@@ -26,9 +26,6 @@
 
 package org.meresco.owlimhttpserver;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
 import java.io.StringReader;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -61,18 +58,12 @@ public class TransactionItem {
         }
     }
 
-    public void write(File filepath) throws Exception {
-        try {
-        	OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(filepath));
-            out.write("<transaction_item>" +
-                "<action>" + this.action + "</action>" +
-                "<identifier>" + StringEscapeUtils.escapeXml(this.identifier) + "</identifier>" + 
-                "<filedata>" + StringEscapeUtils.escapeXml(this.filedata) + "</filedata>" +
-                "</transaction_item>\n");
-            out.close();
-        } catch (Exception e) {
-            throw new Exception("Error: " + e.getMessage());
-        }
+    public String toString() {
+        return "<transaction_item>" +
+            "<action>" + this.action + "</action>" +
+            "<identifier>" + StringEscapeUtils.escapeXml(this.identifier) + "</identifier>" + 
+            "<filedata>" + StringEscapeUtils.escapeXml(this.filedata) + "</filedata>" +
+            "</transaction_item>\n";
     }
 
     public String getAction() {
