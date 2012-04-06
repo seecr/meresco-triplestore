@@ -29,7 +29,7 @@ from utils import postRequest
 
 from shutil import rmtree
 from os.path import join
-from os import remove, kill, waitpid, WNOHANG
+from os import remove, kill, waitpid, WNOHANG, system
 from simplejson import loads
 from urllib import urlopen
 from signal import SIGKILL
@@ -122,3 +122,28 @@ class OwlimTest(IntegrationTestCase):
             totalTime += time() - start
 
         self.assertTiming(0.003, totalTime / 500, 0.01)
+
+    def testFailingCommitKillsTripleStore(self):
+        postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description>
+            <rdf:type>uri:testFailingCommitKillsTripleStore</rdf:type>
+        </rdf:Description>
+    </rdf:RDF>""", parse=False)
+        json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}' % self.owlimPort).read())
+        self.assertEquals(1, len(json['results']['bindings']))
+
+        system("chmod 0555 %s" % self.owlimDataDir)
+        try:
+            header, body = postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+            <rdf:Description>
+                <rdf:type>uri:testFailingCommitKillsTripleStore2</rdf:type>
+            </rdf:Description>
+        </rdf:RDF>""", parse=False)
+            self.assertTrue("500" in header, header)
+        finally:
+            system("chmod 0755 %s" % self.owlimDataDir)
+        self.startOwlimServer()
+        json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}' % self.owlimPort).read())
+        self.assertEquals(1, len(json['results']['bindings']))
+        json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore2"}' % self.owlimPort).read())
+        self.assertEquals(1, len(json['results']['bindings']))

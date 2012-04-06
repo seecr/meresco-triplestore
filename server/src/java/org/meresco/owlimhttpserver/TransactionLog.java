@@ -140,8 +140,8 @@ public class TransactionLog {
     	this.transactionLog.flush();
     }
 
-    private void deleteFile(File tmpFilepath) throws IOException {
-		if (!tmpFilepath.delete()) {
+    private void deleteFile(File filepath) throws IOException {
+		if (!filepath.delete()) {
 			throw new IOException("File could not be deleted.");
 		}
 	}
@@ -194,14 +194,15 @@ public class TransactionLog {
         deleteFile(transactionItemFile);
     }
 
+    @Deprecated
     void clearTempLogDir() throws IOException {
     	if (!this.tempLogDir.exists()) {
     		return;
     	}
         for (String filename: this.tempLogDir.list()) {
-            new File(this.tempLogDir, filename).delete();
+            deleteFile(new File(this.tempLogDir, filename));
         }
-        this.tempLogDir.delete();
+        deleteFile(this.tempLogDir);
     }
 
     void persistTripleStore(File transactionFile) throws Exception {
