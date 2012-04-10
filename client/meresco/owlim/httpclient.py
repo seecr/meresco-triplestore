@@ -42,11 +42,11 @@ class HttpClient(object):
         self.host = host
         self.port = port
 
-    def add(self, identifier, partname, data):
+    def add(self, identifier, data, **kwargs):
         path = "/update?%s" % urlencode(dict(identifier=identifier))
         yield self._send(path=path, body=data)
 
-    def delete(self, identifier, *args, **kwargs):
+    def delete(self, identifier, **kwargs):
         path = "/delete?%s" % urlencode(dict(identifier=identifier))
         yield self._send(path=path, body=None)
 
