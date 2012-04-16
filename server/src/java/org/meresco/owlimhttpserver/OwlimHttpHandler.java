@@ -50,12 +50,12 @@ public class OwlimHttpHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         URI requestURI = exchange.getRequestURI();
         String path = requestURI.getPath();
-        QueryParameters queryParameters = Utils.parseQS(requestURI.getQuery());
+        String rawQueryString = requestURI.getRawQuery();
+        QueryParameters queryParameters = Utils.parseQS(rawQueryString);
         OutputStream outputStream = exchange.getResponseBody();
        
         try {
             try {
-                
                 if (path.equals("/add")) {
                     String body = Utils.read(exchange.getRequestBody());
                     addRDF(queryParameters, body);
@@ -75,6 +75,7 @@ public class OwlimHttpHandler implements HttpHandler {
                     return;
                 }
             } catch (Exception e) {
+                e.printStackTrace();
                 exchange.sendResponseHeaders(500, 0);
                 String response = Utils.getStackTrace(e);
                 _writeResponse(response, outputStream);

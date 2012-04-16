@@ -51,27 +51,20 @@ class HttpClient(object):
         yield self._send(path=path, body=None)
 
     def executeQuery(self, query):
-        path = "/query?%s" % urlencode(dict(query=query))
-        response = yield httpget(self.host, self.port, path)
-        header, body = response.split("\r\n\r\n", 1)
-        raise StopIteration(_parseJson2Dict(body))
+        jsonString = yield self._sparqlQuery(query)
+        raise StopIteration(_parseJson2Dict(jsonString))
 
     def getStatements(self, subj=None, pred=None, obj=None):
         query = self._createSparQL(subj, pred, obj)
+        jsonString = yield self._sparqlQuery(query)
+        raise StopIteration(_results(jsonString, subj, pred, obj))
+
+    def _sparqlQuery(self, query):
         path = "/query?%s" % urlencode(dict(query=query))
         response = yield httpget("localhost", self.port, path)
         header, body = response.split("\r\n\r\n", 1)
         self._verify200(header, response)
-        try:
-            jsonData = loads(body)
-        except:
-            print 'FAILURE'
-            print 'query', query
-            print 'path', path
-            print 'header', header
-            print 'body', body
-            raise
-        raise StopIteration(_results(jsonData, subj, pred, obj))
+        raise StopIteration(body)
 
     def _send(self, path, body):
         headers = None
@@ -86,7 +79,7 @@ class HttpClient(object):
             raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
 
     def _createSparQL(self, subj=None, pred=None, obj=None):
-        statement = "SELECT"
+        statement = "SELECT DISTINCT"
         if subj == None:
             statement += " ?s"
         if pred == None:
@@ -109,7 +102,8 @@ class HttpClient(object):
         return statement
 
 
-def _results(jsonData, subj, pred, obj):
+def _results(jsonString, subj, pred, obj):
+    jsonData = loads(jsonString)
     for i in jsonData['results']['bindings']:
         resultSubject = fromDict(i['s'])  if 's' in i else Uri(subj)
         resultPredicate = fromDict(i['p'])  if 'p' in i else Uri(pred)
@@ -127,8 +121,8 @@ def fromDict(dictionary):
 
 def _parseJson2Dict(jsonString):
     result = []
-    json = loads(jsonString)
-    for i in json['results']['bindings']:
+    jsonData = loads(jsonString)
+    for i in jsonData['results']['bindings']:
         result.append(dict([(key, fromDict(value)) for (key, value) in i.items()]))
     return result
 

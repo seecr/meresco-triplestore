@@ -9,4 +9,4 @@
 
 export LANG=en_US.UTF-8
 export PYTHONPATH=.:$PYTHONPATH
-python _integrationtest.py "$@"
+python2.6 _integrationtest.py "$@"
