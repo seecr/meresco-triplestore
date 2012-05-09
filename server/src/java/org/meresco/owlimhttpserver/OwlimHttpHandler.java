@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server. 
  * 
- * Copyright (C) 2011 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  * 
  * This file is part of "Meresco Owlim"
@@ -29,6 +29,7 @@ package org.meresco.owlimhttpserver;
 
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.Headers;
 
 import java.io.IOException;
 import java.io.BufferedWriter;
@@ -70,6 +71,12 @@ public class OwlimHttpHandler implements HttpHandler {
                     exchange.sendResponseHeaders(200, 0);
                     _writeResponse(response, outputStream);
                     return;
+                } else if (path.equals("/sparql")) {
+                    String response = sparqlForm();
+                    Headers headers = exchange.getResponseHeaders();
+                    headers.set("Content-Type", "text/html");
+                    exchange.sendResponseHeaders(200, 0);
+                    _writeResponse(response, outputStream);
                 } else {
                     exchange.sendResponseHeaders(404, 0);
                     return;
@@ -120,5 +127,14 @@ public class OwlimHttpHandler implements HttpHandler {
     public String executeQuery(QueryParameters params) {
         String query = params.singleValue("query");
         return tripleStore.executeQuery(query);
+    }
+
+    private String sparqlForm() {
+        return "<html><head><title>Meresco Owlim Sparql Form</title></head>\n"  
+            + "<body><form action=\"/query\">\n"
+            + "<textarea cols=\"50\" rows=\"10\" name=\"query\"></textarea><br/>\n"
+            + "<input type=\"submit\">\n"
+            + "</form>\n</body></html>";
+
     }
 }
