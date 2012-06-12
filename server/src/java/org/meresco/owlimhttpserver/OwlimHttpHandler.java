@@ -42,10 +42,12 @@ import java.net.URI;
 public class OwlimHttpHandler implements HttpHandler {
     TransactionLog transactionLog;
     TripleStore tripleStore;
+    RdfValidator validator;
 
     public OwlimHttpHandler(TransactionLog transactionLog, TripleStore tripleStore) {
         this.transactionLog = transactionLog;
         this.tripleStore = tripleStore;
+        this.validator = new RdfValidator();
     }
 
     public void handle(HttpExchange exchange) throws IOException {
@@ -77,6 +79,9 @@ public class OwlimHttpHandler implements HttpHandler {
                     headers.set("Content-Type", "text/html");
                     exchange.sendResponseHeaders(200, 0);
                     _writeResponse(response, outputStream);
+                } else if (path.equals("/validate")) {
+                    String body = Utils.read(exchange.getRequestBody());
+                    valdateRDF(queryParameters, body);
                 } else {
                     exchange.sendResponseHeaders(404, 0);
                     return;
@@ -127,6 +132,11 @@ public class OwlimHttpHandler implements HttpHandler {
     public String executeQuery(QueryParameters params) {
         String query = params.singleValue("query");
         return tripleStore.executeQuery(query);
+    }
+
+    public void valdateRDF(QueryParameters params, String httpBody) throws Exception {
+        String identifier = params.singleValue("identifier");
+        validator.validate(identifier, httpBody);
     }
 
     private String sparqlForm() {
