@@ -50,6 +50,10 @@ class HttpClient(object):
         path = "/delete?%s" % urlencode(dict(identifier=identifier))
         yield self._send(path=path, body=None)
 
+    def validate(self, identifier, data, **kwargs):
+        path = "/validate?%s" % urlencode(dict(identifier=identifier))
+        yield self._send(path=path, body=data)
+
     def executeQuery(self, query):
         jsonString = yield self._sparqlQuery(query)
         raise StopIteration(_parseJson2Dict(jsonString))

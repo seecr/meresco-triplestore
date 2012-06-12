@@ -66,6 +66,21 @@ class HttpClientTest(SeecrTestCase):
         list(compose(client.delete(identifier="id")))
         self.assertEquals([("/delete?identifier=id", None)], toSend)
 
+    def testValidate(self):
+        client = HttpClient(host="localhost", port=9999)
+        g = compose(client.validate(identifier="id", partname="ignored", data=rdfData))
+        self._resultFromServerResponse(g, "SOME RESPONSE")
+
+        g = compose(client.validate(identifier="id", partname="ignored", data=rdfData))
+        self.assertRaises(
+            IOError, 
+            lambda: self._resultFromServerResponse(g, "Error description", responseStatus='500'))
+
+        toSend = []
+        client._send = lambda path, body: toSend.append((path, body))
+        list(compose(client.validate(identifier="id", partname="ignored", data=rdfData)))
+        self.assertEquals([("/validate?identifier=id", rdfData)], toSend)
+
     def testCreateSparQL(self):
         client = HttpClient(host="localhost", port=9999)
         self.assertEquals("SELECT DISTINCT ?s ?p ?o WHERE { ?s ?p ?o }", client._createSparQL(subj=None, pred=None, obj=None))
