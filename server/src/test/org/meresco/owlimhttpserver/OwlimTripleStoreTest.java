@@ -36,6 +36,7 @@ import static org.junit.Assert.*;
 
 import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
 import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
+import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
 import org.openrdf.model.Statement;
 import org.openrdf.model.impl.URIImpl;
@@ -101,6 +102,17 @@ public class OwlimTripleStoreTest {
         assertTrue(answer.endsWith("\n}"));
     }
     
+    @Test
+    public void testSparqlResultInXml() throws Exception {
+        String answer = null;
+
+        ts.addRDF("uri:id0", rdf);
+        answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}", TupleQueryResultFormat.SPARQL);
+        assertTrue(answer.startsWith("<?xml"));
+        assertTrue(answer.indexOf("<literal>A.M. Özman Yürekli</literal>") > -1);
+        assertTrue(answer.endsWith("</sparql>\n"));
+    }
+
     @Test
     public void testShutdown() throws Exception {
         ts.addRDF("uri:id0", rdf);

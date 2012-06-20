@@ -30,10 +30,12 @@ import java.util.List;
 import java.util.ArrayList;
 
 import org.openrdf.model.Resource;
+import org.openrdf.model.Statement;
 import org.openrdf.model.URI;
 import org.openrdf.model.Value;
+import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
-import org.openrdf.model.Statement;
+
 
 public class TSMock implements TripleStore {
     public List<String> actions = new ArrayList<String>();
@@ -44,6 +46,11 @@ public class TSMock implements TripleStore {
 
     public void delete(String identifier) {
         actions.add("delete:" + identifier);
+    }
+
+    public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) {
+        actions.add("executeQuery:" + sparQL);
+        return "<result/>";
     }
 
     public String executeQuery(String sparQL) {

@@ -28,10 +28,11 @@
 package org.meresco.owlimhttpserver;
 
 import org.openrdf.model.Resource;
+import org.openrdf.model.Statement;
 import org.openrdf.model.URI;
 import org.openrdf.model.Value;
+import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
-import org.openrdf.model.Statement;
 
 
 public interface TripleStore {
@@ -40,6 +41,7 @@ public interface TripleStore {
     void delete(String identifier);
 
     String executeQuery(String sparQL);
+    String executeQuery(String sparQL, TupleQueryResultFormat format);
 
     RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj);
 

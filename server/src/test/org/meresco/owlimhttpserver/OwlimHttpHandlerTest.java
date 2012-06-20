@@ -52,7 +52,6 @@ import static org.meresco.owlimhttpserver.Utils.parseQS;
 
 public class OwlimHttpHandlerTest {
 
-
     public class OwlimHttpHandlerMock extends OwlimHttpHandler {
         public List<Object> actions = new ArrayList<Object>();
         private Exception _exception = null;
@@ -235,6 +234,20 @@ public class OwlimHttpHandlerTest {
         assertEquals("executeQuery", h.actions.get(0));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
+        assertEquals(200, exchange.responseCode);
+        assertEquals("QUERYRESULT", exchange.getOutput());
+    }
+
+    @Test public void testQueryWithResultFormatDispatch() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?format=SPARQL&query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
+        h.handle(exchange);
+        assertEquals(2, h.actions.size());
+        assertEquals("executeQuery", h.actions.get(0));
+        QueryParameters qp = (QueryParameters) h.actions.get(1);
+        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
+        assertEquals("SPARQL", qp.singleValue("format"));
         assertEquals(200, exchange.responseCode);
         assertEquals("QUERYRESULT", exchange.getOutput());
     }

@@ -39,6 +39,9 @@ import java.io.Writer;
 
 import java.net.URI;
 
+import org.openrdf.query.resultio.TupleQueryResultFormat;
+
+
 public class OwlimHttpHandler implements HttpHandler {
     TransactionLog transactionLog;
     TripleStore tripleStore;
@@ -131,7 +134,12 @@ public class OwlimHttpHandler implements HttpHandler {
 
     public String executeQuery(QueryParameters params) {
         String query = params.singleValue("query");
-        return tripleStore.executeQuery(query);
+        String format = params.singleValue("format");
+        TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
+        if ("SPARQL".equals(format)) {
+            resultFormat = TupleQueryResultFormat.SPARQL;
+        }
+        return tripleStore.executeQuery(query, resultFormat);
     }
 
     public void valdateRDF(QueryParameters params, String httpBody) throws Exception {
