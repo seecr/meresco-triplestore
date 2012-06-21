@@ -31,6 +31,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.Headers;
 
+import java.util.Arrays;
 import java.io.IOException;
 import java.io.BufferedWriter;
 import java.io.OutputStream;
@@ -136,7 +137,7 @@ public class OwlimHttpHandler implements HttpHandler {
         String query = params.singleValue("query");
         String format = params.singleValue("format");
         TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
-        if ("SPARQL".equals(format)) {
+        if (format != null && Arrays.asList("sparql", "xml", "application/sparql-results+xml").contains(format.toLowerCase())) {
             resultFormat = TupleQueryResultFormat.SPARQL;
         }
         return tripleStore.executeQuery(query, resultFormat);
