@@ -52,8 +52,13 @@ public class RdfValidator {
         this.parser.setVerifyData(true);
     }
 
-    public void validate(String identifier, String rdfBody) throws IOException, RDFParseException, RDFHandlerException {
-
-        this.parser.parse(new StringReader(rdfBody), identifier);
+    public void validate(String rdfBody) throws RDFParseException {
+        try {
+            this.parser.parse(new StringReader(rdfBody), "");
+        } catch(IOException e) {
+            throw new RuntimeException(e);
+        } catch (RDFHandlerException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -45,7 +45,7 @@ public class RdfValidatorTest {
             "  </rdf:Description>" +
             "</rdf:RDF>";
         RdfValidator validator = new RdfValidator();
-        validator.validate("http://www.example.org/index.html", rdf);
+        validator.validate(rdf);
     }
 
     @Test
@@ -61,7 +61,7 @@ public class RdfValidatorTest {
             "</rdf:RDF>";
         RdfValidator validator = new RdfValidator();
         try {
-            validator.validate("http://www.example.org/index.html", rdf);
+            validator.validate(rdf);
             fail("Expected RDFParseException");
         } catch(RDFParseException e) {
         }

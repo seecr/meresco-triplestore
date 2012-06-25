@@ -37,6 +37,9 @@ from uri import Uri
 
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
+class InvalidRdfXmlException(Exception): 
+    pass
+
 class HttpClient(object):
     def __init__(self, host, port):
         self.host = host
@@ -50,9 +53,11 @@ class HttpClient(object):
         path = "/delete?%s" % urlencode(dict(identifier=identifier))
         yield self._send(path=path, body=None)
 
-    def validate(self, identifier, data, **kwargs):
-        path = "/validate?%s" % urlencode(dict(identifier=identifier))
-        yield self._send(path=path, body=data)
+    def validate(self, data):
+        path = "/validate"
+        header, body = yield self._send(path=path, body=data)
+        if body.strip().lower() != 'ok':
+            raise InvalidRdfXmlException(body)
 
     def executeQuery(self, query):
         jsonString = yield self._sparqlQuery(query)
@@ -77,6 +82,7 @@ class HttpClient(object):
         response = yield httppost(host=self.host, port=self.port, request=path, body=body, headers=headers)
         header, body = response.split("\r\n\r\n", 1)
         self._verify200(header, response)
+        raise StopIteration((header, body))
 
     def _verify200(self, header, response):
         if not header.startswith('HTTP/1.1 200'):

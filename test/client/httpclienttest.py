@@ -32,7 +32,7 @@ from weightless.core import compose
 from weightless.io import Suspend
 from weightless.http import httppost
 from meresco.core import be, Observable
-from meresco.owlim import HttpClient, Uri, Literal
+from meresco.owlim import HttpClient, InvalidRdfXmlException, Uri, Literal
 
 
 class HttpClientTest(SeecrTestCase):
@@ -68,18 +68,23 @@ class HttpClientTest(SeecrTestCase):
 
     def testValidate(self):
         client = HttpClient(host="localhost", port=9999)
-        g = compose(client.validate(identifier="id", partname="ignored", data=rdfData))
-        self._resultFromServerResponse(g, "SOME RESPONSE")
+        g = compose(client.validate(data=rdfData))
+        self._resultFromServerResponse(g, "Ok")
 
-        g = compose(client.validate(identifier="id", partname="ignored", data=rdfData))
-        self.assertRaises(
-            IOError, 
-            lambda: self._resultFromServerResponse(g, "Error description", responseStatus='500'))
+        g = compose(client.validate(data=rdfData))
+        try:
+            self._resultFromServerResponse(g, "Invalid\nError description")
+            self.fail("should not get here.")
+        except InvalidRdfXmlException, e:
+            self.assertEquals("Invalid\nError description", str(e))
 
         toSend = []
-        client._send = lambda path, body: toSend.append((path, body))
-        list(compose(client.validate(identifier="id", partname="ignored", data=rdfData)))
-        self.assertEquals([("/validate?identifier=id", rdfData)], toSend)
+        def mockSend(path, body):
+            toSend.append((path, body))
+            raise StopIteration('header', 'body')
+        client._send = mockSend
+        list(compose(client.validate(data=rdfData)))
+        self.assertEquals([("/validate", rdfData)], toSend)
 
     def testCreateSparQL(self):
         client = HttpClient(host="localhost", port=9999)

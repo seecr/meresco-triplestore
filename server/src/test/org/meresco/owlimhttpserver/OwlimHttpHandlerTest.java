@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 import static org.meresco.owlimhttpserver.Utils.parseQS;
+import org.openrdf.rio.RDFParseException;
 
 
 public class OwlimHttpHandlerTest {
@@ -92,6 +93,11 @@ public class OwlimHttpHandlerTest {
             actions.add("executeQuery");
             actions.add(params);
             return "QUERYRESULT";
+        }
+        public void validateRDF(QueryParameters params, String httpBody) {
+            actions.add("validateRDF");
+            actions.add(params);
+            actions.add(httpBody);
         }
     }
 
@@ -250,6 +256,39 @@ public class OwlimHttpHandlerTest {
         assertEquals("SPARQL", qp.singleValue("format"));
         assertEquals(200, exchange.responseCode);
         assertEquals("QUERYRESULT", exchange.getOutput());
+    }
+
+    @Test public void testValidate() throws Exception {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+        String queryString = "identifier=identifier";
+        String httpBody = "<notrdf/>";
+        try {
+            h.validateRDF(parseQS(queryString), httpBody);
+            fail("should not get here.");
+        } catch (RDFParseException e) {
+            // SUCCESS
+        }
+        httpBody = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"/>";
+        try {
+            h.validateRDF(parseQS(queryString), httpBody);
+        } catch (RDFParseException e) {
+            fail("should not get here.");
+        }
+    }
+
+    @Test public void testValidateDispatch() throws Exception {
+        OwlimHttpHandler h = new OwlimHttpHandler(null, null);
+        HttpExchangeMock exchange = new HttpExchangeMock("/validate?identifier=IDENTIFIER", "<rdf:Description xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf\" about=\"notanuri\"/>");
+        h.handle(exchange);
+        assertEquals(200, exchange.responseCode);
+        assertEquals("Invalid\norg.openrdf.rio.RDFParseException: Not a valid (absolute) URI: /notanuri [line 1, column 81]", exchange.getResponseBody().toString());
+
+        exchange = new HttpExchangeMock("/validate?identifier=urn:IDENTIFIER", "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"/>");
+        h.handle(exchange);
+        assertEquals(200, exchange.responseCode);
+        assertEquals("Ok", exchange.getResponseBody().toString());
     }
 
     @Test public void test404ForOtherRequests() throws Exception {

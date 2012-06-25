@@ -26,7 +26,7 @@
 
 package org.meresco.owlimhttpserver;
 
-public class TransactionLogException extends Exception {
+public class TransactionLogException extends RuntimeException {
 
 	public TransactionLogException(Exception e) {
         super(e);

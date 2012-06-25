@@ -41,6 +41,7 @@ import java.io.Writer;
 import java.net.URI;
 
 import org.openrdf.query.resultio.TupleQueryResultFormat;
+import org.openrdf.rio.RDFParseException;
 
 
 public class OwlimHttpHandler implements HttpHandler {
@@ -85,18 +86,26 @@ public class OwlimHttpHandler implements HttpHandler {
                     _writeResponse(response, outputStream);
                 } else if (path.equals("/validate")) {
                     String body = Utils.read(exchange.getRequestBody());
-                    valdateRDF(queryParameters, body);
+                    exchange.sendResponseHeaders(200, 0);
+                    try {
+                        validateRDF(queryParameters, body);
+                        _writeResponse("Ok", outputStream);
+                    } catch (RDFParseException e) {
+                        _writeResponse("Invalid\n", outputStream);
+                        _writeResponse(e.toString(), outputStream);
+                    }
                 } else {
                     exchange.sendResponseHeaders(404, 0);
                     return;
                 }
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 e.printStackTrace();
                 exchange.sendResponseHeaders(500, 0);
                 String response = Utils.getStackTrace(e);
                 _writeResponse(response, outputStream);
                 return;
             } catch (Error e) {
+                e.printStackTrace();
             	exchange.sendResponseHeaders(500, 0);
             	_writeResponse(e.getMessage(), outputStream);
             	throw e;
@@ -113,7 +122,7 @@ public class OwlimHttpHandler implements HttpHandler {
             writer.write(response, 0, response.length());
             writer.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            e.printStackTrace();            
         }
     }
 
@@ -143,9 +152,8 @@ public class OwlimHttpHandler implements HttpHandler {
         return tripleStore.executeQuery(query, resultFormat);
     }
 
-    public void valdateRDF(QueryParameters params, String httpBody) throws Exception {
-        String identifier = params.singleValue("identifier");
-        validator.validate(identifier, httpBody);
+    public void validateRDF(QueryParameters params, String httpBody) throws RDFParseException {
+        validator.validate(httpBody);
     }
 
     private String sparqlForm() {
