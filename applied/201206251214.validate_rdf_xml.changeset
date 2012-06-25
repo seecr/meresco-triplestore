@@ -1,0 +1,311 @@
+Changeset created on Mon Jun 25 12:14:45 UTC 2012 by Seecr (Seek You Too B.V.)
+
+Description: validate api fix
+
+    The validate api (server + client) can be used to determine whether
+    some supposedly RDF XML is indeed valid RDF XML. Compared to
+    previous version (yet unused) the following was changed:
+    - identifier parameter has gone
+    - ignored partname parameter has gone (from client)
+    - server returns body with 'Invalid' and error message instead of
+    http statuscode 500.
+
+Baseline version: 4.0.6.1
+
+From a0e271815b0b770342c05b7f815c7ce76f199c6f Mon Sep 17 00:00:00 2001
+From: Tom van der Sommen <tom@seecr.nl>
+Date: Mon, 25 Jun 2012 14:06:26 +0200
+Subject: [PATCH] TS/JPM: modified 'validate' interfaces (no longer takes identifier, explicit validation error in body rather than returning HTTP status 500).
+
+---
+ client/meresco/owlim/__init__.py                   |    2 +-
+ client/meresco/owlim/httpclient.py                 |   12 +++++--
+ .../meresco/owlimhttpserver/OwlimHttpHandler.java  |   20 +++++++---
+ .../org/meresco/owlimhttpserver/RdfValidator.java  |   11 ++++--
+ .../owlimhttpserver/TransactionLogException.java   |    2 +-
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |   39 ++++++++++++++++++++
+ .../meresco/owlimhttpserver/RdfValidatorTest.java  |    4 +-
+ test/client/httpclienttest.py                      |   25 ++++++++-----
+ 8 files changed, 89 insertions(+), 26 deletions(-)
+
+diff --git a/client/meresco/owlim/__init__.py b/client/meresco/owlim/__init__.py
+index 85015e3..d24859a 100644
+--- a/client/meresco/owlim/__init__.py
++++ b/client/meresco/owlim/__init__.py
+@@ -24,7 +24,7 @@
+ # 
+ ## end license ##
+ 
+-from httpclient import HttpClient
++from httpclient import HttpClient, InvalidRdfXmlException
+ 
+ from literal import Literal
+ from uri import Uri
+diff --git a/client/meresco/owlim/httpclient.py b/client/meresco/owlim/httpclient.py
+index 8b29ed7..e070b94 100644
+--- a/client/meresco/owlim/httpclient.py
++++ b/client/meresco/owlim/httpclient.py
+@@ -37,6 +37,9 @@ from uri import Uri
+ 
+ JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
+ 
++class InvalidRdfXmlException(Exception): 
++    pass
++
+ class HttpClient(object):
+     def __init__(self, host, port):
+         self.host = host
+@@ -50,9 +53,11 @@ class HttpClient(object):
+         path = "/delete?%s" % urlencode(dict(identifier=identifier))
+         yield self._send(path=path, body=None)
+ 
+-    def validate(self, identifier, data, **kwargs):
+-        path = "/validate?%s" % urlencode(dict(identifier=identifier))
+-        yield self._send(path=path, body=data)
++    def validate(self, data):
++        path = "/validate"
++        header, body = yield self._send(path=path, body=data)
++        if body.strip().lower() != 'ok':
++            raise InvalidRdfXmlException(body)
+ 
+     def executeQuery(self, query):
+         jsonString = yield self._sparqlQuery(query)
+@@ -77,6 +82,7 @@ class HttpClient(object):
+         response = yield httppost(host=self.host, port=self.port, request=path, body=body, headers=headers)
+         header, body = response.split("\r\n\r\n", 1)
+         self._verify200(header, response)
++        raise StopIteration((header, body))
+ 
+     def _verify200(self, header, response):
+         if not header.startswith('HTTP/1.1 200'):
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+index 2a3d4fb..6cf4d85 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+@@ -41,6 +41,7 @@ import java.io.Writer;
+ import java.net.URI;
+ 
+ import org.openrdf.query.resultio.TupleQueryResultFormat;
++import org.openrdf.rio.RDFParseException;
+ 
+ 
+ public class OwlimHttpHandler implements HttpHandler {
+@@ -85,18 +86,26 @@ public class OwlimHttpHandler implements HttpHandler {
+                     _writeResponse(response, outputStream);
+                 } else if (path.equals("/validate")) {
+                     String body = Utils.read(exchange.getRequestBody());
+-                    valdateRDF(queryParameters, body);
++                    exchange.sendResponseHeaders(200, 0);
++                    try {
++                        validateRDF(queryParameters, body);
++                        _writeResponse("Ok", outputStream);
++                    } catch (RDFParseException e) {
++                        _writeResponse("Invalid\n", outputStream);
++                        _writeResponse(e.toString(), outputStream);
++                    }
+                 } else {
+                     exchange.sendResponseHeaders(404, 0);
+                     return;
+                 }
+-            } catch (Exception e) {
++            } catch (RuntimeException e) {
+                 e.printStackTrace();
+                 exchange.sendResponseHeaders(500, 0);
+                 String response = Utils.getStackTrace(e);
+                 _writeResponse(response, outputStream);
+                 return;
+             } catch (Error e) {
++                e.printStackTrace();
+             	exchange.sendResponseHeaders(500, 0);
+             	_writeResponse(e.getMessage(), outputStream);
+             	throw e;
+@@ -113,7 +122,7 @@ public class OwlimHttpHandler implements HttpHandler {
+             writer.write(response, 0, response.length());
+             writer.close();
+         } catch (Exception e) {
+-            e.printStackTrace();
++            e.printStackTrace();            
+         }
+     }
+ 
+@@ -143,9 +152,8 @@ public class OwlimHttpHandler implements HttpHandler {
+         return tripleStore.executeQuery(query, resultFormat);
+     }
+ 
+-    public void valdateRDF(QueryParameters params, String httpBody) throws Exception {
+-        String identifier = params.singleValue("identifier");
+-        validator.validate(identifier, httpBody);
++    public void validateRDF(QueryParameters params, String httpBody) throws RDFParseException {
++        validator.validate(httpBody);
+     }
+ 
+     private String sparqlForm() {
+diff --git a/server/src/java/org/meresco/owlimhttpserver/RdfValidator.java b/server/src/java/org/meresco/owlimhttpserver/RdfValidator.java
+index 84c69e5..361ec31 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/RdfValidator.java
++++ b/server/src/java/org/meresco/owlimhttpserver/RdfValidator.java
+@@ -52,8 +52,13 @@ public class RdfValidator {
+         this.parser.setVerifyData(true);
+     }
+ 
+-    public void validate(String identifier, String rdfBody) throws IOException, RDFParseException, RDFHandlerException {
+-
+-        this.parser.parse(new StringReader(rdfBody), identifier);
++    public void validate(String rdfBody) throws RDFParseException {
++        try {
++            this.parser.parse(new StringReader(rdfBody), "");
++        } catch(IOException e) {
++            throw new RuntimeException(e);
++        } catch (RDFHandlerException e) {
++            throw new RuntimeException(e);
++        }
+     }
+ }
+diff --git a/server/src/java/org/meresco/owlimhttpserver/TransactionLogException.java b/server/src/java/org/meresco/owlimhttpserver/TransactionLogException.java
+index 061c445..02b27e8 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/TransactionLogException.java
++++ b/server/src/java/org/meresco/owlimhttpserver/TransactionLogException.java
+@@ -26,7 +26,7 @@
+ 
+ package org.meresco.owlimhttpserver;
+ 
+-public class TransactionLogException extends Exception {
++public class TransactionLogException extends RuntimeException {
+ 
+ 	public TransactionLogException(Exception e) {
+         super(e);
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index 2618572..dea8f9c 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -48,6 +48,7 @@ import java.util.List;
+ import java.util.ArrayList;
+ 
+ import static org.meresco.owlimhttpserver.Utils.parseQS;
++import org.openrdf.rio.RDFParseException;
+ 
+ 
+ public class OwlimHttpHandlerTest {
+@@ -93,6 +94,11 @@ public class OwlimHttpHandlerTest {
+             actions.add(params);
+             return "QUERYRESULT";
+         }
++        public void validateRDF(QueryParameters params, String httpBody) {
++            actions.add("validateRDF");
++            actions.add(params);
++            actions.add(httpBody);
++        }
+     }
+ 
+     public class HttpExchangeMock extends HttpExchange {
+@@ -252,6 +258,39 @@ public class OwlimHttpHandlerTest {
+         assertEquals("QUERYRESULT", exchange.getOutput());
+     }
+ 
++    @Test public void testValidate() throws Exception {
++        TSMock tsmock = new TSMock();
++        TLMock tlmock = new TLMock();
++        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
++        String queryString = "identifier=identifier";
++        String httpBody = "<notrdf/>";
++        try {
++            h.validateRDF(parseQS(queryString), httpBody);
++            fail("should not get here.");
++        } catch (RDFParseException e) {
++            // SUCCESS
++        }
++        httpBody = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"/>";
++        try {
++            h.validateRDF(parseQS(queryString), httpBody);
++        } catch (RDFParseException e) {
++            fail("should not get here.");
++        }
++    }
++
++    @Test public void testValidateDispatch() throws Exception {
++        OwlimHttpHandler h = new OwlimHttpHandler(null, null);
++        HttpExchangeMock exchange = new HttpExchangeMock("/validate?identifier=IDENTIFIER", "<rdf:Description xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf\" about=\"notanuri\"/>");
++        h.handle(exchange);
++        assertEquals(200, exchange.responseCode);
++        assertEquals("Invalid\norg.openrdf.rio.RDFParseException: Not a valid (absolute) URI: /notanuri [line 1, column 81]", exchange.getResponseBody().toString());
++
++        exchange = new HttpExchangeMock("/validate?identifier=urn:IDENTIFIER", "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"/>");
++        h.handle(exchange);
++        assertEquals(200, exchange.responseCode);
++        assertEquals("Ok", exchange.getResponseBody().toString());
++    }
++
+     @Test public void test404ForOtherRequests() throws Exception {
+         OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+ 
+diff --git a/server/src/test/org/meresco/owlimhttpserver/RdfValidatorTest.java b/server/src/test/org/meresco/owlimhttpserver/RdfValidatorTest.java
+index c29fef7..43a5ddc 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/RdfValidatorTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/RdfValidatorTest.java
+@@ -45,7 +45,7 @@ public class RdfValidatorTest {
+             "  </rdf:Description>" +
+             "</rdf:RDF>";
+         RdfValidator validator = new RdfValidator();
+-        validator.validate("http://www.example.org/index.html", rdf);
++        validator.validate(rdf);
+     }
+ 
+     @Test
+@@ -61,7 +61,7 @@ public class RdfValidatorTest {
+             "</rdf:RDF>";
+         RdfValidator validator = new RdfValidator();
+         try {
+-            validator.validate("http://www.example.org/index.html", rdf);
++            validator.validate(rdf);
+             fail("Expected RDFParseException");
+         } catch(RDFParseException e) {
+         }
+diff --git a/test/client/httpclienttest.py b/test/client/httpclienttest.py
+index c12a28b..a3ae3e7 100644
+--- a/test/client/httpclienttest.py
++++ b/test/client/httpclienttest.py
+@@ -32,7 +32,7 @@ from weightless.core import compose
+ from weightless.io import Suspend
+ from weightless.http import httppost
+ from meresco.core import be, Observable
+-from meresco.owlim import HttpClient, Uri, Literal
++from meresco.owlim import HttpClient, InvalidRdfXmlException, Uri, Literal
+ 
+ 
+ class HttpClientTest(SeecrTestCase):
+@@ -68,18 +68,23 @@ class HttpClientTest(SeecrTestCase):
+ 
+     def testValidate(self):
+         client = HttpClient(host="localhost", port=9999)
+-        g = compose(client.validate(identifier="id", partname="ignored", data=rdfData))
+-        self._resultFromServerResponse(g, "SOME RESPONSE")
++        g = compose(client.validate(data=rdfData))
++        self._resultFromServerResponse(g, "Ok")
+ 
+-        g = compose(client.validate(identifier="id", partname="ignored", data=rdfData))
+-        self.assertRaises(
+-            IOError, 
+-            lambda: self._resultFromServerResponse(g, "Error description", responseStatus='500'))
++        g = compose(client.validate(data=rdfData))
++        try:
++            self._resultFromServerResponse(g, "Invalid\nError description")
++            self.fail("should not get here.")
++        except InvalidRdfXmlException, e:
++            self.assertEquals("Invalid\nError description", str(e))
+ 
+         toSend = []
+-        client._send = lambda path, body: toSend.append((path, body))
+-        list(compose(client.validate(identifier="id", partname="ignored", data=rdfData)))
+-        self.assertEquals([("/validate?identifier=id", rdfData)], toSend)
++        def mockSend(path, body):
++            toSend.append((path, body))
++            raise StopIteration('header', 'body')
++        client._send = mockSend
++        list(compose(client.validate(data=rdfData)))
++        self.assertEquals([("/validate", rdfData)], toSend)
+ 
+     def testCreateSparQL(self):
+         client = HttpClient(host="localhost", port=9999)
+-- 
+1.7.2.5
+
