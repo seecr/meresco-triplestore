@@ -91,8 +91,7 @@ public class OwlimHttpHandler implements HttpHandler {
                         validateRDF(queryParameters, body);
                         _writeResponse("Ok", outputStream);
                     } catch (RDFParseException e) {
-                        _writeResponse("Invalid\n", outputStream);
-                        _writeResponse(e.toString(), outputStream);
+                        _writeResponse("Invalid\n" + e.toString(), outputStream);
                     }
                 } else {
                     exchange.sendResponseHeaders(404, 0);
