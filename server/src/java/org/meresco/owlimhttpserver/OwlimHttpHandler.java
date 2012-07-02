@@ -42,6 +42,8 @@ import java.net.URI;
 
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.rio.RDFParseException;
+import org.openrdf.model.Namespace;
+import org.openrdf.repository.RepositoryException;
 
 
 public class OwlimHttpHandler implements HttpHandler {
@@ -79,7 +81,7 @@ public class OwlimHttpHandler implements HttpHandler {
                     _writeResponse(response, outputStream);
                     return;
                 } else if (path.equals("/sparql")) {
-                    String response = sparqlForm();
+                    String response = sparqlForm(queryParameters);
                     Headers headers = exchange.getResponseHeaders();
                     headers.set("Content-Type", "text/html");
                     exchange.sendResponseHeaders(200, 0);
@@ -155,10 +157,19 @@ public class OwlimHttpHandler implements HttpHandler {
         validator.validate(httpBody);
     }
 
-    private String sparqlForm() {
+    public String sparqlForm(QueryParameters params) {
+        String query;
+        if (params.containsKey("query")) {
+            query = params.singleValue("query");
+        } else {
+            query = "";
+            for (Namespace namespace : tripleStore.getNamespaces()) {
+                query += "PREFIX " + namespace.getPrefix() + ": <" + namespace.getName() + ">\n";
+            }
+        }
         return "<html><head><title>Meresco Owlim Sparql Form</title></head>\n"  
             + "<body><form action=\"/query\">\n"
-            + "<textarea cols=\"50\" rows=\"10\" name=\"query\"></textarea><br/>\n"
+            + "<textarea cols=\"50\" rows=\"10\" name=\"query\">" + query + "</textarea><br/>\n"
             + "<input type=\"submit\">\n"
             + "</form>\n</body></html>";
 

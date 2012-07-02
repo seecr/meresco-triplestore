@@ -31,8 +31,10 @@ import org.openrdf.model.Resource;
 import org.openrdf.model.Statement;
 import org.openrdf.model.URI;
 import org.openrdf.model.Value;
+import org.openrdf.model.Namespace;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
+import java.util.List;
 
 
 public interface TripleStore {
@@ -44,6 +46,7 @@ public interface TripleStore {
     String executeQuery(String sparQL, TupleQueryResultFormat format);
 
     RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj);
+    List<Namespace> getNamespaces();
 
     void shutdown() throws Exception;
 

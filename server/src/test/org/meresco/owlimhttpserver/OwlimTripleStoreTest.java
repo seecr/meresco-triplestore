@@ -39,6 +39,7 @@ import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
 import org.openrdf.model.Statement;
+import org.openrdf.model.Namespace;
 import org.openrdf.model.impl.URIImpl;
 import org.openrdf.model.impl.LiteralImpl;
 
@@ -82,6 +83,23 @@ public class OwlimTripleStoreTest {
         assertEquals(2, statementList.size());
         assertEquals(new LiteralImpl("August 16, 1999"), statementList.get(0).getObject());
         assertEquals(new LiteralImpl("A.M. Özman Yürekli"), statementList.get(1).getObject());
+    }
+
+    @Test
+    public void testGetNamespaces() throws Exception {
+        ts.addRDF("uri:id0", rdf);
+        List<Namespace> namespacesList = ts.getNamespaces();
+        assertEquals(5, namespacesList.size());
+        assertEquals("http://www.w3.org/2000/01/rdf-schema#", namespacesList.get(0).getName());
+        assertEquals("rdfs", namespacesList.get(0).getPrefix());
+        assertEquals("http://www.w3.org/2002/07/owl#", namespacesList.get(1).getName());
+        assertEquals("owl", namespacesList.get(1).getPrefix());
+        assertEquals("http://www.w3.org/2001/XMLSchema#", namespacesList.get(2).getName());
+        assertEquals("xsd", namespacesList.get(2).getPrefix());
+        assertEquals("http://www.w3.org/1999/02/22-rdf-syntax-ns#", namespacesList.get(3).getName());
+        assertEquals("rdf", namespacesList.get(3).getPrefix());
+        assertEquals("http://www.example.org/terms/", namespacesList.get(4).getName());
+        assertEquals("exterms", namespacesList.get(4).getPrefix());
     }
 
     @Test

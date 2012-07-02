@@ -33,6 +33,7 @@ import java.io.StringReader;
 import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.util.List;
 
 import com.ontotext.trree.owlim_ext.Repository;
 import com.ontotext.trree.owlim_ext.SailImpl;
@@ -52,6 +53,7 @@ import org.openrdf.model.Resource;
 import org.openrdf.model.Statement;
 import org.openrdf.model.URI;
 import org.openrdf.model.Value;
+import org.openrdf.model.Namespace;
 
 import org.openrdf.repository.RepositoryConnection;
 import org.openrdf.repository.RepositoryException;
@@ -178,6 +180,17 @@ public class OwlimTripleStore implements TripleStore {
         }
     }
 
+    public List<Namespace> getNamespaces() {
+        RepositoryConnection conn = null;
+        try {
+            conn = repository.getConnection();
+            return conn.getNamespaces().asList();
+        } catch (RepositoryException e) {
+            throw new RuntimeException(e);
+        } finally {
+            close(conn);
+        }
+    }
 
     private void close(RepositoryConnection conn) {
         if (conn != null) {

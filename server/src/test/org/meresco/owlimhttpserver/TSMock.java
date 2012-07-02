@@ -33,6 +33,8 @@ import org.openrdf.model.Resource;
 import org.openrdf.model.Statement;
 import org.openrdf.model.URI;
 import org.openrdf.model.Value;
+import org.openrdf.model.Namespace;
+import org.openrdf.model.impl.NamespaceImpl;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
 
@@ -72,6 +74,13 @@ public class TSMock implements TripleStore {
     
     public void startup() {
         actions.add("startup");
+    }
+
+    public List<Namespace> getNamespaces() {
+        List<Namespace> namespaces = new ArrayList<Namespace>();
+        namespaces.add(new NamespaceImpl("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#"));
+        namespaces.add(new NamespaceImpl("rdfs", "http://www.w3.org/2000/01/rdf-schema#"));
+        return namespaces;
     }
 }
 

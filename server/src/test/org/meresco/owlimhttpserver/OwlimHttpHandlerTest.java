@@ -134,7 +134,7 @@ public class OwlimHttpHandlerTest {
         public void close() {};
         public HttpContext getHttpContext() { return null; }
         public String getRequestMethod() { return ""; }
-        public Headers getResponseHeaders() { return null; }
+        public Headers getResponseHeaders() { return new Headers(); }
         public Headers getRequestHeaders() { return null; }
     }
 
@@ -308,5 +308,16 @@ public class OwlimHttpHandlerTest {
         assertEquals(0, h.actions.size());
         assertEquals(500, exchange.responseCode);
         assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception"));
+    }
+
+    @Test public void testDefaultSparqlForm() throws Exception {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+
+        QueryParameters queryParameters = Utils.parseQS("");
+        String sparqlForm = h.sparqlForm(queryParameters);
+        assertTrue(sparqlForm.contains("PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>"));
+        assertTrue(sparqlForm.contains("PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"));
     }
 }
