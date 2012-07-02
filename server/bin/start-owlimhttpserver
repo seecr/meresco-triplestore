@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env python
 ## begin license ##
 # 
 # The Meresco Owlim package consists out of a HTTP server written in Java that
 # provides access to an Owlim Triple store, as well as python bindings to
 # communicate as a client with the server. 
 # 
-# Copyright (C) 2011 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
 # 
 # This file is part of "Meresco Owlim"
@@ -26,17 +26,31 @@
 # 
 ## end license ##
 
-OWLIMJARS=$(find /usr/share/java/owlim-lite-java -type f -name "*.jar")
-MY_JARS=$(find /usr/share/java/meresco-owlim -type f -name "*.jar")
+from os import execv
+from sys import argv
+from glob import glob
+OWLIMJARS = glob("usr/share/java/owlim-lite-java/*.jar")
+MY_JARS = glob("usr/share/java/meresco-owlim/*.jar")
 
-mydir=$(cd $(dirname $0);pwd)                   # DO_NOT_DISTRIBUTE
-(                                               # DO_NOT_DISTRIBUTE
-    cd $mydir/..                                # DO_NOT_DISTRIBUTE
-    ./build.sh                                  # DO_NOT_DISTRIBUTE
-)                                               # DO_NOT_DISTRIBUTE
-MY_JARS=$(find $mydir/.. -type f -name "*.jar") # DO_NOT_DISTRIBUTE
+from os import system                                        #DO_NOT_DISTRIBUTE
+from os.path import dirname, abspath, isdir, join            #DO_NOT_DISTRIBUTE
+status = system("cd %s/..; ./build.sh"  % abspath(dirname(__file__)))  #DO_NOT_DISTRIBUTE
+if status > 0:                                               #DO_NOT_DISTRIBUTE
+    import sys                                               #DO_NOT_DISTRIBUTE
+    sys.exit(status)                                         #DO_NOT_DISTRIBUTE
+MY_JARS = glob("../jars/*.jar") + glob("../*.jar")           #DO_NOT_DISTRIBUTE
 
-CP="$(echo ${MY_JARS} | tr ' ' ':'):$(echo ${OWLIMJARS} | tr ' ' ':')"
+CP = ':'.join(MY_JARS + OWLIMJARS)
 
-exec java -Dfile.encoding="UTF-8" -Xmx1536m -DentityExpansionLimit=1024000 -cp ${CP} org.meresco.owlimhttpserver.OwlimServer $@
+maxMemArgs = [arg for arg in argv[1:] if arg.startswith('-Xmx')]
+maxMem = maxMemArgs[-1] if maxMemArgs else '-Xmx1536m'
+argv = [arg for arg in argv if arg != maxMem]
+
+execv("/usr/bin/java", [
+    argv[0], 
+    maxMem,
+    '-Dfile.encoding=UTF-8', 
+    '-DentityExpansionLimit=1024000', 
+    '-cp', CP, 
+    'org.meresco.owlimhttpserver.OwlimServer'] + argv[1:])
 
