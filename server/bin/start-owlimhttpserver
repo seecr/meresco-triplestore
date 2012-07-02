@@ -29,8 +29,8 @@
 from os import execv
 from sys import argv
 from glob import glob
-OWLIMJARS = glob("usr/share/java/owlim-lite-java/*.jar")
-MY_JARS = glob("usr/share/java/meresco-owlim/*.jar")
+OWLIMJARS = glob("/usr/share/java/owlim-lite-java/*.jar")
+MY_JARS = glob("/usr/share/java/meresco-owlim/*.jar")
 
 from os import system                                        #DO_NOT_DISTRIBUTE
 from os.path import dirname, abspath, isdir, join            #DO_NOT_DISTRIBUTE
