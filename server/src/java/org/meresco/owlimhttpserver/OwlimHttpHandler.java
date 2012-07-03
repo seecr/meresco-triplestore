@@ -40,6 +40,8 @@ import java.io.Writer;
 
 import java.net.URI;
 
+import org.apache.commons.lang3.StringEscapeUtils;
+
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.rio.RDFParseException;
 import org.openrdf.model.Namespace;
@@ -166,12 +168,14 @@ public class OwlimHttpHandler implements HttpHandler {
             for (Namespace namespace : tripleStore.getNamespaces()) {
                 query += "PREFIX " + namespace.getPrefix() + ": <" + namespace.getName() + ">\n";
             }
+            query += "\nSELECT ?subject ?predicate ?object\n";
+            query += "WHERE { ?subject ?predicate ?object }\n";
+            query += "LIMIT 50";
         }
         return "<html><head><title>Meresco Owlim Sparql Form</title></head>\n"  
             + "<body><form action=\"/query\">\n"
-            + "<textarea cols=\"50\" rows=\"10\" name=\"query\">" + query + "</textarea><br/>\n"
+            + "<textarea cols=\"100\" rows=\"20\" name=\"query\">" + StringEscapeUtils.escapeXml(query) + "</textarea><br/>\n"
             + "<input type=\"submit\">\n"
             + "</form>\n</body></html>";
-
     }
 }

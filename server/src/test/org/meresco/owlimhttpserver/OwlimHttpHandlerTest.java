@@ -99,6 +99,11 @@ public class OwlimHttpHandlerTest {
             actions.add(params);
             actions.add(httpBody);
         }
+        public String sparqlForm(QueryParameters params) {
+            actions.add("sparqlForm");
+            actions.add(params);
+            return "SPARQLFORM";
+        }
     }
 
     public class HttpExchangeMock extends HttpExchange {
@@ -278,6 +283,29 @@ public class OwlimHttpHandlerTest {
         }
     }
 
+    @Test public void testSparqlDispatch() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/sparql", "");
+        h.handle(exchange);
+        assertEquals(2, h.actions.size());
+        assertEquals("sparqlForm", h.actions.get(0));
+        QueryParameters qp = (QueryParameters) h.actions.get(1);
+        assertEquals(0, qp.size());
+    }
+
+    @Test public void testSparqlWithQueryParametersDispatch() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/sparql?query=x", "");
+        h.handle(exchange);
+        assertEquals(2, h.actions.size());
+        assertEquals("sparqlForm", h.actions.get(0));
+        QueryParameters qp = (QueryParameters) h.actions.get(1);
+        assertEquals(1, qp.size());
+        assertEquals("x", qp.singleValue("query"));
+    }
+
     @Test public void testValidateDispatch() throws Exception {
         OwlimHttpHandler h = new OwlimHttpHandler(null, null);
         HttpExchangeMock exchange = new HttpExchangeMock("/validate?identifier=IDENTIFIER", "<rdf:Description xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf\" about=\"notanuri\"/>");
@@ -317,7 +345,23 @@ public class OwlimHttpHandlerTest {
 
         QueryParameters queryParameters = Utils.parseQS("");
         String sparqlForm = h.sparqlForm(queryParameters);
-        assertTrue(sparqlForm.contains("PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>"));
-        assertTrue(sparqlForm.contains("PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>"));
+        String expectedQuery = "PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;\n" + 
+            "PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;\n" +
+            "\n" +
+            "SELECT ?subject ?predicate ?object\n" +
+            "WHERE { ?subject ?predicate ?object }\n" +
+            "LIMIT 50";
+        assertTrue(sparqlForm, sparqlForm.contains(expectedQuery));
+    }
+
+    @Test public void testSparqlFormWithQueryArgument() throws Exception {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+
+        QueryParameters queryParameters = Utils.parseQS("query=SELECT+%3Fx+WHERE+%7B%7D%0A");
+        String sparqlForm = h.sparqlForm(queryParameters);
+        String expectedQuery = "SELECT ?x WHERE {}\n";
+        assertTrue(sparqlForm, sparqlForm.contains(expectedQuery));
     }
 }
