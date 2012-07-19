@@ -146,7 +146,7 @@ class IntegrationState(object):
         self.startOwlimServer()
 
     def startOwlimServer(self):
-        self._startServer('owlim', 'start-owlimhttpserver', 'http://localhost:%s/query' % self.owlimPort, port=self.owlimPort, directory=self.owlimDataDir)
+        self._startServer('owlim', 'start-owlim', 'http://localhost:%s/query' % self.owlimPort, port=self.owlimPort, stateDir=self.owlimDataDir)
 
     def tearDown(self):
         for serviceName in self.pids.keys():

@@ -59,7 +59,7 @@ public class OwlimServer {
         options.addOption(option);
 
         // Triplestore location
-        option = new Option("d", "directory", true, "Directory in which triplestore is located");
+        option = new Option("d", "stateDir", true, "Directory in which triplestore is located");
         option.setType(String.class);
         option.setRequired(true);
         options.addOption(option);
