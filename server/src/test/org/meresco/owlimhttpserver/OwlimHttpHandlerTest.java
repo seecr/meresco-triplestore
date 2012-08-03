@@ -268,16 +268,38 @@ public class OwlimHttpHandlerTest {
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
         String queryString = "identifier=identifier";
-        String httpBody = "<notrdf/>";
+        String notRDF = "<notrdf/>";
         try {
-            h.validateRDF(parseQS(queryString), httpBody);
+            h.validateRDF(parseQS(queryString), notRDF);
             fail("should not get here.");
         } catch (RDFParseException e) {
             // SUCCESS
         }
-        httpBody = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"/>";
+
+        String emptyRdfTag = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"/>";
         try {
-            h.validateRDF(parseQS(queryString), httpBody);
+            h.validateRDF(parseQS(queryString), emptyRdfTag);  // valid !
+        } catch (RDFParseException e) {
+            fail("should not get here.");
+        }
+
+        String emptyRdfDescription = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n" 
+                + "<rdf:Description rdf:about=\"urn:123\">\n" 
+                + "</rdf:Description>\n"
+                + "</rdf:RDF>";
+        try {
+            h.validateRDF(parseQS(queryString), emptyRdfDescription);  // valid !
+        } catch (RDFParseException e) {
+            fail("should not get here.");
+        }
+
+        String oneTriple = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n" 
+                + "<rdf:Description rdf:about=\"urn:123\">\n" 
+                + "   <somevoc:relation xmlns:somevoc=\"uri:someuri\">Xyz</somevoc:relation>\n"
+                + "</rdf:Description>\n"
+                + "</rdf:RDF>";
+        try {
+            h.validateRDF(parseQS(queryString), oneTriple);  // valid !
         } catch (RDFParseException e) {
             fail("should not get here.");
         }
