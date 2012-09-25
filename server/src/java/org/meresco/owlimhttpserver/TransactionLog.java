@@ -278,7 +278,12 @@ public class TransactionLog {
     	long sizeInMb = totalSize / 1024 / 1024;
     	long newSizeInMb = (totalSize + newItemSize) / 1024 / 1024;
     	if (sizeInMb != newSizeInMb) {
-    		System.out.print('.');
+            // print '.', newline for (multi)logging, ANSI cursor movements 1-up and n-right
+            int nrOfDots = (int) (newSizeInMb % 50);
+            if ( nrOfDots == 0 ) {
+                nrOfDots = 50;
+            }
+    		System.out.print(".\n\033[1A\033[" + nrOfDots + "C");
     		if (newSizeInMb % 50 == 0) {
     			System.out.println(" " + newSizeInMb + "Mb");
     		}
