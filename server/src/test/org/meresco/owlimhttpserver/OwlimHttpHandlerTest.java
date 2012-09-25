@@ -86,12 +86,18 @@ public class OwlimHttpHandlerTest {
             actions.add("deleteRDF");
             actions.add(params);
         }
+
         public String executeQuery(QueryParameters params) {
+            return this.executeQuery(params, Consts.JSON);
+        }
+
+        public String executeQuery(QueryParameters params, String contentType) {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
             }
             actions.add("executeQuery");
             actions.add(params);
+            actions.add(contentType);
             return "QUERYRESULT";
         }
         public void validateRDF(QueryParameters params, String httpBody) {
@@ -110,14 +116,19 @@ public class OwlimHttpHandlerTest {
         private java.net.URI _requestURI;
         private String _requestBody;
         private ByteArrayOutputStream _responseStream;
+        private Headers _requestHeaders;
         public int responseCode;
         public String responseBody;
 
-        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
+        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) throws Exception {
             super();
             _requestURI = new java.net.URI(requestURI);
             _requestBody = requestBody;
             _responseStream = new ByteArrayOutputStream();
+            _requestHeaders = requestHeaders;
+        }
+        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
+            this(requestURI, requestBody, new Headers());
         }
 
         public String getOutput() { return _responseStream.toString(); }
@@ -140,7 +151,7 @@ public class OwlimHttpHandlerTest {
         public HttpContext getHttpContext() { return null; }
         public String getRequestMethod() { return ""; }
         public Headers getResponseHeaders() { return new Headers(); }
-        public Headers getRequestHeaders() { return null; }
+        public Headers getRequestHeaders() { return this._requestHeaders; }
     }
 
 
@@ -241,8 +252,9 @@ public class OwlimHttpHandlerTest {
 
         HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
         h.handle(exchange);
-        assertEquals(2, h.actions.size());
+        assertEquals(3, h.actions.size());
         assertEquals("executeQuery", h.actions.get(0));
+        assertEquals(Consts.JSON, h.actions.get(2));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
         assertEquals(200, exchange.responseCode);
@@ -254,8 +266,9 @@ public class OwlimHttpHandlerTest {
 
         HttpExchangeMock exchange = new HttpExchangeMock("/query?format=SPARQL&query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
         h.handle(exchange);
-        assertEquals(2, h.actions.size());
+        assertEquals(3, h.actions.size());
         assertEquals("executeQuery", h.actions.get(0));
+        assertEquals(Consts.JSON, h.actions.get(2));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
         assertEquals("SPARQL", qp.singleValue("format"));
@@ -385,5 +398,17 @@ public class OwlimHttpHandlerTest {
         String sparqlForm = h.sparqlForm(queryParameters);
         String expectedQuery = "SELECT ?x WHERE {}\n";
         assertTrue(sparqlForm, sparqlForm.contains(expectedQuery));
+    }
+
+    @Test public void testContentType() throws Exception {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+        
+        Headers inputHeaders = new Headers();
+        inputHeaders.add("Accept", "image/jpg");
+        HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+        h.handle(exchange);
+        assertEquals(406, exchange.responseCode);
     }
 }

@@ -32,6 +32,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.Headers;
 
 import java.util.Arrays;
+import java.util.List;
+
 import java.io.IOException;
 import java.io.BufferedWriter;
 import java.io.OutputStream;
@@ -47,16 +49,17 @@ import org.openrdf.rio.RDFParseException;
 import org.openrdf.model.Namespace;
 import org.openrdf.repository.RepositoryException;
 
-
 public class OwlimHttpHandler implements HttpHandler {
     TransactionLog transactionLog;
     TripleStore tripleStore;
     RdfValidator validator;
+    List<String> allowed_contenttypes;
 
     public OwlimHttpHandler(TransactionLog transactionLog, TripleStore tripleStore) {
         this.transactionLog = transactionLog;
         this.tripleStore = tripleStore;
         this.validator = new RdfValidator();
+        this.allowed_contenttypes = Arrays.asList(Consts.JSON);
     }
 
     public void handle(HttpExchange exchange) throws IOException {
@@ -78,7 +81,13 @@ public class OwlimHttpHandler implements HttpHandler {
                     deleteRDF(queryParameters);
                 } else if (path.equals("/query")) {
                     String response = "";
-                    response = executeQuery(queryParameters);
+                    Headers requestHeaders = exchange.getRequestHeaders();
+                    String contentType = requestHeaders.containsKey("Accept") ? requestHeaders.getFirst("Accept") : Consts.JSON;
+                    if (!this.allowed_contenttypes.contains(contentType)) {
+                        exchange.sendResponseHeaders(406, 0);
+                        return;
+                    }
+                    response = executeQuery(queryParameters, contentType);
                     exchange.sendResponseHeaders(200, 0);
                     _writeResponse(response, outputStream);
                     return;
@@ -146,12 +155,17 @@ public class OwlimHttpHandler implements HttpHandler {
     }
 
     public String executeQuery(QueryParameters params) {
+        return this.executeQuery(params, Consts.JSON);
+    }
+
+    public String executeQuery(QueryParameters params, String contentType) {
         String query = params.singleValue("query");
         String format = params.singleValue("format");
         TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
         if (format != null && Arrays.asList("sparql", "xml", "application/sparql-results+xml").contains(format.toLowerCase())) {
             resultFormat = TupleQueryResultFormat.SPARQL;
         }
+        System.out.println(tripleStore);
         return tripleStore.executeQuery(query, resultFormat);
     }
 
