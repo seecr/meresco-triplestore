@@ -27,7 +27,7 @@
 from integration import IntegrationTestCase
 from utils import postRequest
 
-from shutil import rmtree
+from shutil import rmtree, copyfile
 from os.path import join
 from os import remove, kill, waitpid, WNOHANG, system
 from simplejson import loads
@@ -74,6 +74,25 @@ class OwlimTest(IntegrationTestCase):
 
         json = self.query('SELECT ?x WHERE {?x ?y "uri:testKillTripleStoreRecoversFromTransactionLog"}')
         self.assertEquals(1, len(json['results']['bindings']))
+
+    def xxx_testKillAndRestoreLargeTransactionLogTiming(self):
+        postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description>
+            <rdf:type>uri:testKillTripleStoreRecoversFromTransactionLog</rdf:type>
+        </rdf:Description>
+    </rdf:RDF>""", parse=False)
+        json = self.query('SELECT ?x WHERE {?x ?y "uri:testKillTripleStoreRecoversFromTransactionLog"}')
+        self.assertEquals(1, len(json['results']['bindings']))
+
+        kill(self.pids['owlim'], SIGKILL)
+        waitpid(self.pids['owlim'], WNOHANG)
+
+        target = join(self.integrationTempdir, 'owlim-data', 'transactionLog', 'current')
+        remove(target)
+        copyfile('/path/to/some_owlim_translog_1348054481457000', target)
+        print time()
+        self.startOwlimServer()
+        print time()
 
     def testDeleteRecord(self): 
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
