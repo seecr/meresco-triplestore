@@ -54,7 +54,7 @@ public class TransactionItem {
                 factory.newXPath().evaluate("/transaction_item/identifier/text()", doc),
                 factory.newXPath().evaluate("/transaction_item/filedata/text()", doc));
         } catch (Exception e) {
-            throw new Exception(e);    
+            throw e;
         }
     }
 
