@@ -108,8 +108,12 @@ public class OwlimServer {
                     tripleStore.shutdown();
                     transactionLog.clear();
                     System.out.println("Shutdown completed.");
+                    System.out.flush();
                 } catch (Exception e) {
+                    e.printStackTrace();
+                    System.err.flush();
                     System.out.println("Shutdown failed.");
+                    System.out.flush();
                 } 
             }
         });        

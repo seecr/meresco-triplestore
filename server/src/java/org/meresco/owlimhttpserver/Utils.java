@@ -102,14 +102,6 @@ class Utils {
         return path.delete();
     }
 
-    public static void pause() {
-        try {
-            System.in.read();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     public static String read(File f) throws IOException { 
         BufferedLineReader br = new BufferedLineReader(new FileReader(f));
         String data = "";
