@@ -92,6 +92,7 @@ public class OwlimServer {
         registerShutdownHandler(tripleStore, transactionLog);
 
         System.out.println("Triplestore started with " + String.valueOf(tripleStore.size()) + " statements");
+        System.out.flush();
 
         httpServer.setHandler(handler);
         httpServer.start();
