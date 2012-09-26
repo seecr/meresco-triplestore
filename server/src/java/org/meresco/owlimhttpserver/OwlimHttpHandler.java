@@ -32,6 +32,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.Headers;
 
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 import java.io.IOException;
@@ -84,7 +85,15 @@ public class OwlimHttpHandler implements HttpHandler {
                     Headers requestHeaders = exchange.getRequestHeaders();
                     String contentType = requestHeaders.containsKey("Accept") ? requestHeaders.getFirst("Accept") : Consts.JSON;
                     if (!this.allowed_contenttypes.contains(contentType)) {
+                        String responseBody = "Supported formats:\n";
+                        Iterator<String> i = this.allowed_contenttypes.iterator();
+                        while (i.hasNext()) {
+                            responseBody += "- " + i.next() + "\n";
+                        }
+                        Headers responseHeaders = exchange.getResponseHeaders();
+                        responseHeaders.add("Content-Type", "text/plain");
                         exchange.sendResponseHeaders(406, 0);
+                        _writeResponse(responseBody, outputStream);
                         return;
                     }
                     response = executeQuery(queryParameters, contentType);

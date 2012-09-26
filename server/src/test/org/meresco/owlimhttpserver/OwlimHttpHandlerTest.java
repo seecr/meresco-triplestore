@@ -117,6 +117,7 @@ public class OwlimHttpHandlerTest {
         private String _requestBody;
         private ByteArrayOutputStream _responseStream;
         private Headers _requestHeaders;
+        private Headers _responseHeaders;
         public int responseCode;
         public String responseBody;
 
@@ -126,6 +127,7 @@ public class OwlimHttpHandlerTest {
             _requestBody = requestBody;
             _responseStream = new ByteArrayOutputStream();
             _requestHeaders = requestHeaders;
+            _responseHeaders = new Headers();
         }
         public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
             this(requestURI, requestBody, new Headers());
@@ -150,7 +152,7 @@ public class OwlimHttpHandlerTest {
         public void close() {};
         public HttpContext getHttpContext() { return null; }
         public String getRequestMethod() { return ""; }
-        public Headers getResponseHeaders() { return new Headers(); }
+        public Headers getResponseHeaders() { return this._responseHeaders; }
         public Headers getRequestHeaders() { return this._requestHeaders; }
     }
 
@@ -410,5 +412,7 @@ public class OwlimHttpHandlerTest {
         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
         h.handle(exchange);
         assertEquals(406, exchange.responseCode);
+        assertEquals("Supported formats:\n- application/json\n", exchange.getResponseBody().toString());
+        assertEquals("text/plain", exchange.getResponseHeaders().getFirst("Content-Type"));
     }
 }
