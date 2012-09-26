@@ -35,6 +35,8 @@ import com.sun.net.httpserver.HttpPrincipal;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.Headers;
 
+import org.openrdf.query.resultio.TupleQueryResultFormat;
+
 import java.net.InetSocketAddress;
 
 import java.io.InputStream;
@@ -86,18 +88,14 @@ public class OwlimHttpHandlerTest {
             actions.add("deleteRDF");
             actions.add(params);
         }
-
-        public String executeQuery(QueryParameters params) {
-            return this.executeQuery(params, Consts.JSON);
-        }
-
-        public String executeQuery(QueryParameters params, String contentType) {
+        
+        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
             }
             actions.add("executeQuery");
             actions.add(params);
-            actions.add(contentType);
+            actions.add(resultFormat);
             return "QUERYRESULT";
         }
         public void validateRDF(QueryParameters params, String httpBody) {
@@ -256,7 +254,7 @@ public class OwlimHttpHandlerTest {
         h.handle(exchange);
         assertEquals(3, h.actions.size());
         assertEquals("executeQuery", h.actions.get(0));
-        assertEquals(Consts.JSON, h.actions.get(2));
+        assertEquals(TupleQueryResultFormat.JSON, h.actions.get(2));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
         assertEquals(200, exchange.responseCode);
@@ -270,7 +268,7 @@ public class OwlimHttpHandlerTest {
         h.handle(exchange);
         assertEquals(3, h.actions.size());
         assertEquals("executeQuery", h.actions.get(0));
-        assertEquals(Consts.JSON, h.actions.get(2));
+        assertEquals(TupleQueryResultFormat.JSON, h.actions.get(2));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
         assertEquals("SPARQL", qp.singleValue("format"));
@@ -402,7 +400,7 @@ public class OwlimHttpHandlerTest {
         assertTrue(sparqlForm, sparqlForm.contains(expectedQuery));
     }
 
-    @Test public void testContentType() throws Exception {
+    @Test public void testContentTypeAccepted() throws Exception {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
@@ -412,7 +410,20 @@ public class OwlimHttpHandlerTest {
         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
         h.handle(exchange);
         assertEquals(406, exchange.responseCode);
-        assertEquals("Supported formats:\n- application/json\n", exchange.getResponseBody().toString());
+        assertEquals("Supported formats:\n- SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)\n- BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)\n- SPARQL/JSON (mimeTypes=application/sparql-results+json; ext=srj)\n", exchange.getResponseBody().toString());
         assertEquals("text/plain", exchange.getResponseHeaders().getFirst("Content-Type"));
     }
+
+    @Test public void testContentType() throws Exception {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+        
+        Headers inputHeaders = new Headers();
+        inputHeaders.add("Accept", "application/xml");
+        HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+        h.handle(exchange);
+        assertEquals(200, exchange.responseCode);
+    }
+
 }

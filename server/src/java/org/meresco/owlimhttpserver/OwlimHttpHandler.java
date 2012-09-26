@@ -60,7 +60,6 @@ public class OwlimHttpHandler implements HttpHandler {
         this.transactionLog = transactionLog;
         this.tripleStore = tripleStore;
         this.validator = new RdfValidator();
-        this.allowed_contenttypes = Arrays.asList(Consts.JSON);
     }
 
     public void handle(HttpExchange exchange) throws IOException {
@@ -83,20 +82,23 @@ public class OwlimHttpHandler implements HttpHandler {
                 } else if (path.equals("/query")) {
                     String response = "";
                     Headers requestHeaders = exchange.getRequestHeaders();
-                    String contentType = requestHeaders.containsKey("Accept") ? requestHeaders.getFirst("Accept") : Consts.JSON;
-                    if (!this.allowed_contenttypes.contains(contentType)) {
-                        String responseBody = "Supported formats:\n";
-                        Iterator<String> i = this.allowed_contenttypes.iterator();
-                        while (i.hasNext()) {
-                            responseBody += "- " + i.next() + "\n";
+                    TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
+                    if (requestHeaders.containsKey("Accept")) {
+                        resultFormat = TupleQueryResultFormat.forMIMEType(requestHeaders.getFirst("Accept"));
+                        if (resultFormat == null) {
+                            String responseBody = "Supported formats:\n";
+                            Iterator<TupleQueryResultFormat> i = TupleQueryResultFormat.values().iterator();
+                            while (i.hasNext()) {
+                                responseBody += "- " + i.next() + "\n";
+                            }
+                            Headers responseHeaders = exchange.getResponseHeaders();
+                            responseHeaders.add("Content-Type", "text/plain");
+                            exchange.sendResponseHeaders(406, 0);
+                            _writeResponse(responseBody, outputStream);
+                            return;
                         }
-                        Headers responseHeaders = exchange.getResponseHeaders();
-                        responseHeaders.add("Content-Type", "text/plain");
-                        exchange.sendResponseHeaders(406, 0);
-                        _writeResponse(responseBody, outputStream);
-                        return;
                     }
-                    response = executeQuery(queryParameters, contentType);
+                    response = executeQuery(queryParameters, resultFormat);
                     exchange.sendResponseHeaders(200, 0);
                     _writeResponse(response, outputStream);
                     return;
@@ -123,6 +125,7 @@ public class OwlimHttpHandler implements HttpHandler {
                 e.printStackTrace();
                 exchange.sendResponseHeaders(500, 0);
                 String response = Utils.getStackTrace(e);
+                //System.out.println(response);
                 _writeResponse(response, outputStream);
                 return;
             } catch (Error e) {
@@ -164,17 +167,11 @@ public class OwlimHttpHandler implements HttpHandler {
     }
 
     public String executeQuery(QueryParameters params) {
-        return this.executeQuery(params, Consts.JSON);
+        return this.executeQuery(params, TupleQueryResultFormat.JSON);
     }
 
-    public String executeQuery(QueryParameters params, String contentType) {
+    public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
         String query = params.singleValue("query");
-        String format = params.singleValue("format");
-        TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
-        if (format != null && Arrays.asList("sparql", "xml", "application/sparql-results+xml").contains(format.toLowerCase())) {
-            resultFormat = TupleQueryResultFormat.SPARQL;
-        }
-        System.out.println(tripleStore);
         return tripleStore.executeQuery(query, resultFormat);
     }
 
