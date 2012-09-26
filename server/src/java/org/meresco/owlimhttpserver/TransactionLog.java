@@ -35,6 +35,7 @@ import java.io.FileReader;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 
 public class TransactionLog {
     TripleStore tripleStore;
@@ -227,11 +228,14 @@ public class TransactionLog {
         System.out.println("Recovering " + recoverSize / 1024 / 1024 + "Mb from transactionLog");
 
         int totalCount = 0, totalSize = 0;
-        StringBuilder tsItem = new StringBuilder();
+        long timeSpent = 0;
+        long lastTime = 0;
         for (File f : tsFiles) {
+            lastTime = new Date().getTime();
             int count = 0;
             BufferedLineReader blr = new BufferedLineReader(new FileReader(f));
             String line;
+            StringBuilder tsItem = new StringBuilder();
             while ((line = blr.readLine()) != null) {
             	tsItem.append(line);
             	if (!line.contains("</transaction_item>")) {
@@ -245,10 +249,12 @@ public class TransactionLog {
                     } else if (item.getAction().equals("delete")) {
                         this.tripleStore.delete(item.getIdentifier());
                     }
+                    timeSpent += new Date().getTime() - lastTime;
+                    lastTime = new Date().getTime();
                     int itemLength = tsItem.length();
-                    printProgress(itemLength, totalSize);
+                    printProgress(itemLength, totalSize, timeSpent);
                     totalSize += itemLength;
-                    tsItem.setLength(0);
+                    tsItem = new StringBuilder();
                 } catch (Exception e) {
                     System.err.println(e);
                     throw new TransactionLogException("Corrupted transaction_item in " + f.getAbsolutePath() + ". This should never occur.");
@@ -274,7 +280,7 @@ public class TransactionLog {
         return;
     }
     
-    private void printProgress(long newItemSize, long totalSize) {
+    private void printProgress(long newItemSize, long totalSize, long timeSpent) {
     	long sizeInMb = totalSize / 1024 / 1024;
     	long newSizeInMb = (totalSize + newItemSize) / 1024 / 1024;
     	if (sizeInMb != newSizeInMb) {
@@ -285,7 +291,7 @@ public class TransactionLog {
             }
     		System.out.print(".\n\033[1A\033[" + nrOfDots + "C");
     		if (newSizeInMb % 50 == 0) {
-    			System.out.println(" " + newSizeInMb + "Mb");
+    			System.out.println(" " + newSizeInMb + "Mb (" + timeSpent / newSizeInMb + "ms per Mb)");
     		}
     	}
     	System.out.flush();

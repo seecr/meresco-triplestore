@@ -28,8 +28,8 @@ from integration import IntegrationTestCase
 from utils import postRequest
 
 from shutil import rmtree, copyfile
-from os.path import join
-from os import remove, kill, waitpid, WNOHANG, system
+from os.path import join, exists, abspath
+from os import remove, kill, waitpid, WNOHANG, system, symlink
 from simplejson import loads
 from urllib import urlopen, urlencode
 from signal import SIGKILL
@@ -75,7 +75,7 @@ class OwlimTest(IntegrationTestCase):
         json = self.query('SELECT ?x WHERE {?x ?y "uri:testKillTripleStoreRecoversFromTransactionLog"}')
         self.assertEquals(1, len(json['results']['bindings']))
 
-    def xxx_testKillAndRestoreLargeTransactionLogTiming(self):
+    def xxxtestKillAndRestoreLargeTransactionLogTiming(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
         <rdf:Description>
             <rdf:type>uri:testKillTripleStoreRecoversFromTransactionLog</rdf:type>
@@ -87,9 +87,13 @@ class OwlimTest(IntegrationTestCase):
         kill(self.pids['owlim'], SIGKILL)
         waitpid(self.pids['owlim'], WNOHANG)
 
-        target = join(self.integrationTempdir, 'owlim-data', 'transactionLog', 'current')
-        remove(target)
-        copyfile('/path/to/some_owlim_translog_1348054481457000', target)
+        bigTestTransactionLogPath = 'integration/owlim_translog_1348054481457000' # or whatever path to big transaction log
+
+        rmtree(join(self.integrationTempdir, 'owlim-data/transactionLog'))
+        isdir("integration/transactionLog") or makedirs("integration/transactionLog")
+        symlink(abspath("integration/transactionLog"), join(self.integrationTempdir, 'owlim-data/transactionLog'))
+        target = join(self.integrationTempdir, 'owlim-data/transactionLog/current')
+        copyfile(bigTestTransactionLogPath, target)
         print time()
         self.startOwlimServer()
         print time()
