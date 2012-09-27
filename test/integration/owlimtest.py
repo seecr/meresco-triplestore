@@ -159,7 +159,9 @@ class OwlimTest(IntegrationTestCase):
             <rdf:type>uri:testFailingCommitKillsTripleStore</rdf:type>
         </rdf:Description>
     </rdf:RDF>""", parse=False)
-        json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}' % self.owlimPort).read())
+
+        headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}'}, parse=False)
+        json = loads(body)
         self.assertEquals(1, len(json['results']['bindings']))
 
         system("chmod 0555 %s" % self.owlimDataDir)
@@ -173,9 +175,14 @@ class OwlimTest(IntegrationTestCase):
         finally:
             system("chmod 0755 %s" % self.owlimDataDir)
         self.startOwlimServer()
-        json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}' % self.owlimPort).read())
+
+        headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}'}, parse=False)
+        json = loads(body)
         self.assertEquals(1, len(json['results']['bindings']))
-        json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore2"}' % self.owlimPort).read())
+
+
+        headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore2"}'}, parse=False)
+        json = loads(body)
         self.assertEquals(1, len(json['results']['bindings']))
 
     def testAcceptHeaders(self):
