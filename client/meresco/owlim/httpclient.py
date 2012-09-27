@@ -60,8 +60,10 @@ class HttpClient(object):
             raise InvalidRdfXmlException(body)
 
     def executeQuery(self, query, queryResultFormat=None):
-        jsonString = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
-        raise StopIteration(_parseJson2Dict(jsonString))
+        queryResult = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
+        if queryResultFormat is None:
+            queryResult = _parseJson2Dict(queryResult)
+        raise StopIteration(queryResult)
 
     def getStatements(self, subj=None, pred=None, obj=None):
         query = self._createSparQL(subj, pred, obj)

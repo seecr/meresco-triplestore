@@ -109,10 +109,26 @@ class HttpClientTest(SeecrTestCase):
         #print suspend._doNext.__self__.gi_frame.f_code.co_name
         httpgetHeaders = suspend._doNext.__self__.gi_frame.f_locals['headers']
         self.assertEquals({'Accept': 'application/sparql-results+xml'}, httpgetHeaders)
-        self.fail("todo")
 
         #result = self._resultFromServerResponse(gen, RESULT_JSON)
         
+    def testDontParseIfNotJSON(self):
+        SPARQL_XML = """<sparql xmlns='http://www.w3.org/2005/sparql-results#'>
+    <head>
+        <variable name='x'/>
+    </head>
+    <results>
+        <result>
+            <binding name='x'>
+                <bnode>node1</bnode>
+            </binding>
+        </result>
+    </results>
+</sparql>"""
+        client = HttpClient(host="localhost", port=9999)
+        gen = compose(client.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
+        result = self._resultFromServerResponse(gen, SPARQL_XML)
+        self.assertEquals(SPARQL_XML, result)
 
 
     def testGetStatements(self):
