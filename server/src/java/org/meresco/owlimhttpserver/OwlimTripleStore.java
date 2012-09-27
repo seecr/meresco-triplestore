@@ -152,7 +152,7 @@ public class OwlimTripleStore implements TripleStore {
                 result = o.toString("UTF-8");
                 tupleQueryResult.close();
             } catch (QueryEvaluationException e) {
-                e.printStackTrace();
+                throw new RuntimeException(e);
             } catch (MalformedQueryException e) {
                 throw new RuntimeException(e);
             } catch (IOException e) {

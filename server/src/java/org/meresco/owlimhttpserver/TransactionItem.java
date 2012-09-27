@@ -30,12 +30,28 @@ import java.io.StringReader;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPathFactory;
+import javax.xml.xpath.XPathExpression;
 import org.w3c.dom.Document;
 import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.commons.lang3.StringEscapeUtils;
 
 public class TransactionItem {
-    String action, identifier, filedata;
+    private String action, identifier, filedata;
+
+    private static XPathExpression actionXPath;
+    private static XPathExpression identifierXPath;
+    private static XPathExpression filedataXPath;
+
+    static {
+        XPathFactory xpathFactory = XPathFactory.newInstance();
+        try {
+            actionXPath = xpathFactory.newXPath().compile("/transaction_item/action/text()");
+            identifierXPath = xpathFactory.newXPath().compile("/transaction_item/identifier/text()");
+            filedataXPath = xpathFactory.newXPath().compile("/transaction_item/filedata/text()");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public TransactionItem(String action, String identifier, String filedata) {
         this.action = action;
@@ -47,14 +63,12 @@ public class TransactionItem {
         try {
             DocumentBuilderFactory domFactory = DocumentBuilderFactory.newInstance();
             Document doc = domFactory.newDocumentBuilder().parse(new ReaderInputStream(new StringReader(tsItem)));
-            XPathFactory factory = XPathFactory.newInstance();
-
             return new TransactionItem(
-                factory.newXPath().evaluate("/transaction_item/action/text()", doc),
-                factory.newXPath().evaluate("/transaction_item/identifier/text()", doc),
-                factory.newXPath().evaluate("/transaction_item/filedata/text()", doc));
+                actionXPath.evaluate(doc),
+                identifierXPath.evaluate(doc),
+                filedataXPath.evaluate(doc));
         } catch (Exception e) {
-            throw new Exception(e);    
+            throw e;
         }
     }
 
