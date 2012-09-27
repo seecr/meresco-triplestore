@@ -59,8 +59,8 @@ class HttpClient(object):
         if body.strip().lower() != 'ok':
             raise InvalidRdfXmlException(body)
 
-    def executeQuery(self, query):
-        jsonString = yield self._sparqlQuery(query)
+    def executeQuery(self, query, queryResultFormat=None):
+        jsonString = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
         raise StopIteration(_parseJson2Dict(jsonString))
 
     def getStatements(self, subj=None, pred=None, obj=None):
@@ -68,9 +68,12 @@ class HttpClient(object):
         jsonString = yield self._sparqlQuery(query)
         raise StopIteration(_results(jsonString, subj, pred, obj))
 
-    def _sparqlQuery(self, query):
+    def _sparqlQuery(self, query, queryResultFormat=None):
         path = "/query?%s" % urlencode(dict(query=query))
-        response = yield httpget("localhost", self.port, path)
+        headers = None
+        if queryResultFormat is not None:
+            headers = {'Accept': queryResultFormat}
+        response = yield httpget("localhost", self.port, path, headers=headers)
         header, body = response.split("\r\n\r\n", 1)
         self._verify200(header, response)
         raise StopIteration(body)

@@ -100,6 +100,21 @@ class HttpClientTest(SeecrTestCase):
         result = self._resultFromServerResponse(gen, RESULT_JSON)
         self.assertEquals(PARSED_RESULT_JSON, result)
 
+    def testExecuteQueryWithQueryResultFormat(self):
+        client = HttpClient(host="localhost", port=9999)
+        gen = compose(client.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
+        suspend = gen.next()
+        self.assertEquals(Suspend, type(suspend))
+        #print suspend._doNext.__self__, dir(suspend._doNext.__self__)
+        #print suspend._doNext.__self__.gi_frame.f_code.co_name
+        httpgetHeaders = suspend._doNext.__self__.gi_frame.f_locals['headers']
+        self.assertEquals({'Accept': 'application/sparql-results+xml'}, httpgetHeaders)
+        self.fail("todo")
+
+        #result = self._resultFromServerResponse(gen, RESULT_JSON)
+        
+
+
     def testGetStatements(self):
         client = HttpClient(host="localhost", port=9999)
         gen = compose(client.getStatements(subj='uri:subject'))
