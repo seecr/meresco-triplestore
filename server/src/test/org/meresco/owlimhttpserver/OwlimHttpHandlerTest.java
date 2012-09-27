@@ -424,6 +424,8 @@ public class OwlimHttpHandlerTest {
         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
         h.handle(exchange);
         assertEquals(200, exchange.responseCode);
+        assertEquals(1, exchange.getResponseHeaders().get("Content-Type").size());
+        assertEquals("application/sparql-results+xml", exchange.getResponseHeaders().getFirst("Content-Type"));
     }
 
 }

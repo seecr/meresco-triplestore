@@ -99,6 +99,7 @@ public class OwlimHttpHandler implements HttpHandler {
                         }
                     }
                     response = executeQuery(queryParameters, resultFormat);
+                    exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
                     exchange.sendResponseHeaders(200, 0);
                     _writeResponse(response, outputStream);
                     return;

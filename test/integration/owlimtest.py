@@ -151,3 +151,6 @@ class OwlimTest(IntegrationTestCase):
         self.assertEquals(1, len(json['results']['bindings']))
         json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore2"}' % self.owlimPort).read())
         self.assertEquals(1, len(json['results']['bindings']))
+
+    def testAcceptHeaders(self):
+
