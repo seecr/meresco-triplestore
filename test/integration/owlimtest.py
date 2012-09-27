@@ -28,7 +28,7 @@ from integration import IntegrationTestCase
 from utils import postRequest
 
 from shutil import rmtree, copyfile
-from os.path import join, exists, abspath
+from os.path import join, exists, abspath, isdir
 from os import remove, kill, waitpid, WNOHANG, system, symlink
 from simplejson import loads
 from urllib import urlopen, urlencode
@@ -87,7 +87,7 @@ class OwlimTest(IntegrationTestCase):
         kill(self.pids['owlim'], SIGKILL)
         waitpid(self.pids['owlim'], WNOHANG)
 
-        bigTestTransactionLogPath = 'integration/owlim_translog_1348054481457000' # or whatever path to big transaction log
+        bigTestTransactionLogPath = '/home/zp/owlim_translog_1348054481457000' # or whatever path to big transaction log
 
         rmtree(join(self.integrationTempdir, 'owlim-data/transactionLog'))
         isdir("integration/transactionLog") or makedirs("integration/transactionLog")
