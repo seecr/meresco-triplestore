@@ -105,13 +105,9 @@ class HttpClientTest(SeecrTestCase):
         gen = compose(client.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
         suspend = gen.next()
         self.assertEquals(Suspend, type(suspend))
-        #print suspend._doNext.__self__, dir(suspend._doNext.__self__)
-        #print suspend._doNext.__self__.gi_frame.f_code.co_name
         httpgetHeaders = suspend._doNext.__self__.gi_frame.f_locals['headers']
         self.assertEquals({'Accept': 'application/sparql-results+xml'}, httpgetHeaders)
 
-        #result = self._resultFromServerResponse(gen, RESULT_JSON)
-        
     def testDontParseIfNotJSON(self):
         SPARQL_XML = """<sparql xmlns='http://www.w3.org/2005/sparql-results#'>
     <head>
