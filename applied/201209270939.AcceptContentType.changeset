@@ -1,0 +1,771 @@
+Changeset created on Thu Sep 27 09:39:43 UTC 2012 by Seecr (Seek You Too B.V.)
+
+Description: Support for Accept header in query
+
+    Server accepts header with contenttype for queries
+
+Baseline version: 4.1.1
+
+From cb8d0d8d1b798e0d480228979d1e19fd8abd1eb6 Mon Sep 17 00:00:00 2001
+From: Seecr <development@seecr.nl>
+Date: Tue, 25 Sep 2012 17:09:03 +0200
+Subject: [PATCH 1/8] JJ: Started content types
+
+---
+ .../java/org/meresco/owlimhttpserver/Consts.java   |    7 ++++
+ .../meresco/owlimhttpserver/OwlimHttpHandler.java  |   18 +++++++++-
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |   33 +++++++++++++++++--
+ 3 files changed, 52 insertions(+), 6 deletions(-)
+ create mode 100644 server/src/java/org/meresco/owlimhttpserver/Consts.java
+
+diff --git a/server/src/java/org/meresco/owlimhttpserver/Consts.java b/server/src/java/org/meresco/owlimhttpserver/Consts.java
+new file mode 100644
+index 0000000..6911bed
+--- /dev/null
++++ b/server/src/java/org/meresco/owlimhttpserver/Consts.java
+@@ -0,0 +1,7 @@
++
++package org.meresco.owlimhttpserver;
++
++public final class Consts {
++
++    public static final String JSON = "application/json";
++}
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+index c4a0a1b..948cd01 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+@@ -32,6 +32,8 @@ import com.sun.net.httpserver.HttpExchange;
+ import com.sun.net.httpserver.Headers;
+ 
+ import java.util.Arrays;
++import java.util.List;
++
+ import java.io.IOException;
+ import java.io.BufferedWriter;
+ import java.io.OutputStream;
+@@ -47,16 +49,17 @@ import org.openrdf.rio.RDFParseException;
+ import org.openrdf.model.Namespace;
+ import org.openrdf.repository.RepositoryException;
+ 
+-
+ public class OwlimHttpHandler implements HttpHandler {
+     TransactionLog transactionLog;
+     TripleStore tripleStore;
+     RdfValidator validator;
++    List<String> allowed_contenttypes;
+ 
+     public OwlimHttpHandler(TransactionLog transactionLog, TripleStore tripleStore) {
+         this.transactionLog = transactionLog;
+         this.tripleStore = tripleStore;
+         this.validator = new RdfValidator();
++        this.allowed_contenttypes = Arrays.asList(Consts.JSON);
+     }
+ 
+     public void handle(HttpExchange exchange) throws IOException {
+@@ -78,7 +81,13 @@ public class OwlimHttpHandler implements HttpHandler {
+                     deleteRDF(queryParameters);
+                 } else if (path.equals("/query")) {
+                     String response = "";
+-                    response = executeQuery(queryParameters);
++                    Headers requestHeaders = exchange.getRequestHeaders();
++                    String contentType = requestHeaders.containsKey("Accept") ? requestHeaders.getFirst("Accept") : Consts.JSON;
++                    if (!this.allowed_contenttypes.contains(contentType)) {
++                        exchange.sendResponseHeaders(406, 0);
++                        return;
++                    }
++                    response = executeQuery(queryParameters, contentType);
+                     exchange.sendResponseHeaders(200, 0);
+                     _writeResponse(response, outputStream);
+                     return;
+@@ -146,12 +155,17 @@ public class OwlimHttpHandler implements HttpHandler {
+     }
+ 
+     public String executeQuery(QueryParameters params) {
++        return this.executeQuery(params, Consts.JSON);
++    }
++
++    public String executeQuery(QueryParameters params, String contentType) {
+         String query = params.singleValue("query");
+         String format = params.singleValue("format");
+         TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
+         if (format != null && Arrays.asList("sparql", "xml", "application/sparql-results+xml").contains(format.toLowerCase())) {
+             resultFormat = TupleQueryResultFormat.SPARQL;
+         }
++        System.out.println(tripleStore);
+         return tripleStore.executeQuery(query, resultFormat);
+     }
+ 
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index e986ac3..0f88fbe 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -86,12 +86,18 @@ public class OwlimHttpHandlerTest {
+             actions.add("deleteRDF");
+             actions.add(params);
+         }
++
+         public String executeQuery(QueryParameters params) {
++            return this.executeQuery(params, Consts.JSON);
++        }
++
++        public String executeQuery(QueryParameters params, String contentType) {
+             if (_exception != null) {
+                 throw new RuntimeException(_exception);
+             }
+             actions.add("executeQuery");
+             actions.add(params);
++            actions.add(contentType);
+             return "QUERYRESULT";
+         }
+         public void validateRDF(QueryParameters params, String httpBody) {
+@@ -110,14 +116,19 @@ public class OwlimHttpHandlerTest {
+         private java.net.URI _requestURI;
+         private String _requestBody;
+         private ByteArrayOutputStream _responseStream;
++        private Headers _requestHeaders;
+         public int responseCode;
+         public String responseBody;
+ 
+-        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
++        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) throws Exception {
+             super();
+             _requestURI = new java.net.URI(requestURI);
+             _requestBody = requestBody;
+             _responseStream = new ByteArrayOutputStream();
++            _requestHeaders = requestHeaders;
++        }
++        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
++            this(requestURI, requestBody, new Headers());
+         }
+ 
+         public String getOutput() { return _responseStream.toString(); }
+@@ -140,7 +151,7 @@ public class OwlimHttpHandlerTest {
+         public HttpContext getHttpContext() { return null; }
+         public String getRequestMethod() { return ""; }
+         public Headers getResponseHeaders() { return new Headers(); }
+-        public Headers getRequestHeaders() { return null; }
++        public Headers getRequestHeaders() { return this._requestHeaders; }
+     }
+ 
+ 
+@@ -241,8 +252,9 @@ public class OwlimHttpHandlerTest {
+ 
+         HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
+         h.handle(exchange);
+-        assertEquals(2, h.actions.size());
++        assertEquals(3, h.actions.size());
+         assertEquals("executeQuery", h.actions.get(0));
++        assertEquals(Consts.JSON, h.actions.get(2));
+         QueryParameters qp = (QueryParameters) h.actions.get(1);
+         assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
+         assertEquals(200, exchange.responseCode);
+@@ -254,8 +266,9 @@ public class OwlimHttpHandlerTest {
+ 
+         HttpExchangeMock exchange = new HttpExchangeMock("/query?format=SPARQL&query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
+         h.handle(exchange);
+-        assertEquals(2, h.actions.size());
++        assertEquals(3, h.actions.size());
+         assertEquals("executeQuery", h.actions.get(0));
++        assertEquals(Consts.JSON, h.actions.get(2));
+         QueryParameters qp = (QueryParameters) h.actions.get(1);
+         assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
+         assertEquals("SPARQL", qp.singleValue("format"));
+@@ -386,4 +399,16 @@ public class OwlimHttpHandlerTest {
+         String expectedQuery = "SELECT ?x WHERE {}\n";
+         assertTrue(sparqlForm, sparqlForm.contains(expectedQuery));
+     }
++
++    @Test public void testContentType() throws Exception {
++        TSMock tsmock = new TSMock();
++        TLMock tlmock = new TLMock();
++        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
++        
++        Headers inputHeaders = new Headers();
++        inputHeaders.add("Accept", "image/jpg");
++        HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
++        h.handle(exchange);
++        assertEquals(406, exchange.responseCode);
++    }
+ }
+-- 
+1.7.2.5
+
+
+From d3fa1e8794f9bd5973ea7116c1a5b8efa268ebf8 Mon Sep 17 00:00:00 2001
+From: Seecr <development@seecr.nl>
+Date: Wed, 26 Sep 2012 10:25:39 +0200
+Subject: [PATCH 2/8] JJ: added showing acceptable types
+
+---
+ .../meresco/owlimhttpserver/OwlimHttpHandler.java  |    9 +++++++++
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |    6 +++++-
+ 2 files changed, 14 insertions(+), 1 deletions(-)
+
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+index 948cd01..ceed5d4 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+@@ -32,6 +32,7 @@ import com.sun.net.httpserver.HttpExchange;
+ import com.sun.net.httpserver.Headers;
+ 
+ import java.util.Arrays;
++import java.util.Iterator;
+ import java.util.List;
+ 
+ import java.io.IOException;
+@@ -84,7 +85,15 @@ public class OwlimHttpHandler implements HttpHandler {
+                     Headers requestHeaders = exchange.getRequestHeaders();
+                     String contentType = requestHeaders.containsKey("Accept") ? requestHeaders.getFirst("Accept") : Consts.JSON;
+                     if (!this.allowed_contenttypes.contains(contentType)) {
++                        String responseBody = "Supported formats:\n";
++                        Iterator<String> i = this.allowed_contenttypes.iterator();
++                        while (i.hasNext()) {
++                            responseBody += "- " + i.next() + "\n";
++                        }
++                        Headers responseHeaders = exchange.getResponseHeaders();
++                        responseHeaders.add("Content-Type", "text/plain");
+                         exchange.sendResponseHeaders(406, 0);
++                        _writeResponse(responseBody, outputStream);
+                         return;
+                     }
+                     response = executeQuery(queryParameters, contentType);
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index 0f88fbe..cf5b489 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -117,6 +117,7 @@ public class OwlimHttpHandlerTest {
+         private String _requestBody;
+         private ByteArrayOutputStream _responseStream;
+         private Headers _requestHeaders;
++        private Headers _responseHeaders;
+         public int responseCode;
+         public String responseBody;
+ 
+@@ -126,6 +127,7 @@ public class OwlimHttpHandlerTest {
+             _requestBody = requestBody;
+             _responseStream = new ByteArrayOutputStream();
+             _requestHeaders = requestHeaders;
++            _responseHeaders = new Headers();
+         }
+         public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
+             this(requestURI, requestBody, new Headers());
+@@ -150,7 +152,7 @@ public class OwlimHttpHandlerTest {
+         public void close() {};
+         public HttpContext getHttpContext() { return null; }
+         public String getRequestMethod() { return ""; }
+-        public Headers getResponseHeaders() { return new Headers(); }
++        public Headers getResponseHeaders() { return this._responseHeaders; }
+         public Headers getRequestHeaders() { return this._requestHeaders; }
+     }
+ 
+@@ -410,5 +412,7 @@ public class OwlimHttpHandlerTest {
+         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+         h.handle(exchange);
+         assertEquals(406, exchange.responseCode);
++        assertEquals("Supported formats:\n- application/json\n", exchange.getResponseBody().toString());
++        assertEquals("text/plain", exchange.getResponseHeaders().getFirst("Content-Type"));
+     }
+ }
+-- 
+1.7.2.5
+
+
+From 3886c3c4615d18ece567115d0931fde953e13e3b Mon Sep 17 00:00:00 2001
+From: Seecr <development@seecr.nl>
+Date: Thu, 27 Sep 2012 00:11:51 +0200
+Subject: [PATCH 3/8] JJ: using mimetypes provided by TupleQueryResultFormat
+
+---
+ .../java/org/meresco/owlimhttpserver/Consts.java   |    7 ----
+ .../meresco/owlimhttpserver/OwlimHttpHandler.java  |   39 +++++++++-----------
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |   33 +++++++++++------
+ 3 files changed, 40 insertions(+), 39 deletions(-)
+ delete mode 100644 server/src/java/org/meresco/owlimhttpserver/Consts.java
+
+diff --git a/server/src/java/org/meresco/owlimhttpserver/Consts.java b/server/src/java/org/meresco/owlimhttpserver/Consts.java
+deleted file mode 100644
+index 6911bed..0000000
+--- a/server/src/java/org/meresco/owlimhttpserver/Consts.java
++++ /dev/null
+@@ -1,7 +0,0 @@
+-
+-package org.meresco.owlimhttpserver;
+-
+-public final class Consts {
+-
+-    public static final String JSON = "application/json";
+-}
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+index ceed5d4..2184f5c 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+@@ -60,7 +60,6 @@ public class OwlimHttpHandler implements HttpHandler {
+         this.transactionLog = transactionLog;
+         this.tripleStore = tripleStore;
+         this.validator = new RdfValidator();
+-        this.allowed_contenttypes = Arrays.asList(Consts.JSON);
+     }
+ 
+     public void handle(HttpExchange exchange) throws IOException {
+@@ -83,20 +82,23 @@ public class OwlimHttpHandler implements HttpHandler {
+                 } else if (path.equals("/query")) {
+                     String response = "";
+                     Headers requestHeaders = exchange.getRequestHeaders();
+-                    String contentType = requestHeaders.containsKey("Accept") ? requestHeaders.getFirst("Accept") : Consts.JSON;
+-                    if (!this.allowed_contenttypes.contains(contentType)) {
+-                        String responseBody = "Supported formats:\n";
+-                        Iterator<String> i = this.allowed_contenttypes.iterator();
+-                        while (i.hasNext()) {
+-                            responseBody += "- " + i.next() + "\n";
++                    TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
++                    if (requestHeaders.containsKey("Accept")) {
++                        resultFormat = TupleQueryResultFormat.forMIMEType(requestHeaders.getFirst("Accept"));
++                        if (resultFormat == null) {
++                            String responseBody = "Supported formats:\n";
++                            Iterator<TupleQueryResultFormat> i = TupleQueryResultFormat.values().iterator();
++                            while (i.hasNext()) {
++                                responseBody += "- " + i.next() + "\n";
++                            }
++                            Headers responseHeaders = exchange.getResponseHeaders();
++                            responseHeaders.add("Content-Type", "text/plain");
++                            exchange.sendResponseHeaders(406, 0);
++                            _writeResponse(responseBody, outputStream);
++                            return;
+                         }
+-                        Headers responseHeaders = exchange.getResponseHeaders();
+-                        responseHeaders.add("Content-Type", "text/plain");
+-                        exchange.sendResponseHeaders(406, 0);
+-                        _writeResponse(responseBody, outputStream);
+-                        return;
+                     }
+-                    response = executeQuery(queryParameters, contentType);
++                    response = executeQuery(queryParameters, resultFormat);
+                     exchange.sendResponseHeaders(200, 0);
+                     _writeResponse(response, outputStream);
+                     return;
+@@ -123,6 +125,7 @@ public class OwlimHttpHandler implements HttpHandler {
+                 e.printStackTrace();
+                 exchange.sendResponseHeaders(500, 0);
+                 String response = Utils.getStackTrace(e);
++                //System.out.println(response);
+                 _writeResponse(response, outputStream);
+                 return;
+             } catch (Error e) {
+@@ -164,17 +167,11 @@ public class OwlimHttpHandler implements HttpHandler {
+     }
+ 
+     public String executeQuery(QueryParameters params) {
+-        return this.executeQuery(params, Consts.JSON);
++        return this.executeQuery(params, TupleQueryResultFormat.JSON);
+     }
+ 
+-    public String executeQuery(QueryParameters params, String contentType) {
++    public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
+         String query = params.singleValue("query");
+-        String format = params.singleValue("format");
+-        TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
+-        if (format != null && Arrays.asList("sparql", "xml", "application/sparql-results+xml").contains(format.toLowerCase())) {
+-            resultFormat = TupleQueryResultFormat.SPARQL;
+-        }
+-        System.out.println(tripleStore);
+         return tripleStore.executeQuery(query, resultFormat);
+     }
+ 
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index cf5b489..7a4acaf 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -35,6 +35,8 @@ import com.sun.net.httpserver.HttpPrincipal;
+ import com.sun.net.httpserver.HttpContext;
+ import com.sun.net.httpserver.Headers;
+ 
++import org.openrdf.query.resultio.TupleQueryResultFormat;
++
+ import java.net.InetSocketAddress;
+ 
+ import java.io.InputStream;
+@@ -86,18 +88,14 @@ public class OwlimHttpHandlerTest {
+             actions.add("deleteRDF");
+             actions.add(params);
+         }
+-
+-        public String executeQuery(QueryParameters params) {
+-            return this.executeQuery(params, Consts.JSON);
+-        }
+-
+-        public String executeQuery(QueryParameters params, String contentType) {
++        
++        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
+             if (_exception != null) {
+                 throw new RuntimeException(_exception);
+             }
+             actions.add("executeQuery");
+             actions.add(params);
+-            actions.add(contentType);
++            actions.add(resultFormat);
+             return "QUERYRESULT";
+         }
+         public void validateRDF(QueryParameters params, String httpBody) {
+@@ -256,7 +254,7 @@ public class OwlimHttpHandlerTest {
+         h.handle(exchange);
+         assertEquals(3, h.actions.size());
+         assertEquals("executeQuery", h.actions.get(0));
+-        assertEquals(Consts.JSON, h.actions.get(2));
++        assertEquals(TupleQueryResultFormat.JSON, h.actions.get(2));
+         QueryParameters qp = (QueryParameters) h.actions.get(1);
+         assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
+         assertEquals(200, exchange.responseCode);
+@@ -270,7 +268,7 @@ public class OwlimHttpHandlerTest {
+         h.handle(exchange);
+         assertEquals(3, h.actions.size());
+         assertEquals("executeQuery", h.actions.get(0));
+-        assertEquals(Consts.JSON, h.actions.get(2));
++        assertEquals(TupleQueryResultFormat.JSON, h.actions.get(2));
+         QueryParameters qp = (QueryParameters) h.actions.get(1);
+         assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
+         assertEquals("SPARQL", qp.singleValue("format"));
+@@ -402,7 +400,7 @@ public class OwlimHttpHandlerTest {
+         assertTrue(sparqlForm, sparqlForm.contains(expectedQuery));
+     }
+ 
+-    @Test public void testContentType() throws Exception {
++    @Test public void testContentTypeAccepted() throws Exception {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+@@ -412,7 +410,20 @@ public class OwlimHttpHandlerTest {
+         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+         h.handle(exchange);
+         assertEquals(406, exchange.responseCode);
+-        assertEquals("Supported formats:\n- application/json\n", exchange.getResponseBody().toString());
++        assertEquals("Supported formats:\n- SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)\n- BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)\n- SPARQL/JSON (mimeTypes=application/sparql-results+json; ext=srj)\n", exchange.getResponseBody().toString());
+         assertEquals("text/plain", exchange.getResponseHeaders().getFirst("Content-Type"));
+     }
++
++    @Test public void testContentType() throws Exception {
++        TSMock tsmock = new TSMock();
++        TLMock tlmock = new TLMock();
++        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
++        
++        Headers inputHeaders = new Headers();
++        inputHeaders.add("Accept", "application/xml");
++        HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
++        h.handle(exchange);
++        assertEquals(200, exchange.responseCode);
++    }
++
+ }
+-- 
+1.7.2.5
+
+
+From b44e6ac4341ed9d869599e943bdc05055b964964 Mon Sep 17 00:00:00 2001
+From: Seecr <development@seecr.nl>
+Date: Thu, 27 Sep 2012 09:35:54 +0200
+Subject: [PATCH 4/8] TS/JJ: content type in response
+
+---
+ .../meresco/owlimhttpserver/OwlimHttpHandler.java  |    1 +
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |    2 ++
+ test/integration/owlimtest.py                      |    3 +++
+ 3 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+index 2184f5c..ea7d9ba 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+@@ -99,6 +99,7 @@ public class OwlimHttpHandler implements HttpHandler {
+                         }
+                     }
+                     response = executeQuery(queryParameters, resultFormat);
++                    exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
+                     exchange.sendResponseHeaders(200, 0);
+                     _writeResponse(response, outputStream);
+                     return;
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index 7a4acaf..f25731b 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -424,6 +424,8 @@ public class OwlimHttpHandlerTest {
+         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+         h.handle(exchange);
+         assertEquals(200, exchange.responseCode);
++        assertEquals(1, exchange.getResponseHeaders().get("Content-Type").size());
++        assertEquals("application/sparql-results+xml", exchange.getResponseHeaders().getFirst("Content-Type"));
+     }
+ 
+ }
+diff --git a/test/integration/owlimtest.py b/test/integration/owlimtest.py
+index 66a7f0f..544eba4 100644
+--- a/test/integration/owlimtest.py
++++ b/test/integration/owlimtest.py
+@@ -151,3 +151,6 @@ class OwlimTest(IntegrationTestCase):
+         self.assertEquals(1, len(json['results']['bindings']))
+         json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore2"}' % self.owlimPort).read())
+         self.assertEquals(1, len(json['results']['bindings']))
++
++    def testAcceptHeaders(self):
++
+-- 
+1.7.2.5
+
+
+From 483e567ca204c0e2e9af8b01430110ca00fc8812 Mon Sep 17 00:00:00 2001
+From: Seecr <development@seecr.nl>
+Date: Thu, 27 Sep 2012 11:19:35 +0200
+Subject: [PATCH 5/8] TS/JJ: accept header added
+
+---
+ client/meresco/owlim/httpclient.py |   11 +++++++----
+ test/client/httpclienttest.py      |   15 +++++++++++++++
+ test/integration/owlimtest.py      |   34 +++++++++++++++++++++++++++++++++-
+ 3 files changed, 55 insertions(+), 5 deletions(-)
+
+diff --git a/client/meresco/owlim/httpclient.py b/client/meresco/owlim/httpclient.py
+index e070b94..866befb 100644
+--- a/client/meresco/owlim/httpclient.py
++++ b/client/meresco/owlim/httpclient.py
+@@ -59,8 +59,8 @@ class HttpClient(object):
+         if body.strip().lower() != 'ok':
+             raise InvalidRdfXmlException(body)
+ 
+-    def executeQuery(self, query):
+-        jsonString = yield self._sparqlQuery(query)
++    def executeQuery(self, query, queryResultFormat=None):
++        jsonString = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
+         raise StopIteration(_parseJson2Dict(jsonString))
+ 
+     def getStatements(self, subj=None, pred=None, obj=None):
+@@ -68,9 +68,12 @@ class HttpClient(object):
+         jsonString = yield self._sparqlQuery(query)
+         raise StopIteration(_results(jsonString, subj, pred, obj))
+ 
+-    def _sparqlQuery(self, query):
++    def _sparqlQuery(self, query, queryResultFormat=None):
+         path = "/query?%s" % urlencode(dict(query=query))
+-        response = yield httpget("localhost", self.port, path)
++        headers = None
++        if queryResultFormat is not None:
++            headers = {'Accept': queryResultFormat}
++        response = yield httpget("localhost", self.port, path, headers=headers)
+         header, body = response.split("\r\n\r\n", 1)
+         self._verify200(header, response)
+         raise StopIteration(body)
+diff --git a/test/client/httpclienttest.py b/test/client/httpclienttest.py
+index a3ae3e7..1236d1a 100644
+--- a/test/client/httpclienttest.py
++++ b/test/client/httpclienttest.py
+@@ -100,6 +100,21 @@ class HttpClientTest(SeecrTestCase):
+         result = self._resultFromServerResponse(gen, RESULT_JSON)
+         self.assertEquals(PARSED_RESULT_JSON, result)
+ 
++    def testExecuteQueryWithQueryResultFormat(self):
++        client = HttpClient(host="localhost", port=9999)
++        gen = compose(client.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
++        suspend = gen.next()
++        self.assertEquals(Suspend, type(suspend))
++        #print suspend._doNext.__self__, dir(suspend._doNext.__self__)
++        #print suspend._doNext.__self__.gi_frame.f_code.co_name
++        httpgetHeaders = suspend._doNext.__self__.gi_frame.f_locals['headers']
++        self.assertEquals({'Accept': 'application/sparql-results+xml'}, httpgetHeaders)
++        self.fail("todo")
++
++        #result = self._resultFromServerResponse(gen, RESULT_JSON)
++        
++
++
+     def testGetStatements(self):
+         client = HttpClient(host="localhost", port=9999)
+         gen = compose(client.getStatements(subj='uri:subject'))
+diff --git a/test/integration/owlimtest.py b/test/integration/owlimtest.py
+index 544eba4..14f0c9e 100644
+--- a/test/integration/owlimtest.py
++++ b/test/integration/owlimtest.py
+@@ -35,6 +35,9 @@ from urllib import urlopen, urlencode
+ from signal import SIGKILL
+ from time import time
+ 
++from urllib2 import urlopen, Request
++
++from seecr.test.utils import getRequest
+ 
+ class OwlimTest(IntegrationTestCase):
+     def testOne(self):
+@@ -153,4 +156,33 @@ class OwlimTest(IntegrationTestCase):
+         self.assertEquals(1, len(json['results']['bindings']))
+ 
+     def testAcceptHeaders(self):
+-
++        postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
++        <rdf:Description>
++            <rdf:type>uri:test:acceptHeaders</rdf:type>
++        </rdf:Description>
++    </rdf:RDF>""", parse=False)
++        
++        request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "uri:test:acceptHeaders"}'})), headers={"Accept" : "application/xml"})
++        contents = urlopen(request).read()
++        self.assertEqualsWS("""<?xml version='1.0' encoding='UTF-8'?>
++<sparql xmlns='http://www.w3.org/2005/sparql-results#'>
++    <head>
++        <variable name='x'/>
++    </head>
++    <results>
++        <result>
++            <binding name='x'>
++                <bnode>node1</bnode>
++            </binding>
++        </result>
++    </results>
++</sparql>""", contents)   
++       
++        headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:test:acceptHeaders"}'}, additionalHeaders={"Accept" : "image/jpg"}, parse=False)
++
++        self.assertEquals(["HTTP/1.1 406 Not Acceptable", "Content-type: text/plain"], headers.split('\r\n')[:2])
++        self.assertEqualsWS("""Supported formats:
++- SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)
++- BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)
++- SPARQL/JSON (mimeTypes=application/sparql-results+json; ext=srj)""", body)
++         
+-- 
+1.7.2.5
+
+
+From 89cfe77ea566fa02d37146c27a86dae50c16d206 Mon Sep 17 00:00:00 2001
+From: Seecr <development@seecr.nl>
+Date: Thu, 27 Sep 2012 11:28:40 +0200
+Subject: [PATCH 6/8] TS/JJ: fixed test
+
+---
+ test/integration/owlimtest.py |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/test/integration/owlimtest.py b/test/integration/owlimtest.py
+index b6fb50d..93a34a0 100644
+--- a/test/integration/owlimtest.py
++++ b/test/integration/owlimtest.py
+@@ -159,7 +159,9 @@ class OwlimTest(IntegrationTestCase):
+             <rdf:type>uri:testFailingCommitKillsTripleStore</rdf:type>
+         </rdf:Description>
+     </rdf:RDF>""", parse=False)
+-        json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}' % self.owlimPort).read())
++
++        headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}'}, parse=False)
++        json = loads(body)
+         self.assertEquals(1, len(json['results']['bindings']))
+ 
+         system("chmod 0555 %s" % self.owlimDataDir)
+@@ -173,9 +175,14 @@ class OwlimTest(IntegrationTestCase):
+         finally:
+             system("chmod 0755 %s" % self.owlimDataDir)
+         self.startOwlimServer()
+-        json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}' % self.owlimPort).read())
++
++        headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}'}, parse=False)
++        json = loads(body)
+         self.assertEquals(1, len(json['results']['bindings']))
+-        json = loads(urlopen('http://localhost:%s/query?query=SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore2"}' % self.owlimPort).read())
++
++
++        headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore2"}'}, parse=False)
++        json = loads(body)
+         self.assertEquals(1, len(json['results']['bindings']))
+ 
+     def testAcceptHeaders(self):
+-- 
+1.7.2.5
+
+
+From 2af48e1b252d34407550361d1067d9993b9c4ab0 Mon Sep 17 00:00:00 2001
+From: Seecr <development@seecr.nl>
+Date: Thu, 27 Sep 2012 11:35:33 +0200
+Subject: [PATCH 7/8] TS/JJ: only parse json
+
+---
+ client/meresco/owlim/httpclient.py |    6 ++++--
+ test/client/httpclienttest.py      |   18 +++++++++++++++++-
+ 2 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/client/meresco/owlim/httpclient.py b/client/meresco/owlim/httpclient.py
+index 866befb..01c7fb0 100644
+--- a/client/meresco/owlim/httpclient.py
++++ b/client/meresco/owlim/httpclient.py
+@@ -60,8 +60,10 @@ class HttpClient(object):
+             raise InvalidRdfXmlException(body)
+ 
+     def executeQuery(self, query, queryResultFormat=None):
+-        jsonString = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
+-        raise StopIteration(_parseJson2Dict(jsonString))
++        queryResult = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
++        if queryResultFormat is None:
++            queryResult = _parseJson2Dict(queryResult)
++        raise StopIteration(queryResult)
+ 
+     def getStatements(self, subj=None, pred=None, obj=None):
+         query = self._createSparQL(subj, pred, obj)
+diff --git a/test/client/httpclienttest.py b/test/client/httpclienttest.py
+index 1236d1a..8e0e413 100644
+--- a/test/client/httpclienttest.py
++++ b/test/client/httpclienttest.py
+@@ -109,10 +109,26 @@ class HttpClientTest(SeecrTestCase):
+         #print suspend._doNext.__self__.gi_frame.f_code.co_name
+         httpgetHeaders = suspend._doNext.__self__.gi_frame.f_locals['headers']
+         self.assertEquals({'Accept': 'application/sparql-results+xml'}, httpgetHeaders)
+-        self.fail("todo")
+ 
+         #result = self._resultFromServerResponse(gen, RESULT_JSON)
+         
++    def testDontParseIfNotJSON(self):
++        SPARQL_XML = """<sparql xmlns='http://www.w3.org/2005/sparql-results#'>
++    <head>
++        <variable name='x'/>
++    </head>
++    <results>
++        <result>
++            <binding name='x'>
++                <bnode>node1</bnode>
++            </binding>
++        </result>
++    </results>
++</sparql>"""
++        client = HttpClient(host="localhost", port=9999)
++        gen = compose(client.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
++        result = self._resultFromServerResponse(gen, SPARQL_XML)
++        self.assertEquals(SPARQL_XML, result)
+ 
+ 
+     def testGetStatements(self):
+-- 
+1.7.2.5
+
+
+From 1b223173a7e50336348e32b6f1787bb8ae5cd601 Mon Sep 17 00:00:00 2001
+From: Seecr <development@seecr.nl>
+Date: Thu, 27 Sep 2012 11:38:20 +0200
+Subject: [PATCH 8/8] TS/JJ: removed commented out lines
+
+---
+ test/client/httpclienttest.py |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/test/client/httpclienttest.py b/test/client/httpclienttest.py
+index 8e0e413..dbca551 100644
+--- a/test/client/httpclienttest.py
++++ b/test/client/httpclienttest.py
+@@ -105,13 +105,9 @@ class HttpClientTest(SeecrTestCase):
+         gen = compose(client.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
+         suspend = gen.next()
+         self.assertEquals(Suspend, type(suspend))
+-        #print suspend._doNext.__self__, dir(suspend._doNext.__self__)
+-        #print suspend._doNext.__self__.gi_frame.f_code.co_name
+         httpgetHeaders = suspend._doNext.__self__.gi_frame.f_locals['headers']
+         self.assertEquals({'Accept': 'application/sparql-results+xml'}, httpgetHeaders)
+ 
+-        #result = self._resultFromServerResponse(gen, RESULT_JSON)
+-        
+     def testDontParseIfNotJSON(self):
+         SPARQL_XML = """<sparql xmlns='http://www.w3.org/2005/sparql-results#'>
+     <head>
+-- 
+1.7.2.5
+
