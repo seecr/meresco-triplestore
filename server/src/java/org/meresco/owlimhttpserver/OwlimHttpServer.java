@@ -38,7 +38,7 @@ public class OwlimHttpServer {
     private HttpServer server = null;
 
     public OwlimHttpServer(int port, int backlog) throws IOException {
-        server = HttpServer.create(new InetSocketAddress("127.12.121.129", port), backlog);
+        server = HttpServer.create(new InetSocketAddress(port), backlog);
         server.setExecutor(null);
     }
 
