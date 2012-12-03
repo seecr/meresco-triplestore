@@ -83,7 +83,9 @@ public class OwlimHttpHandler implements HttpHandler {
                     String response = "";
                     Headers requestHeaders = exchange.getRequestHeaders();
                     TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
-                    if (requestHeaders.containsKey("Accept")) {
+                    if (queryParameters.containsKey("mimeType")) {
+                        resultFormat = TupleQueryResultFormat.forMIMEType(queryParameters.singleValue("mimeType"));
+                    } else if (requestHeaders.containsKey("Accept")) {
                         resultFormat = TupleQueryResultFormat.forMIMEType(requestHeaders.getFirst("Accept"));
                         if (resultFormat == null) {
                             String responseBody = "Supported formats:\n";
@@ -99,7 +101,11 @@ public class OwlimHttpHandler implements HttpHandler {
                         }
                     }
                     response = executeQuery(queryParameters, resultFormat);
-                    exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
+                    if (queryParameters.containsKey("outputContentType")) {
+                        exchange.getResponseHeaders().set("Content-Type", queryParameters.singleValue("outputContentType"));
+                    } else {
+                        exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
+                    }
                     exchange.sendResponseHeaders(200, 0);
                     _writeResponse(response, outputStream);
                     return;
@@ -196,6 +202,10 @@ public class OwlimHttpHandler implements HttpHandler {
         return "<html><head><title>Meresco Owlim Sparql Form</title></head>\n"  
             + "<body><form action=\"/query\">\n"
             + "<textarea cols=\"100\" rows=\"20\" name=\"query\">" + StringEscapeUtils.escapeXml(query) + "</textarea><br/>\n"
+            + "<input type=\"hidden\" name=\"outputContentType\" value=\"application/json\"/>\n"
+            + "Format: <select name=\"mimeType\">\n"
+            + "<option value=\"application/sparql-results+json\">json</option>\n"
+            + "</select><br />\n"
             + "<input type=\"submit\">\n"
             + "</form>\n</body></html>";
     }

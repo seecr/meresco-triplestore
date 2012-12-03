@@ -216,3 +216,25 @@ class OwlimTest(IntegrationTestCase):
 - BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)
 - SPARQL/JSON (mimeTypes=application/sparql-results+json; ext=srj)""", body)
          
+    def testMimeTypeArgument(self):
+        postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description>
+            <rdf:type>uri:test:mimeType</rdf:type>
+        </rdf:Description>
+    </rdf:RDF>""", parse=False)
+        
+        request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "uri:test:mimeType"}', 'mimeType': 'application/sparql-results+xml'})))
+        contents = urlopen(request).read()
+        self.assertEqualsWS("""<?xml version='1.0' encoding='UTF-8'?>
+<sparql xmlns='http://www.w3.org/2005/sparql-results#'>
+    <head>
+        <variable name='x'/>
+    </head>
+    <results>
+        <result>
+            <binding name='x'>
+                <bnode>node9</bnode>
+            </binding>
+        </result>
+    </results>
+</sparql>""", contents)   
