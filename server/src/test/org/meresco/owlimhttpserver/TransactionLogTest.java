@@ -316,7 +316,9 @@ public class TransactionLogTest {
     	transactionLog = new TransactionLog(this.tsMock, this.tempdir, 1.0/1024/1024*5);
     	transactionLog.init();
     	transactionLog.add("testRecord", "<x>ignored</x>");
+        Thread.sleep(1);
     	transactionLog.add("testRecord2", "<x>ignored</x>");
+        Thread.sleep(1);
     	transactionLog.add("testRecord3", "<x>ignored</x>");
     	ArrayList<String> files = transactionLog.getTransactionItemFiles();
     	assertEquals(4, files.size());
@@ -500,7 +502,9 @@ public class TransactionLogTest {
     public void testSplitInMultipleTransactionFiles() throws Exception {
     	setTransactionLog(1.0/1024/1024*5);
     	transactionLog.add("test1.rdf", "ignored");
+        Thread.sleep(1);
     	transactionLog.add("test2.rdf", "ignored");
+        Thread.sleep(1);
     	transactionLog.add("test3.rdf", "ignored");
     	ArrayList<String> tsFiles = transactionLog.getTransactionItemFiles();
     	assertEquals(4, tsFiles.size());
@@ -564,12 +568,14 @@ public class TransactionLogTest {
     public void testRecoverMultipleFiles() throws Exception {
     	setTransactionLog(1.0/1024/1024*5);
     	transactionLog.add("test1.rdf", "ignored");
+        Thread.sleep(1);
     	transactionLog.add("test2.rdf", "ignored");
+        Thread.sleep(1);
     	transactionLog.add("test3.rdf", "ignored");
-    	
-    	setTransactionLog(1.0/1024/1024*5);
+
+        setTransactionLog(1.0/1024/1024*5);    	
     	String[] expected = {"add:test1.rdf|ignored", "shutdown", "startup", "add:test2.rdf|ignored", "shutdown", "startup", "add:test3.rdf|ignored", "shutdown", "startup"};
-    	assertArrayEquals(expected, tsMock.actions.toArray());
+        assertArrayEquals(expected, tsMock.actions.toArray());
     }
     
     @Test

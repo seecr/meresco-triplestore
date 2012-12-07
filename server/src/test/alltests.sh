@@ -57,5 +57,5 @@ fi
 
 testClasses=$(cd ${BUILDDIR}; find . -name "*Test.class" | sed 's,.class,,g' | tr '/' '.' | sed 's,..,,')
 echo "Running $testClasses"
-java -classpath ".:$CP" org.junit.runner.JUnitCore $testClasses
+java -Xmx1024m -classpath ".:$CP" org.junit.runner.JUnitCore $testClasses
 

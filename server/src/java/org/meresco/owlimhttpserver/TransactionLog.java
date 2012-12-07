@@ -118,7 +118,7 @@ public class TransactionLog {
         long newFilename = getTime();
         ArrayList<String> sortedTsFiles = getTransactionItemFiles();
         long lastAddedTimeStamp = sortedTsFiles.size() > 1 ? Long.valueOf(sortedTsFiles.get(sortedTsFiles.size() - 2)) : 0;
-        if (newFilename < lastAddedTimeStamp) { // in theory: only small differences by ntp 
+        if (newFilename <= lastAddedTimeStamp) { // in theory: only small differences by ntp 
             return;
         }
         try {
