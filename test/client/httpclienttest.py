@@ -30,8 +30,6 @@ from seecr.test import SeecrTestCase, CallTrace
 
 from weightless.core import compose
 from weightless.io import Suspend
-from weightless.http import httppost
-from meresco.core import be, Observable
 from meresco.owlim import HttpClient, InvalidRdfXmlException, Uri, Literal
 
 
@@ -132,6 +130,31 @@ class HttpClientTest(SeecrTestCase):
         gen = compose(client.getStatements(subj='uri:subject'))
         result = self._resultFromServerResponse(gen, RESULT_JSON)
         self.assertEquals(RESULT_SPO, list(result))
+
+    def testExecuteQuerySynchronous(self):
+        client = HttpClient(host="localhost", port=9999, synchronous=True)
+        client._urlopen = lambda *args, **kwargs: RESULT_JSON
+        gen = compose(client.executeQuery('SPARQL'))
+        try:
+            gen.next()
+        except StopIteration, e:
+            result = e.args[0]
+        self.assertEquals(PARSED_RESULT_JSON, result)
+
+    def testAddSynchronous(self):
+        client = HttpClient(host="localhost", port=9999, synchronous=True)
+        client._urlopen = lambda *args, **kwargs: "SOME RESPONSE"
+        list(compose(client.add(identifier="id", partname="ignored", data=rdfData)))
+
+        # list(compose(client.add(identifier="id", partname="ignored", data=rdfData)))
+        # self.assertRaises(
+        #     IOError, 
+        #     lambda: self._resultFromServerResponse(g, "Error description", responseStatus='500'))
+
+        toSend = []
+        client._urlopen = lambda url, data: toSend.append((url, data))
+        list(compose(client.add(identifier="id", partname="ignored", data=rdfData)))
+        self.assertEquals([("http://localhost:9999/update?identifier=id", rdfData)], toSend)
 
     def _resultFromServerResponse(self, g, data, responseStatus='200'):
         s = g.next()

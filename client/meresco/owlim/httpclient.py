@@ -26,7 +26,8 @@
 # 
 ## end license ##
 
-from urllib import urlopen, urlencode
+from urllib2 import urlopen
+from urllib import urlencode
 from simplejson import loads
 
 from weightless.http import httpget, httppost
@@ -41,9 +42,10 @@ class InvalidRdfXmlException(Exception):
     pass
 
 class HttpClient(object):
-    def __init__(self, host, port):
+    def __init__(self, host, port, synchronous=False):
         self.host = host
         self.port = port
+        self.synchronous = synchronous
 
     def add(self, identifier, data, **kwargs):
         path = "/update?%s" % urlencode(dict(identifier=identifier))
@@ -75,18 +77,24 @@ class HttpClient(object):
         headers = None
         if queryResultFormat is not None:
             headers = {'Accept': queryResultFormat}
-        response = yield httpget("localhost", self.port, path, headers=headers)
-        header, body = response.split("\r\n\r\n", 1)
-        self._verify200(header, response)
+        if self.synchronous:
+            body = self._urlopen("http://localhost:%s%s" % (self.port, path))
+        else:
+            response = yield httpget("localhost", self.port, path, headers=headers)
+            header, body = response.split("\r\n\r\n", 1)
+            self._verify200(header, response)
         raise StopIteration(body)
 
     def _send(self, path, body):
         headers = None
         if body:
             headers={'Content-Type': 'text/xml', 'Content-Length': len(body)}
-        response = yield httppost(host=self.host, port=self.port, request=path, body=body, headers=headers)
-        header, body = response.split("\r\n\r\n", 1)
-        self._verify200(header, response)
+        if self.synchronous:
+            header, body = "", self._urlopen("http://%s:%s%s" % (self.host, self.port, path), data=body)
+        else:
+            response = yield httppost(host=self.host, port=self.port, request=path, body=body, headers=headers)
+            header, body = response.split("\r\n\r\n", 1)
+            self._verify200(header, response)
         raise StopIteration((header, body))
 
     def _verify200(self, header, response):
@@ -115,6 +123,9 @@ class HttpClient(object):
         statement += " }"
 
         return statement
+
+    def _urlopen(self, *args, **kwargs):
+        return urlopen(*args, **kwargs).read()
 
 
 def _results(jsonString, subj, pred, obj):
