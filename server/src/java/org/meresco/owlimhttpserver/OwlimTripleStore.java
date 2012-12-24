@@ -196,6 +196,7 @@ public class OwlimTripleStore implements TripleStore {
             } catch (QueryEvaluationException e) {
                 throw new RuntimeException(e);
             } catch (MalformedQueryException e) {
+                System.err.println("Bad SparQL: " + sparQL);
                 throw new RuntimeException(e);
             } catch (IOException e) {
                 throw new RuntimeException(e);

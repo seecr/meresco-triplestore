@@ -120,13 +120,15 @@ class HttpClient(object):
             statement += " *"
         statement += " WHERE {"
 
-        if subj and subj[0] != '<' and subj[-1] != '>':
+        if subj:
             subj = '<%s>' % subj
-        if pred and pred[0] != '<' and pred[-1] != '>':
+        if pred:
             pred = '<%s>' % pred
-
-        if obj and not FtUri.MatchesUriSyntax(obj):
-            obj = '"%s"' % obj
+        if obj:
+            if FtUri.MatchesUriSyntax(obj):
+                obj = '<%s>' % obj
+            else:
+                obj = '"%s"' % obj
 
         statement += " " + subj if subj else " ?s"
         statement += " " + pred if pred else " ?p"
