@@ -28,6 +28,9 @@ package org.meresco.owlimhttpserver;
 
 import java.util.List;
 import java.util.ArrayList;
+import org.openrdf.model.URI;
+import org.openrdf.model.Resource;
+import org.openrdf.model.Value;
 
 public class TLMock extends TransactionLog {
     public List<String> actions = new ArrayList<String>();
@@ -38,6 +41,14 @@ public class TLMock extends TransactionLog {
 
     public void delete(String identifier) {
         actions.add("delete:" + identifier);
+    }
+
+    public void addTriple(String filedata) {
+        actions.add("addTriple:" + filedata);
+    }
+
+    public void removeTriple(String filedata) {
+        actions.add("removeTriple:" + filedata);
     }
 }
 

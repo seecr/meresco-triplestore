@@ -36,6 +36,9 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import org.openrdf.model.Value;
+import org.openrdf.model.URI;
+import org.openrdf.model.Resource;
 
 public class TransactionLog {
     TripleStore tripleStore;
@@ -80,11 +83,19 @@ public class TransactionLog {
         this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
     }
 
-    public void add(String identifier, String filedata) throws TransactionLogException, FileNotFoundException, IOException {
+    public void add(String identifier, String filedata) throws TransactionLogException, IOException {
         doProcess("addRDF", identifier, filedata);
     }
 
-    public void delete(String identifier) throws TransactionLogException, FileNotFoundException, IOException {
+    public void addTriple(String filedata) throws TransactionLogException, IOException {
+        doProcess("addTriple", "", filedata);
+    }
+
+    public void removeTriple(String filedata) throws TransactionLogException, IOException {
+        doProcess("removeTriple", "", filedata);
+    }
+
+    public void delete(String identifier) throws TransactionLogException, IOException {
         doProcess("delete", identifier, "");
     }
 
@@ -95,6 +106,10 @@ public class TransactionLog {
                 this.tripleStore.addRDF(identifier, filedata);
             } else if (action.equals("delete")) {
                 this.tripleStore.delete(identifier);
+            } else if (action.equals("addTriple")) {
+                this.tripleStore.addTriple(filedata);
+            } else if (action.equals("removeTriple")) {
+                this.tripleStore.removeTriple(filedata);
             }
         } catch (Exception e) {
             throw new TransactionLogException(e);
@@ -105,7 +120,7 @@ public class TransactionLog {
         } catch (Exception e) {
         	rollback();
         	System.err.println(e);
-            throw new Error("Commit on transactionLog failed.");
+            throw new Error("Commit on transactionLog failed.", e);
         }
 
         maybeRotate();

@@ -103,6 +103,15 @@ public class OwlimTripleStoreTest {
     }
 
     @Test
+    public void testAddRemoveTriple() throws Exception {
+        long startingPoint = ts.size();
+        ts.addTriple("uri:subj|uri:pred|uri:obj");
+        assertEquals(startingPoint + 1, ts.size());
+        ts.removeTriple("uri:subj|uri:pred|uri:obj");
+        assertEquals(startingPoint, ts.size());
+    }
+
+    @Test
     public void testDelete() throws Exception {
         ts.addRDF("uri:id0", rdf);
         long startingPoint = ts.size();

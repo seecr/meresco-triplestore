@@ -156,6 +156,56 @@ public class TransactionLogTest {
     }
 
     @Test
+    public void testAddTriple() throws Exception {
+        final ArrayList<String> calls = new ArrayList<String>();
+        class MyTripleStore extends OwlimTripleStore {
+            public void addTriple(String body) {
+                calls.add("addTriple");
+            }
+        }
+        TransactionLog transactionLog = new TransactionLog(new MyTripleStore(), tempdir);
+        transactionLog.init();
+        
+        transactionLog.addTriple("uri:subj|uri:pred|uri:subj");
+        ArrayList<String> files = transactionLog.getTransactionItemFiles();
+        assertEquals(1, files.size());
+        String expectedXml = "<transaction_item>" +
+                "<action>addTriple</action>" +
+                "<identifier></identifier>" + 
+                "<filedata>uri:subj|uri:pred|uri:subj</filedata>" +
+            "</transaction_item>\n";
+        assertEquals(1, calls.size());
+        FileInputStream fileInputStream = new FileInputStream(new File(transactionLog.getTransactionLogDir(), files.get(0)));
+        assertEquals(expectedXml, Utils.read(fileInputStream));
+        assertEquals(expectedXml.length(), new File(transactionLog.getTransactionLogDir(), files.get(0)).length());
+    }
+
+    @Test
+    public void testRemoveTriple() throws Exception {
+        final ArrayList<String> calls = new ArrayList<String>();
+        class MyTripleStore extends OwlimTripleStore {
+            public void removeTriple(String body) {
+                calls.add("removeTriple");
+            }
+        }
+        TransactionLog transactionLog = new TransactionLog(new MyTripleStore(), tempdir);
+        transactionLog.init();
+        
+        transactionLog.removeTriple("uri:subj|uri:pred|uri:subj");
+        ArrayList<String> files = transactionLog.getTransactionItemFiles();
+        assertEquals(1, files.size());
+        String expectedXml = "<transaction_item>" +
+                "<action>removeTriple</action>" +
+                "<identifier></identifier>" + 
+                "<filedata>uri:subj|uri:pred|uri:subj</filedata>" +
+            "</transaction_item>\n";
+        assertEquals(1, calls.size());
+        FileInputStream fileInputStream = new FileInputStream(new File(transactionLog.getTransactionLogDir(), files.get(0)));
+        assertEquals(expectedXml, Utils.read(fileInputStream));
+        assertEquals(expectedXml.length(), new File(transactionLog.getTransactionLogDir(), files.get(0)).length());
+    }
+
+    @Test
     public void testAddNotWhenFailed() throws IOException {
         class MyTripleStore extends OwlimTripleStore {
             public void addRDF(String identifier, String body) {

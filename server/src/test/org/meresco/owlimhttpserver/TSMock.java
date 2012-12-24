@@ -46,8 +46,16 @@ public class TSMock implements TripleStore {
         actions.add("add:" + identifier + "|" + data);
     }
 
+    public void addTriple(String tripleData) {
+        actions.add("addTriple:" + tripleData);
+    }
+
     public void delete(String identifier) {
         actions.add("delete:" + identifier);
+    }
+
+    public void removeTriple(String tripleData) {
+        actions.add("removeTriple:" + tripleData);
     }
 
     public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) {

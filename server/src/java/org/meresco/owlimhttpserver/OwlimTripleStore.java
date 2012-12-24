@@ -49,6 +49,8 @@ import org.openrdf.query.TupleQueryResult;
 import org.openrdf.query.TupleQueryResultHandlerException;
 
 import org.openrdf.model.impl.URIImpl;
+import org.openrdf.model.impl.LiteralImpl;
+import org.openrdf.model.impl.StatementImpl;
 import org.openrdf.model.Resource;
 import org.openrdf.model.Statement;
 import org.openrdf.model.URI;
@@ -106,6 +108,26 @@ public class OwlimTripleStore implements TripleStore {
         }
     }
 
+    public void addTriple(String tripleData) {
+        RepositoryConnection conn = null;
+        String[] values = tripleData.split("\\|");
+        Value object = null;
+        try {
+            object = new URIImpl(values[2]);
+        } catch (IllegalArgumentException e) {
+            object = new LiteralImpl(values[2]);
+        }
+        try {
+            conn = repository.getConnection();
+            conn.setAutoCommit(false);
+            conn.add(new URIImpl(values[0]), new URIImpl(values[1]), object);
+        } catch (RepositoryException e) {
+            throw new RuntimeException(e);
+        } finally {
+            close(conn);
+        }   
+    }
+
     public void delete(String identifier) {
         URI context = new URIImpl(identifier);
         RepositoryConnection conn = null;
@@ -118,6 +140,26 @@ public class OwlimTripleStore implements TripleStore {
         } finally {
             close(conn);
         }
+    }
+
+    public void removeTriple(String tripleData) {
+        RepositoryConnection conn = null;
+        String[] values = tripleData.split("\\|");
+        Value object = null;
+        try {
+            object = new URIImpl(values[2]);
+        } catch (IllegalArgumentException e) {
+            object = new LiteralImpl(values[2]);
+        }
+        try {
+            conn = repository.getConnection();
+            conn.setAutoCommit(false);
+            conn.remove(new URIImpl(values[0]), new URIImpl(values[1]), object);
+        } catch (RepositoryException e) {
+            throw new RuntimeException(e);
+        } finally {
+            close(conn);
+        }   
     }
 
     public long size() {

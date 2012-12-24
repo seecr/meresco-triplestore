@@ -29,6 +29,7 @@
 from urllib2 import urlopen
 from urllib import urlencode
 from simplejson import loads
+from Ft.Xml.Lib import Uri as FtUri 
 
 from weightless.http import httpget, httppost
 
@@ -50,6 +51,12 @@ class HttpClient(object):
     def add(self, identifier, data, **kwargs):
         path = "/update?%s" % urlencode(dict(identifier=identifier))
         yield self._send(path=path, body=data)
+
+    def addTriple(self, subj, pred, obj):
+        yield self._send(path="/addTriple", body='|'.join([subj, pred, obj]))
+
+    def removeTriple(self, subj, pred, obj):
+        yield self._send(path="/removeTriple", body='|'.join([subj, pred, obj]))
 
     def delete(self, identifier, **kwargs):
         path = "/delete?%s" % urlencode(dict(identifier=identifier))
@@ -103,18 +110,23 @@ class HttpClient(object):
 
     def _createSparQL(self, subj=None, pred=None, obj=None):
         statement = "SELECT DISTINCT"
-        if subj == None:
+        if subj is None:
             statement += " ?s"
-        if pred == None:
+        if pred is None:
             statement += " ?p"
-        if obj == None:
+        if obj is None:
             statement += " ?o"
+        if (subj and pred and obj):
+            statement += " *"
         statement += " WHERE {"
 
         if subj and subj[0] != '<' and subj[-1] != '>':
             subj = '<%s>' % subj
         if pred and pred[0] != '<' and pred[-1] != '>':
             pred = '<%s>' % pred
+
+        if obj and not FtUri.MatchesUriSyntax(obj):
+            obj = '"%s"' % obj
 
         statement += " " + subj if subj else " ?s"
         statement += " " + pred if pred else " ?p"

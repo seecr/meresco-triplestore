@@ -165,6 +165,33 @@ public class OwlimHttpHandlerTest {
         assertEquals(Arrays.asList("add:identifier" + "|" + httpBody), tlmock.actions);
     }
 
+    @Test public void testAddTriple() throws TransactionLogException, IOException {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+        String httpBody = "uri:subj|uri:pred|uri:obj";
+        h.addTriple(httpBody);
+        assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|uri:obj"), tlmock.actions);
+    }
+
+    @Test public void testAddTripleWithStringAsObject() throws TransactionLogException, IOException {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+        String httpBody = "uri:subj|uri:pred|string";
+        h.addTriple(httpBody);
+        assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|string"), tlmock.actions);
+    }
+
+    @Test public void testRemoveTriple() throws TransactionLogException, IOException {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+        String httpBody = "uri:subj|uri:pred|string";
+        h.removeTriple(httpBody);
+        assertEquals(Arrays.asList("removeTriple:uri:subj|uri:pred|string"), tlmock.actions);
+    }
+
     @Test public void testDeleteRDF() throws TransactionLogException, IOException {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();

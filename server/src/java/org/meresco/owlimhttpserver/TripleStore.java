@@ -39,8 +39,10 @@ import java.util.List;
 
 public interface TripleStore {
     void addRDF(String identifier, String body);
+    void addTriple(String tripleData);
 
     void delete(String identifier);
+    void removeTriple(String tripleData);
 
     String executeQuery(String sparQL);
     String executeQuery(String sparQL, TupleQueryResultFormat format);

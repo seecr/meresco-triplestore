@@ -48,6 +48,9 @@ import org.apache.commons.lang3.StringEscapeUtils;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.rio.RDFParseException;
 import org.openrdf.model.Namespace;
+import org.openrdf.model.Value;
+import org.openrdf.model.impl.URIImpl;
+import org.openrdf.model.impl.LiteralImpl;
 import org.openrdf.repository.RepositoryException;
 
 public class OwlimHttpHandler implements HttpHandler {
@@ -68,7 +71,7 @@ public class OwlimHttpHandler implements HttpHandler {
         String rawQueryString = requestURI.getRawQuery();
         QueryParameters queryParameters = Utils.parseQS(rawQueryString);
         OutputStream outputStream = exchange.getResponseBody();
-       
+
         try {
             try {
                 if (path.equals("/add")) {
@@ -79,6 +82,9 @@ public class OwlimHttpHandler implements HttpHandler {
                     updateRDF(queryParameters, body);
                 } else if (path.equals("/delete")) {
                     deleteRDF(queryParameters);
+                } else if (path.equals("/addTriple")) {
+                    String body = Utils.read(exchange.getRequestBody());
+                    addTriple(body);
                 } else if (path.equals("/query")) {
                     String response = "";
                     Headers requestHeaders = exchange.getRequestHeaders();
@@ -168,9 +174,17 @@ public class OwlimHttpHandler implements HttpHandler {
         transactionLog.add(identifier, httpBody);
     }
 
+    public void addTriple(String httpBody) throws TransactionLogException, IOException {
+        transactionLog.addTriple(httpBody);
+    }
+
     public void deleteRDF(QueryParameters params) throws TransactionLogException, IOException {
         String identifier = params.singleValue("identifier");
         transactionLog.delete(identifier);
+    }
+
+    public void removeTriple(String httpBody) throws TransactionLogException, IOException {
+        transactionLog.removeTriple(httpBody);
     }
 
     public String executeQuery(QueryParameters params) {
