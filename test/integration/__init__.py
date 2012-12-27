@@ -24,4 +24,3 @@
 # 
 ## end license ##
 
-from integrationtestcase import globalSetUp, globalTearDown, IntegrationTestCase

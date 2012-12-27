@@ -36,24 +36,25 @@ systemPath.insert(0, '../client')                   #DO_NOT_DISTRIBUTE
 
 from sys import argv
 
-from testrunner import TestRunner
+from seecr.test.testrunner import TestRunner
 
-from integration import globalSetUp, globalTearDown
+from integration.owlimintegrationstate import OwlimIntegrationState
 
-flags = ['--fast']
 
 if __name__ == '__main__':
+    flags = ['--fast']
     fastMode = '--fast' in argv
     for flag in flags:
         if flag in argv:
             argv.remove(flag)
 
     runner = TestRunner()
-    runner.addGroup('default', [
-            'integration.owlimtest.OwlimTest',
+    OwlimIntegrationState(
+        'default',
+        tests=[
+            'integration.owlimtest.OwlimTest'
         ],
-        groupSetUp = lambda: globalSetUp(fastMode, 'default'),
-        groupTearDown = lambda: globalTearDown())
+        fastMode=fastMode).addToTestRunner(runner)
 
     testnames = argv[1:]
     runner.run(testnames)

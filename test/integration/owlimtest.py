@@ -34,8 +34,7 @@ from signal import SIGKILL
 from time import time
 
 from seecr.test.utils import getRequest, postRequest
-
-from integration import IntegrationTestCase
+from seecr.test.integrationtestcase import IntegrationTestCase
 
 
 class OwlimTest(IntegrationTestCase):
