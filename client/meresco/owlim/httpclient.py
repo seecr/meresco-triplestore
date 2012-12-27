@@ -29,7 +29,6 @@
 from urllib2 import urlopen
 from urllib import urlencode
 from simplejson import loads
-from Ft.Xml.Lib import Uri as FtUri 
 
 from weightless.http import httpget, httppost
 
@@ -52,11 +51,11 @@ class HttpClient(object):
         path = "/update?%s" % urlencode(dict(identifier=identifier))
         yield self._send(path=path, body=data)
 
-    def addTriple(self, subj, pred, obj):
-        yield self._send(path="/addTriple", body='|'.join([subj, pred, obj]))
+    def addTriple(self, subject, predicate, object):
+        yield self._send(path="/addTriple", body='|'.join([subject, predicate, object]))
 
-    def removeTriple(self, subj, pred, obj):
-        yield self._send(path="/removeTriple", body='|'.join([subj, pred, obj]))
+    def removeTriple(self, subject, predicate, object):
+        yield self._send(path="/removeTriple", body='|'.join([subject, predicate, object]))
 
     def delete(self, identifier, **kwargs):
         path = "/delete?%s" % urlencode(dict(identifier=identifier))
@@ -71,13 +70,13 @@ class HttpClient(object):
     def executeQuery(self, query, queryResultFormat=None):
         queryResult = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
         if queryResultFormat is None:
-            queryResult = _parseJson2Dict(queryResult)
+            queryResult = self._parseJson2Dict(queryResult)
         raise StopIteration(queryResult)
 
-    def getStatements(self, subj=None, pred=None, obj=None):
-        query = self._createSparQL(subj, pred, obj)
+    def getStatements(self, subject=None, predicate=None, object=None):
+        query = ''.join(self._getStatementsSparQL(subject=subject, predicate=predicate, object=object))
         jsonString = yield self._sparqlQuery(query)
-        raise StopIteration(_results(jsonString, subj, pred, obj))
+        raise StopIteration(self._getStatementsResults(jsonString, subject=subject, predicate=predicate, object=object))
 
     def _sparqlQuery(self, query, queryResultFormat=None):
         path = "/query?%s" % urlencode(dict(query=query))
@@ -108,61 +107,60 @@ class HttpClient(object):
         if not header.startswith('HTTP/1.1 200'):
             raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
 
-    def _createSparQL(self, subj=None, pred=None, obj=None):
-        statement = "SELECT DISTINCT"
-        if subj is None:
-            statement += " ?s"
-        if pred is None:
-            statement += " ?p"
-        if obj is None:
-            statement += " ?o"
-        if (subj and pred and obj):
-            statement += " *"
-        statement += " WHERE {"
+    def _getStatementsSparQL(self, subject=None, predicate=None, object=None):
+        if not subject is None and not Uri.matchesUriSyntax(subject):
+            raise ValueError('subject must be an URI')
+        if not predicate is None and not Uri.matchesUriSyntax(predicate):
+            raise ValueError('predicate must be an URI')
+        yield "SELECT DISTINCT"
+        if subject is None:
+            yield " ?s"
+        if predicate is None:
+            yield " ?p"
+        if object is None:
+            yield " ?o"
+        if (subject and predicate and object):
+            yield " *"
+        yield " WHERE {"
+        yield " " + ('<%s>' % subject if subject else "?s")
+        yield " " + ('<%s>' % predicate if predicate else "?p")
+        yield " " + (['"%s"', '<%s>'][Uri.matchesUriSyntax(object)] % object if object else "?o")
+        yield " }"
 
-        if subj:
-            subj = '<%s>' % subj
-        if pred:
-            pred = '<%s>' % pred
-        if obj:
-            if FtUri.MatchesUriSyntax(obj):
-                obj = '<%s>' % obj
-            else:
-                obj = '"%s"' % obj
+    def _parseJson2Dict(self, jsonString):
+        result = []
+        jsonData = loads(jsonString)
+        for binding in jsonData['results']['bindings']:
+            result.append(dict([(key, self._fromBinding(binding, key)) for key in binding.keys()]))
+        return result
 
-        statement += " " + subj if subj else " ?s"
-        statement += " " + pred if pred else " ?p"
-        statement += " " + obj if obj else " ?o"
+    def _getStatementsResults(self, jsonString, subject, predicate, object):
+        jsonData = loads(jsonString)
+        if not subject is None:
+            subject = Uri(subject)
+        if not predicate is None:
+            predicate = Uri(predicate)
+        if not object is None:
+            object = Uri(object) if Uri.matchesUriSyntax(object) else Literal(object)
+        for binding in jsonData['results']['bindings']:
+            resultSubject = self._fromBinding(binding, 's', subject)
+            resultPredicate = self._fromBinding(binding, 'p', predicate)
+            resultObject = self._fromBinding(binding, 'o', object)
+            yield resultSubject, resultPredicate, resultObject
 
-        statement += " }"
-
-        return statement
+    def _fromBinding(self, binding, key, default=None):
+        valueDict = binding.get(key)
+        if valueDict is None:
+            return default
+        mappedType = _typeMapping.get(valueDict['type'])
+        return mappedType.fromDict(valueDict) if mappedType else valueDict['value']
 
     def _urlopen(self, *args, **kwargs):
         return urlopen(*args, **kwargs).read()
 
-
-def _results(jsonString, subj, pred, obj):
-    jsonData = loads(jsonString)
-    for i in jsonData['results']['bindings']:
-        resultSubject = fromDict(i['s'])  if 's' in i else Uri(subj)
-        resultPredicate = fromDict(i['p'])  if 'p' in i else Uri(pred)
-        resultObject = fromDict(i['o'])  if 'o' in i else Literal(obj)
-        yield resultSubject, resultPredicate, resultObject
-
-typeMapping = {
+    
+_typeMapping = {
     'literal': Literal,
     'uri': Uri,
 }
-
-def fromDict(dictionary):
-    mappedType = typeMapping.get(dictionary['type'], None)
-    return mappedType.fromDict(dictionary) if mappedType else dictionary['value']
-
-def _parseJson2Dict(jsonString):
-    result = []
-    jsonData = loads(jsonString)
-    for i in jsonData['results']['bindings']:
-        result.append(dict([(key, fromDict(value)) for (key, value) in i.items()]))
-    return result
 

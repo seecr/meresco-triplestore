@@ -53,14 +53,14 @@ class HttpClientTest(SeecrTestCase):
         client = HttpClient(host="localhost", port=9999)
         toSend = []
         client._send = lambda path, body: toSend.append((path, body))
-        list(compose(client.addTriple(subj="uri:subj", pred="uri:pred", obj="uri:obj")))
+        list(compose(client.addTriple(subject="uri:subj", predicate="uri:pred", object="uri:obj")))
         self.assertEquals([("/addTriple", 'uri:subj|uri:pred|uri:obj')], toSend)
 
     def testRemoveTriple(self):
         client = HttpClient(host="localhost", port=9999)
         toSend = []
         client._send = lambda path, body: toSend.append((path, body))
-        list(compose(client.removeTriple(subj="uri:subj", pred="uri:pred", obj="uri:obj")))
+        list(compose(client.removeTriple(subject="uri:subj", predicate="uri:pred", object="uri:obj")))
         self.assertEquals([("/removeTriple", 'uri:subj|uri:pred|uri:obj')], toSend)
 
     def testDelete(self):
@@ -98,17 +98,17 @@ class HttpClientTest(SeecrTestCase):
         list(compose(client.validate(data=RDFDATA)))
         self.assertEquals([("/validate", RDFDATA)], toSend)
 
-    def testCreateSparQL(self):
+    def testGetStatementsSparQL(self):
         client = HttpClient(host="localhost", port=9999)
-        self.assertEquals("SELECT DISTINCT ?s ?p ?o WHERE { ?s ?p ?o }", client._createSparQL(subj=None, pred=None, obj=None))
+        self.assertEquals("SELECT DISTINCT ?s ?p ?o WHERE { ?s ?p ?o }", ''.join(client._getStatementsSparQL(subject=None, predicate=None, object=None)))
 
-        self.assertEquals("SELECT DISTINCT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", client._createSparQL(subj="http://cq2.org/person/0001"))
+        self.assertEquals("SELECT DISTINCT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001")))
         
-        self.assertEquals("SELECT DISTINCT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", client._createSparQL(subj="http://cq2.org/person/0001", pred="http://xmlns.com/foaf/0.1/name"))
+        self.assertEquals("SELECT DISTINCT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name")))
 
-        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> <uri:obj> }", client._createSparQL(subj="http://cq2.org/person/0001", pred="http://xmlns.com/foaf/0.1/name", obj="uri:obj"))
+        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> <uri:obj> }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="uri:obj")))
         
-        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> \"object\" }", client._createSparQL(subj="http://cq2.org/person/0001", pred="http://xmlns.com/foaf/0.1/name", obj="object"))
+        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> \"object\" }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="object")))
 
 
     def testExecuteQuery(self):
@@ -143,12 +143,17 @@ class HttpClientTest(SeecrTestCase):
         result = self._resultFromServerResponse(gen, SPARQL_XML)
         self.assertEquals(SPARQL_XML, result)
 
-
     def testGetStatements(self):
         client = HttpClient(host="localhost", port=9999)
-        gen = compose(client.getStatements(subj='uri:subject'))
+        gen = compose(client.getStatements(subject='uri:subject'))
         result = self._resultFromServerResponse(gen, RESULT_JSON)
         self.assertEquals(RESULT_SPO, list(result))
+
+    def testGetStatementsGuards(self):
+        client = HttpClient(host="localhost", port=9999)
+        self.assertRaises(ValueError, lambda: list(compose(client.getStatements(subject='literal'))))
+        self.assertRaises(ValueError, lambda: list(compose(client.getStatements(predicate='literal'))))
+
 
     def testExecuteQuerySynchronous(self):
         client = HttpClient(host="localhost", port=9999, synchronous=True)
@@ -164,11 +169,6 @@ class HttpClientTest(SeecrTestCase):
         client = HttpClient(host="localhost", port=9999, synchronous=True)
         client._urlopen = lambda *args, **kwargs: "SOME RESPONSE"
         list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
-
-        # list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
-        # self.assertRaises(
-        #     IOError, 
-        #     lambda: self._resultFromServerResponse(g, "Error description", responseStatus='500'))
 
         toSend = []
         client._urlopen = lambda url, data: toSend.append((url, data))
@@ -187,20 +187,6 @@ class HttpClientTest(SeecrTestCase):
             if len(e.args) > 0:
                 return e.args[0]
 
-    def to_be_moved_to_integrationtest_testGetStatements(self):
-        client = HttpClient(host="localhost", port=9999)
-        def _executeQuery(*args, **kwargs):
-            raise StopIteration(RESULT_JSON)
-        result = list(client.getStatements())
-        self.assertEquals([
-            (   u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 
-                u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 
-                u'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'
-            ), (
-                u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject', 
-                u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', 
-                u'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property'
-            )], result)
         
 PARSED_RESULT_JSON = [
     {

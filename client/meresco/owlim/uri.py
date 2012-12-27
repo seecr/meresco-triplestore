@@ -24,16 +24,27 @@
 # 
 ## end license ##
 
+from Ft.Xml.Lib import Uri as FtUri 
+
 class Uri(str):
     def __init__(self, value):
-        self.value = value
+        if isinstance(value, Uri):
+            self.value = value.value
+        else:
+            self.value = value
 
     @classmethod
-    def fromDict(self, aDictionary):
-        return Uri(aDictionary['value'])
+    def fromDict(self, valueDict):
+        return Uri(valueDict['value'])
 
     def __repr__(self):
-        return "%s(%s)" % (self.__class__.__name__, self.value)
+        return "%s(%s)" % (self.__class__.__name__, repr(self.value))
 
     def __eq__(self, other):
         return other.__class__ is self.__class__ and other.value == self.value
+
+    @staticmethod
+    def matchesUriSyntax(value):
+        # should be replaced by check on the (broader) IRI syntax as supported in RDF. 
+        return FtUri.MatchesUriSyntax(value)
+
