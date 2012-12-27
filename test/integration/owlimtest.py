@@ -24,28 +24,23 @@
 # 
 ## end license ##
 
-from integration import IntegrationTestCase
-from utils import postRequest
-
 from shutil import rmtree, copyfile
 from os.path import join, exists, abspath, isdir
 from os import remove, kill, waitpid, WNOHANG, system, symlink
 from simplejson import loads
 from urllib import urlopen, urlencode
+from urllib2 import urlopen, Request
 from signal import SIGKILL
 from time import time
 
-from urllib2 import urlopen, Request
+from seecr.test.utils import getRequest, postRequest
 
-from seecr.test.utils import getRequest
+from integration import IntegrationTestCase
+
 
 class OwlimTest(IntegrationTestCase):
     def testOne(self):
         self.assertTrue('"vars": [ "x" ]' in urlopen("http://localhost:%s/query?%s" % (self.owlimPort, urlencode(dict(query='SELECT ?x WHERE {}')))).read())
-
-    def query(self, query):
-        return loads(urlopen('http://localhost:%s/query?%s' % (self.owlimPort,
-            urlencode(dict(query=query)))).read())
 
     def testKillTripleStoreSavesState(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
@@ -133,6 +128,21 @@ class OwlimTest(IntegrationTestCase):
     </rdf:RDF>""", parse=False)
         json = self.query('SELECT ?x WHERE {?x ?y "uri:testDelete"}')
         self.assertEquals(1, len(json['results']['bindings']))
+
+    def testAddAndRemoveTriple(self):
+        json = self.query('SELECT ?obj WHERE { <uri:subject> <uri:predicate> ?obj }')
+        self.assertEquals(0, len(json['results']['bindings']))
+
+        header, body = postRequest(self.owlimPort, "/addTriple", "uri:subject|uri:predicate|uri:object", parse=False)
+        self.assertTrue("200" in header, header)
+
+        json = self.query('SELECT ?obj WHERE { <uri:subject> <uri:predicate> ?obj }')
+        self.assertEquals(1, len(json['results']['bindings']))
+
+        header, body = postRequest(self.owlimPort, "/removeTriple", "uri:subject|uri:predicate|uri:object", parse=False)
+        self.assertTrue("200" in header, header)
+        json = self.query('SELECT ?obj WHERE { <uri:subject> <uri:predicate> ?obj }')
+        self.assertEquals(0, len(json['results']['bindings']))
 
     def testPerformance(self):
         totalTime = 0
@@ -238,3 +248,8 @@ class OwlimTest(IntegrationTestCase):
         </result>
     </results>
 </sparql>""", contents)   
+
+    def query(self, query):
+        return loads(urlopen('http://localhost:%s/query?%s' % (self.owlimPort,
+            urlencode(dict(query=query)))).read())
+

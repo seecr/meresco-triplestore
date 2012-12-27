@@ -44,7 +44,7 @@ from lxml.etree import XMLSyntaxError, parse
 from seecr.test import SeecrTestCase
 from meresco.components import readConfig
 
-from utils import postRequest, postMultipartForm 
+from seecr.test.utils import postRequest, postMultipartForm 
 
 
 mypath = dirname(abspath(__file__))

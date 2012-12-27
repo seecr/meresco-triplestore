@@ -85,6 +85,9 @@ public class OwlimHttpHandler implements HttpHandler {
                 } else if (path.equals("/addTriple")) {
                     String body = Utils.read(exchange.getRequestBody());
                     addTriple(body);
+                } else if (path.equals("/removeTriple")) {
+                    String body = Utils.read(exchange.getRequestBody());
+                    removeTriple(body);
                 } else if (path.equals("/query")) {
                     String response = "";
                     Headers requestHeaders = exchange.getRequestHeaders();
