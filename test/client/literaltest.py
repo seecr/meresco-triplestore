@@ -26,10 +26,37 @@
 
 from seecr.test import SeecrTestCase
 
-from meresco.owlim import Literal
+from meresco.owlim import Literal, Uri
 
 
 class LiteralTest(SeecrTestCase):
+    def testInstantiate(self):
+        self.assertEquals('Li-ter-al', str(Literal('Li-ter-al')))
+        self.assertEquals("'Li-ter-al'@nl", str(Literal('Li-ter-al', lang='nl')))
+        self.assertEquals("Literal('Li-ter-al')", repr(Literal('Li-ter-al')))
+        self.assertEquals("Literal('Li-ter-al', lang='nl')", repr(Literal('Li-ter-al', lang='nl')))
+
+    def testHashForCollections(self):
+        l1 = Literal('u:ri', lang='nl')
+        l2 = Literal('u:ri', lang='nl')
+        self.assertEquals(l1, l2)
+        self.assertEquals(hash(l1), hash(l2))
+        coll = set([l1, l2])
+        self.assertEquals(1, len(coll))
+
+        self.assertNotEqual(hash(l1), hash(Literal('u:ri', lang='en')))
+        self.assertNotEqual(hash(l1), hash(Literal('U:RI', lang='nl')))
+
+    def testOnlyStringLikeObjects(self):
+        self.assertRaises(ValueError, lambda: Literal(42))
+        self.assertRaises(ValueError, lambda: Literal(object()))
+        self.assertEquals('u:ri', str(Literal('u:ri')))
+        self.assertEquals('u:ri', str(Literal(u'u:ri')))
+
+        # Re-wrapping Literal (or Uri) disallowed
+        self.assertRaises(ValueError, lambda: Literal(Literal('u:ri')))
+        self.assertRaises(ValueError, lambda: Literal(Uri('u:ri')))
+
     def testWithoutLang(self):
         l = Literal.fromDict({"type": "literal", "value": "http://www.rnaproject.org/data/rnax/odw/InformationConcept"})
         self.assertEquals("http://www.rnaproject.org/data/rnax/odw/InformationConcept", l.value)

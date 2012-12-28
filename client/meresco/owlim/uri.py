@@ -26,16 +26,21 @@
 
 from Ft.Xml.Lib import Uri as FtUri 
 
-class Uri(str):
+class Uri(object):
     def __init__(self, value):
-        if isinstance(value, Uri):
-            self.value = value.value
-        else:
-            self.value = value
+        if not isinstance(value, basestring):
+            raise ValueError('Expected a stringlike object')
+        self.value = value
 
     @classmethod
     def fromDict(self, valueDict):
         return Uri(valueDict['value'])
+
+    def __str__(self):
+        return self.value
+
+    def __hash__(self):
+        return hash(str(self))
 
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, repr(self.value))

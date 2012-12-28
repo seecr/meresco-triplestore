@@ -32,12 +32,11 @@ class Literal(object):
             lang=valueDict.get('xml:lang', None))
 
     def __init__(self, value, lang=None):
-        if isinstance(value, Literal):
-            self.value = value.value
-            self.lang = value.lang
-        else:
-            self.value = value
-            self.lang = lang
+        if not isinstance(value, basestring):
+            raise ValueError('Expected a stringlike object')
+
+        self.value = value
+        self.lang = lang
 
     def __eq__(self, other):
         return other.__class__ is self.__class__ and self.value == other.value and other.lang == self.lang
