@@ -154,7 +154,6 @@ class HttpClientTest(SeecrTestCase):
         self.assertRaises(ValueError, lambda: list(compose(client.getStatements(subject='literal'))))
         self.assertRaises(ValueError, lambda: list(compose(client.getStatements(predicate='literal'))))
 
-
     def testExecuteQuerySynchronous(self):
         client = HttpClient(host="localhost", port=9999, synchronous=True)
         client._urlopen = lambda *args, **kwargs: RESULT_JSON
