@@ -278,7 +278,6 @@ public class OwlimTripleStore implements TripleStore {
             File backupDir = new File(dir, "backups");
             backupDir.mkdirs();
             File exportFile = new File(backupDir, "backup-" + identifier + ".trig.gz");
-            System.out.println("Export to:" + exportFile);
             writer = new GZIPOutputStream(new BufferedOutputStream(new FileOutputStream(exportFile)));
             RDFWriter rdfWriter = Rio.createWriter(format, writer);            
             conn.export(rdfWriter);

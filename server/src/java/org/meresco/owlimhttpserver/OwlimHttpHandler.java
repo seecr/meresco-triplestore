@@ -205,7 +205,6 @@ public class OwlimHttpHandler implements HttpHandler {
     }
 
     public void export(QueryParameters params) {
-        System.out.println("export OwlimHttpHandler");
         String identifier = params.singleValue("identifier");
         tripleStore.export(identifier);
     }
