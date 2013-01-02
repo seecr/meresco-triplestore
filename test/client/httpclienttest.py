@@ -174,6 +174,13 @@ class HttpClientTest(SeecrTestCase):
         list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
         self.assertEquals([("http://localhost:9999/update?identifier=id", RDFDATA)], toSend)
 
+    def testExport(self):
+        client = HttpClient(host="localhost", port=9999)
+        toSend = []
+        client._send = lambda path, body: toSend.append((path, body))
+        list(compose(client.export(identifier="id")))
+        self.assertEquals([("/export?identifier=id", None)], toSend)
+
     def _resultFromServerResponse(self, g, data, responseStatus='200'):
         s = g.next()
         self.assertEquals(Suspend, type(s))

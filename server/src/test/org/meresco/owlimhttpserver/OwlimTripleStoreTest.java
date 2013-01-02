@@ -28,7 +28,11 @@
 package org.meresco.owlimhttpserver;
 
 import java.util.List;
+import java.util.zip.GZIPInputStream;
 import java.io.File;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.FileInputStream;
 import org.junit.Test;
 import org.junit.Before;
 import org.junit.After;
@@ -164,5 +168,24 @@ public class OwlimTripleStoreTest {
         } catch (Exception e) {
             assertTrue(e.toString().contains("org.openrdf.repository.RepositoryException"));
         }
+    }
+
+    @Test
+    public void testExport() throws Exception {
+        ts = new OwlimTripleStore(tempdir, "storageName");
+        ts.startup();
+        ts.addTriple("uri:subj|uri:pred|uri:obj");
+        ts.export("identifier");
+        ts.shutdown();
+        File backup = new File(new File(tempdir, "backups"), "backup-identifier.trig.gz");
+        assertTrue(backup.isFile());
+        BufferedReader reader = new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(backup))));
+        StringBuilder filedata = new StringBuilder();
+        String line = reader.readLine();
+        while(line != null){
+            filedata.append(line);
+            line = reader.readLine();
+        } 
+        assertTrue(filedata.toString(), filedata.toString().contains("<uri:subj> <uri:pred> <uri:obj>"));
     }
 }

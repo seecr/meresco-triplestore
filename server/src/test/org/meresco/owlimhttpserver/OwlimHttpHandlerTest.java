@@ -108,6 +108,10 @@ public class OwlimHttpHandlerTest {
             actions.add(params);
             return "SPARQLFORM";
         }
+        public void export(QueryParameters params) {
+            actions.add("export");
+            actions.add(params);
+        }
     }
 
     public class HttpExchangeMock extends HttpExchange {
@@ -455,4 +459,27 @@ public class OwlimHttpHandlerTest {
         assertEquals("application/sparql-results+xml", exchange.getResponseHeaders().getFirst("Content-Type"));
     }
 
+    @Test public void testExportDispatch() throws Exception {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/export?identifier=identifier", "");
+        h.handle(exchange);
+        assertEquals(2, h.actions.size());
+        assertEquals("export", h.actions.get(0));
+        QueryParameters qp = (QueryParameters) h.actions.get(1);
+        assertEquals(1, qp.size());
+        assertEquals("identifier", qp.singleValue("identifier"));
+    }
+
+    @Test public void testExport() throws Exception {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/export?identifier=identifier", "");
+        h.handle(exchange);
+        assertEquals(0, tlmock.actions.size());
+        assertEquals(1, tsmock.actions.size());
+        assertEquals("export:identifier", tsmock.actions.get(0));
+    }
 }

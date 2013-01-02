@@ -78,6 +78,12 @@ class HttpClient(object):
         jsonString = yield self._sparqlQuery(query)
         raise StopIteration(self._getStatementsResults(jsonString, subject=subject, predicate=predicate, object=object))
 
+    def export(self, identifier):
+        if not identifier:
+            raise ValueError("identifier cannot be empty")
+        path = "/export?%s" % urlencode(dict(identifier=identifier))
+        yield self._send(path=path, body=None)
+
     def _sparqlQuery(self, query, queryResultFormat=None):
         path = "/query?%s" % urlencode(dict(query=query))
         headers = None

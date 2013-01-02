@@ -71,7 +71,6 @@ public class OwlimHttpHandler implements HttpHandler {
         String rawQueryString = requestURI.getRawQuery();
         QueryParameters queryParameters = Utils.parseQS(rawQueryString);
         OutputStream outputStream = exchange.getResponseBody();
-
         try {
             try {
                 if (path.equals("/add")) {
@@ -133,6 +132,8 @@ public class OwlimHttpHandler implements HttpHandler {
                     } catch (RDFParseException e) {
                         _writeResponse("Invalid\n" + e.toString(), outputStream);
                     }
+                } else if (path.equals("/export")) {
+                    export(queryParameters);
                 } else {
                     exchange.sendResponseHeaders(404, 0);
                     return;
@@ -201,6 +202,12 @@ public class OwlimHttpHandler implements HttpHandler {
 
     public void validateRDF(QueryParameters params, String httpBody) throws RDFParseException {
         validator.validate(httpBody);
+    }
+
+    public void export(QueryParameters params) {
+        System.out.println("export OwlimHttpHandler");
+        String identifier = params.singleValue("identifier");
+        tripleStore.export(identifier);
     }
 
     public String sparqlForm(QueryParameters params) {

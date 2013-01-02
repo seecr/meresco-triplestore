@@ -84,6 +84,10 @@ public class TSMock implements TripleStore {
         actions.add("startup");
     }
 
+    public void export(String identifier) {
+        actions.add("export:" + identifier);
+    }
+
     public List<Namespace> getNamespaces() {
         List<Namespace> namespaces = new ArrayList<Namespace>();
         namespaces.add(new NamespaceImpl("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#"));

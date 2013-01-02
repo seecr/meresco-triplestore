@@ -54,6 +54,8 @@ public interface TripleStore {
 
     void startup();
 
+    void export(String identifier);
+
     void undoCommit();
 }
 

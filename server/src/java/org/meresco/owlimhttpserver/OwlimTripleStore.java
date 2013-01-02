@@ -33,7 +33,10 @@ import java.io.StringReader;
 import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.io.FileOutputStream;
+import java.io.BufferedOutputStream;
 import java.util.List;
+import java.util.zip.GZIPOutputStream;
 
 import com.ontotext.trree.owlim_ext.Repository;
 import com.ontotext.trree.owlim_ext.SailImpl;
@@ -62,6 +65,8 @@ import org.openrdf.repository.RepositoryException;
 import org.openrdf.repository.RepositoryResult;
 import org.openrdf.repository.sail.SailRepository;
 
+import org.openrdf.rio.Rio;
+import org.openrdf.rio.RDFWriter;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParseException;
 
@@ -262,6 +267,31 @@ public class OwlimTripleStore implements TripleStore {
             System.out.println(os.toString());
             throw e;
         }   
+    }
+
+    public void export(String identifier) {
+        RepositoryConnection conn = null;
+        OutputStream writer = null;
+        RDFFormat format = RDFFormat.TRIG;
+        try {
+            conn = repository.getConnection();
+            File backupDir = new File(dir, "backups");
+            backupDir.mkdirs();
+            File exportFile = new File(backupDir, "backup-" + identifier + ".trig.gz");
+            System.out.println("Export to:" + exportFile);
+            writer = new GZIPOutputStream(new BufferedOutputStream(new FileOutputStream(exportFile)));
+            RDFWriter rdfWriter = Rio.createWriter(format, writer);            
+            conn.export(rdfWriter);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                writer.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            close(conn);
+        }
     }
 
     public void undoCommit() {}
