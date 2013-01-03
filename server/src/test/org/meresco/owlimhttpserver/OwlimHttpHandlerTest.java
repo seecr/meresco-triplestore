@@ -1,28 +1,28 @@
 /* begin license *
- * 
+ *
  * The Meresco Owlim package consists out of a HTTP server written in Java that
  * provides access to an Owlim Triple store, as well as python bindings to
- * communicate as a client with the server. 
- * 
+ * communicate as a client with the server.
+ *
  * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
- * 
+ *
  * This file is part of "Meresco Owlim"
- * 
+ *
  * "Meresco Owlim" is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * "Meresco Owlim" is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with "Meresco Owlim"; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- * 
+ *
  * end license */
 
 package org.meresco.owlimhttpserver;
@@ -54,111 +54,6 @@ import org.openrdf.rio.RDFParseException;
 
 
 public class OwlimHttpHandlerTest {
-
-    public class OwlimHttpHandlerMock extends OwlimHttpHandler {
-        public List<Object> actions = new ArrayList<Object>();
-        private Exception _exception = null;
-
-        public OwlimHttpHandlerMock() { super(null, null); }
-        public OwlimHttpHandlerMock(Exception e) { 
-            super(null, null); 
-            _exception = e; 
-        }
-
-        public void updateRDF(QueryParameters params, String httpBody) {
-            if (_exception != null) {
-                throw new RuntimeException(_exception);
-            }
-            actions.add("updateRDF");
-            actions.add(params);
-            actions.add(httpBody);
-        }
-        public void addRDF(QueryParameters params, String httpBody) {
-            if (_exception != null) {
-                throw new RuntimeException(_exception);
-            }
-            actions.add("addRDF");
-            actions.add(params);
-            actions.add(httpBody);
-        }
-        public void deleteRDF(QueryParameters params) {
-            if (_exception != null) {
-                throw new RuntimeException(_exception);
-            }
-            actions.add("deleteRDF");
-            actions.add(params);
-        }
-        
-        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
-            if (_exception != null) {
-                throw new RuntimeException(_exception);
-            }
-            actions.add("executeQuery");
-            actions.add(params);
-            actions.add(resultFormat);
-            return "QUERYRESULT";
-        }
-        public void validateRDF(QueryParameters params, String httpBody) {
-            actions.add("validateRDF");
-            actions.add(params);
-            actions.add(httpBody);
-        }
-        public String sparqlForm(QueryParameters params) {
-            actions.add("sparqlForm");
-            actions.add(params);
-            return "SPARQLFORM";
-        }
-        public void export(QueryParameters params) {
-            actions.add("export");
-            actions.add(params);
-        }
-    }
-
-    public class HttpExchangeMock extends HttpExchange {
-        private java.net.URI _requestURI;
-        private String _requestBody;
-        private ByteArrayOutputStream _responseStream;
-        private Headers _requestHeaders;
-        private Headers _responseHeaders;
-        public int responseCode;
-        public String responseBody;
-
-        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) throws Exception {
-            super();
-            _requestURI = new java.net.URI(requestURI);
-            _requestBody = requestBody;
-            _responseStream = new ByteArrayOutputStream();
-            _requestHeaders = requestHeaders;
-            _responseHeaders = new Headers();
-        }
-        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
-            this(requestURI, requestBody, new Headers());
-        }
-
-        public String getOutput() { return _responseStream.toString(); }
-        public java.net.URI getRequestURI() { return _requestURI; }
-        public HttpPrincipal getPrincipal() { return null; }
-        public void setStreams(InputStream i, OutputStream o) {}
-        public void setAttribute(Object o) {}
-        public void setAttribute(String s, Object o) {}
-        public Object getAttribute(String s) { return null; }
-        public String getProtocol() { return ""; }
-        public InetSocketAddress getLocalAddress() { return null; }
-        public InetSocketAddress getRemoteAddress() { return null; }
-        public int getResponseCode() { return 0; }
-        public void sendResponseHeaders(int responseCode, long l) {
-            this.responseCode = responseCode;
-        }
-        public OutputStream getResponseBody() { return _responseStream;  }
-        public InputStream getRequestBody() { return new ByteArrayInputStream(_requestBody.getBytes()); }
-        public void close() {};
-        public HttpContext getHttpContext() { return null; }
-        public String getRequestMethod() { return ""; }
-        public Headers getResponseHeaders() { return this._responseHeaders; }
-        public Headers getRequestHeaders() { return this._requestHeaders; }
-    }
-
-
     @Test public void testAddRDF() throws TransactionLogException, IOException {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
@@ -213,17 +108,17 @@ public class OwlimHttpHandlerTest {
         h.updateRDF(parseQS("identifier=id0"), httpBody);
         assertEquals(Arrays.asList(
                         "delete:id0",
-                        "add:id0|<rdf/>"), 
+                        "add:id0|<rdf/>"),
                      tlmock.actions);
         h.updateRDF(parseQS("identifier=id1"), httpBody);
         h.updateRDF(parseQS("identifier=id0"), httpBody);
         assertEquals(Arrays.asList(
                         "delete:id0",
-                        "add:id0|<rdf/>", 
+                        "add:id0|<rdf/>",
                         "delete:id1",
                         "add:id1|<rdf/>",
                         "delete:id0",
-                        "add:id0|<rdf/>"), 
+                        "add:id0|<rdf/>"),
                      tlmock.actions);
     }
 
@@ -231,10 +126,10 @@ public class OwlimHttpHandlerTest {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
-        String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D"; 
+        String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D";
         String result = h.executeQuery(parseQS(queryString));
-        
-        assertEquals(Arrays.asList("executeQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"), 
+
+        assertEquals(Arrays.asList("executeQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"),
                      tsmock.actions);
 
     }
@@ -327,8 +222,8 @@ public class OwlimHttpHandlerTest {
             fail("should not get here.");
         }
 
-        String emptyRdfDescription = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n" 
-                + "<rdf:Description rdf:about=\"urn:123\">\n" 
+        String emptyRdfDescription = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n"
+                + "<rdf:Description rdf:about=\"urn:123\">\n"
                 + "</rdf:Description>\n"
                 + "</rdf:RDF>";
         try {
@@ -337,8 +232,8 @@ public class OwlimHttpHandlerTest {
             fail("should not get here.");
         }
 
-        String oneTriple = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n" 
-                + "<rdf:Description rdf:about=\"urn:123\">\n" 
+        String oneTriple = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n"
+                + "<rdf:Description rdf:about=\"urn:123\">\n"
                 + "   <somevoc:relation xmlns:somevoc=\"uri:someuri\">Xyz</somevoc:relation>\n"
                 + "</rdf:Description>\n"
                 + "</rdf:RDF>";
@@ -393,7 +288,7 @@ public class OwlimHttpHandlerTest {
         assertEquals(0, h.actions.size());
         assertEquals(404, exchange.responseCode);
     }
-    
+
     @Test public void test500ForExceptions() throws Exception {
         OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception());
 
@@ -411,7 +306,7 @@ public class OwlimHttpHandlerTest {
 
         QueryParameters queryParameters = Utils.parseQS("");
         String sparqlForm = h.sparqlForm(queryParameters);
-        String expectedQuery = "PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;\n" + 
+        String expectedQuery = "PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;\n" +
             "PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;\n" +
             "\n" +
             "SELECT ?subject ?predicate ?object\n" +
@@ -435,7 +330,7 @@ public class OwlimHttpHandlerTest {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
-        
+
         Headers inputHeaders = new Headers();
         inputHeaders.add("Accept", "image/jpg");
         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
@@ -449,7 +344,7 @@ public class OwlimHttpHandlerTest {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
-        
+
         Headers inputHeaders = new Headers();
         inputHeaders.add("Accept", "application/xml");
         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
@@ -481,5 +376,129 @@ public class OwlimHttpHandlerTest {
         assertEquals(0, tlmock.actions.size());
         assertEquals(1, tsmock.actions.size());
         assertEquals("export:identifier", tsmock.actions.get(0));
+    }
+
+    @Test public void testImport() throws Exception {
+        TSMock tsmock = new TSMock();
+        TLMock tlmock = new TLMock();
+        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+        String trig = "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> . \n" +
+"@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . \n" +
+"@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n" +
+"\n" +
+"<uri:aContext> { \n" +
+"        <uri:aSubject> <uri:aPredicate> \"a literal  value\" . \n" +
+"}";
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/import", trig);
+        h.handle(exchange);
+        assertEquals(0, tlmock.actions.size());
+        assertEquals(1, tsmock.actions.size());
+        assertEquals("import:" + trig, tsmock.actions.get(0));
+    }
+
+
+    class OwlimHttpHandlerMock extends OwlimHttpHandler {
+        public List<Object> actions = new ArrayList<Object>();
+        private Exception _exception = null;
+
+        public OwlimHttpHandlerMock() { super(null, null); }
+        public OwlimHttpHandlerMock(Exception e) {
+            super(null, null);
+            _exception = e;
+        }
+
+        public void updateRDF(QueryParameters params, String httpBody) {
+            if (_exception != null) {
+                throw new RuntimeException(_exception);
+            }
+            actions.add("updateRDF");
+            actions.add(params);
+            actions.add(httpBody);
+        }
+        public void addRDF(QueryParameters params, String httpBody) {
+            if (_exception != null) {
+                throw new RuntimeException(_exception);
+            }
+            actions.add("addRDF");
+            actions.add(params);
+            actions.add(httpBody);
+        }
+        public void deleteRDF(QueryParameters params) {
+            if (_exception != null) {
+                throw new RuntimeException(_exception);
+            }
+            actions.add("deleteRDF");
+            actions.add(params);
+        }
+
+        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
+            if (_exception != null) {
+                throw new RuntimeException(_exception);
+            }
+            actions.add("executeQuery");
+            actions.add(params);
+            actions.add(resultFormat);
+            return "QUERYRESULT";
+        }
+        public void validateRDF(QueryParameters params, String httpBody) {
+            actions.add("validateRDF");
+            actions.add(params);
+            actions.add(httpBody);
+        }
+        public String sparqlForm(QueryParameters params) {
+            actions.add("sparqlForm");
+            actions.add(params);
+            return "SPARQLFORM";
+        }
+        public void export(QueryParameters params) {
+            actions.add("export");
+            actions.add(params);
+        }
+    }
+
+
+    class HttpExchangeMock extends HttpExchange {
+        private java.net.URI _requestURI;
+        private String _requestBody;
+        private ByteArrayOutputStream _responseStream;
+        private Headers _requestHeaders;
+        private Headers _responseHeaders;
+        public int responseCode;
+        public String responseBody;
+
+        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) throws Exception {
+            super();
+            _requestURI = new java.net.URI(requestURI);
+            _requestBody = requestBody;
+            _responseStream = new ByteArrayOutputStream();
+            _requestHeaders = requestHeaders;
+            _responseHeaders = new Headers();
+        }
+        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
+            this(requestURI, requestBody, new Headers());
+        }
+
+        public String getOutput() { return _responseStream.toString(); }
+        public java.net.URI getRequestURI() { return _requestURI; }
+        public HttpPrincipal getPrincipal() { return null; }
+        public void setStreams(InputStream i, OutputStream o) {}
+        public void setAttribute(Object o) {}
+        public void setAttribute(String s, Object o) {}
+        public Object getAttribute(String s) { return null; }
+        public String getProtocol() { return ""; }
+        public InetSocketAddress getLocalAddress() { return null; }
+        public InetSocketAddress getRemoteAddress() { return null; }
+        public int getResponseCode() { return 0; }
+        public void sendResponseHeaders(int responseCode, long l) {
+            this.responseCode = responseCode;
+        }
+        public OutputStream getResponseBody() { return _responseStream;  }
+        public InputStream getRequestBody() { return new ByteArrayInputStream(_requestBody.getBytes()); }
+        public void close() {};
+        public HttpContext getHttpContext() { return null; }
+        public String getRequestMethod() { return ""; }
+        public Headers getResponseHeaders() { return this._responseHeaders; }
+        public Headers getRequestHeaders() { return this._requestHeaders; }
     }
 }

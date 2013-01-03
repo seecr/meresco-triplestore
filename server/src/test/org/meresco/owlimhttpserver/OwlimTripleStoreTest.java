@@ -1,28 +1,28 @@
 /* begin license *
- * 
+ *
  * The Meresco Owlim package consists out of a HTTP server written in Java that
  * provides access to an Owlim Triple store, as well as python bindings to
- * communicate as a client with the server. 
- * 
+ * communicate as a client with the server.
+ *
  * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
- * 
+ *
  * This file is part of "Meresco Owlim"
- * 
+ *
  * "Meresco Owlim" is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * "Meresco Owlim" is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with "Meresco Owlim"; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- * 
+ *
  * end license */
 
 package org.meresco.owlimhttpserver;
@@ -70,10 +70,10 @@ public class OwlimTripleStoreTest {
 
     static final String rdf = "<?xml version='1.0'?>" +
         "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'" +
-        "             xmlns:exterms='http://www.example.org/terms/'>" + 
+        "             xmlns:exterms='http://www.example.org/terms/'>" +
         "  <rdf:Description rdf:about='http://www.example.org/index.html'>" +
         "      <exterms:creation-date>August 16, 1999</exterms:creation-date>" +
-        "      <rdf:value>A.M. Özman Yürekli</rdf:value>" + 
+        "      <rdf:value>A.M. Özman Yürekli</rdf:value>" +
         "  </rdf:Description>" +
         "</rdf:RDF>";
 
@@ -132,7 +132,7 @@ public class OwlimTripleStoreTest {
         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
         assertTrue(answer.endsWith("\n}"));
     }
-    
+
     @Test
     public void testSparqlResultInXml() throws Exception {
         String answer = null;
@@ -185,7 +185,25 @@ public class OwlimTripleStoreTest {
         while(line != null){
             filedata.append(line);
             line = reader.readLine();
-        } 
+        }
         assertTrue(filedata.toString(), filedata.toString().contains("<uri:subj> <uri:pred> <uri:obj>"));
+    }
+
+    String trig = "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> . \n" +
+"@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . \n" +
+"@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n" +
+"\n" +
+"<uri:aContext> { \n" +
+"        <uri:aSubject> <uri:aPredicate> \"a literal  value\" . \n" +
+"}";
+
+    @Test
+    public void testImportGetStatements() throws Exception {
+        long startingPoint = ts.size();
+        ts.importTrig(trig);
+        RepositoryResult<Statement> statements = ts.getStatements(null, null, null);
+        assertEquals(startingPoint + 1, statements.asList().size());
+        List<Statement> statementList = ts.getStatements(new URIImpl("uri:aSubject"), null, null).asList();
+        assertEquals(1, statementList.size());
     }
 }
