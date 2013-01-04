@@ -1,0 +1,2353 @@
+Changeset created on Fri Jan 04 10:42:44 UTC 2013 by Seecr (Seek You Too B.V.)
+
+Description: added importTrig method to Meresco Owlim's HttpClient
+
+    The 'importTrig' method can be used to restore triples exported with the 'export' method.
+
+Baseline version: 4.3
+
+From f1ae94998e5749e5efe6b432236b375bc19e86e0 Mon Sep 17 00:00:00 2001
+From: Seecr Development Team <development@seecr.nl>
+Date: Thu, 3 Jan 2013 17:07:52 +0100
+Subject: [PATCH 1/5] HM/JPM: added 'import' / 'importTrig' on server; TODO: extend client
+
+---
+ .../meresco/owlimhttpserver/OwlimHttpHandler.java  |  188 ++++++++------
+ .../meresco/owlimhttpserver/OwlimTripleStore.java  |   43 +++-
+ .../org/meresco/owlimhttpserver/TripleStore.java   |   18 +-
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |  273 +++++++++++---------
+ .../owlimhttpserver/OwlimTripleStoreTest.java      |   42 +++-
+ .../test/org/meresco/owlimhttpserver/TSMock.java   |   23 +-
+ 6 files changed, 332 insertions(+), 255 deletions(-)
+
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+index cab29ea..b460731 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+@@ -1,28 +1,28 @@
+ /* begin license *
+- * 
++ *
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server. 
+- * 
++ * communicate as a client with the server.
++ *
+  * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+- * 
++ *
+  * This file is part of "Meresco Owlim"
+- * 
++ *
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- * 
++ *
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- * 
++ *
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- * 
++ *
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+@@ -66,92 +66,106 @@ public class OwlimHttpHandler implements HttpHandler {
+     }
+ 
+     public void handle(HttpExchange exchange) throws IOException {
++        OutputStream outputStream = exchange.getResponseBody();
+         URI requestURI = exchange.getRequestURI();
+         String path = requestURI.getPath();
+         String rawQueryString = requestURI.getRawQuery();
+-        QueryParameters queryParameters = Utils.parseQS(rawQueryString);
+-        OutputStream outputStream = exchange.getResponseBody();
++
+         try {
+-            try {
+-                if (path.equals("/add")) {
+-                    String body = Utils.read(exchange.getRequestBody());
+-                    addRDF(queryParameters, body);
+-                } else if (path.equals("/update")) {
+-                    String body = Utils.read(exchange.getRequestBody());
+-                    updateRDF(queryParameters, body);
+-                } else if (path.equals("/delete")) {
+-                    deleteRDF(queryParameters);
+-                } else if (path.equals("/addTriple")) {
+-                    String body = Utils.read(exchange.getRequestBody());
+-                    addTriple(body);
+-                } else if (path.equals("/removeTriple")) {
+-                    String body = Utils.read(exchange.getRequestBody());
+-                    removeTriple(body);
+-                } else if (path.equals("/query")) {
+-                    String response = "";
+-                    Headers requestHeaders = exchange.getRequestHeaders();
+-                    TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
+-                    if (queryParameters.containsKey("mimeType")) {
+-                        resultFormat = TupleQueryResultFormat.forMIMEType(queryParameters.singleValue("mimeType"));
+-                    } else if (requestHeaders.containsKey("Accept")) {
+-                        resultFormat = TupleQueryResultFormat.forMIMEType(requestHeaders.getFirst("Accept"));
+-                        if (resultFormat == null) {
+-                            String responseBody = "Supported formats:\n";
+-                            Iterator<TupleQueryResultFormat> i = TupleQueryResultFormat.values().iterator();
+-                            while (i.hasNext()) {
+-                                responseBody += "- " + i.next() + "\n";
+-                            }
+-                            Headers responseHeaders = exchange.getResponseHeaders();
+-                            responseHeaders.add("Content-Type", "text/plain");
+-                            exchange.sendResponseHeaders(406, 0);
+-                            _writeResponse(responseBody, outputStream);
+-                            return;
++            QueryParameters queryParameters = Utils.parseQS(rawQueryString);
++            if ("/add".equals(path)) {
++                String body = Utils.read(exchange.getRequestBody());
++                addRDF(queryParameters, body);
++            }
++            else if ("/update".equals(path)) {
++                String body = Utils.read(exchange.getRequestBody());
++                updateRDF(queryParameters, body);
++            }
++            else if ("/delete".equals(path)) {
++                deleteRDF(queryParameters);
++            }
++            else if ("/addTriple".equals(path)) {
++                String body = Utils.read(exchange.getRequestBody());
++                addTriple(body);
++            }
++            else if ("/removeTriple".equals(path)) {
++                String body = Utils.read(exchange.getRequestBody());
++                removeTriple(body);
++            }
++            else if ("/query".equals(path)) {
++                String response = "";
++                Headers requestHeaders = exchange.getRequestHeaders();
++                TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
++                if (queryParameters.containsKey("mimeType")) {
++                    resultFormat = TupleQueryResultFormat.forMIMEType(queryParameters.singleValue("mimeType"));
++                }
++                else if (requestHeaders.containsKey("Accept")) {
++                    resultFormat = TupleQueryResultFormat.forMIMEType(requestHeaders.getFirst("Accept"));
++                    if (resultFormat == null) {
++                        String responseBody = "Supported formats:\n";
++                        Iterator<TupleQueryResultFormat> i = TupleQueryResultFormat.values().iterator();
++                        while (i.hasNext()) {
++                            responseBody += "- " + i.next() + "\n";
+                         }
++                        Headers responseHeaders = exchange.getResponseHeaders();
++                        responseHeaders.add("Content-Type", "text/plain");
++                        exchange.sendResponseHeaders(406, 0);
++                        _writeResponse(responseBody, outputStream);
++                        return;
+                     }
+-                    response = executeQuery(queryParameters, resultFormat);
+-                    if (queryParameters.containsKey("outputContentType")) {
+-                        exchange.getResponseHeaders().set("Content-Type", queryParameters.singleValue("outputContentType"));
+-                    } else {
+-                        exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
+-                    }
+-                    exchange.sendResponseHeaders(200, 0);
+-                    _writeResponse(response, outputStream);
+-                    return;
+-                } else if (path.equals("/sparql")) {
+-                    String response = sparqlForm(queryParameters);
+-                    Headers headers = exchange.getResponseHeaders();
+-                    headers.set("Content-Type", "text/html");
+-                    exchange.sendResponseHeaders(200, 0);
+-                    _writeResponse(response, outputStream);
+-                } else if (path.equals("/validate")) {
+-                    String body = Utils.read(exchange.getRequestBody());
+-                    exchange.sendResponseHeaders(200, 0);
+-                    try {
+-                        validateRDF(queryParameters, body);
+-                        _writeResponse("Ok", outputStream);
+-                    } catch (RDFParseException e) {
+-                        _writeResponse("Invalid\n" + e.toString(), outputStream);
+-                    }
+-                } else if (path.equals("/export")) {
+-                    export(queryParameters);
+-                } else {
+-                    exchange.sendResponseHeaders(404, 0);
+-                    return;
+                 }
+-            } catch (RuntimeException e) {
+-                e.printStackTrace();
+-                exchange.sendResponseHeaders(500, 0);
+-                String response = Utils.getStackTrace(e);
+-                //System.out.println(response);
++                response = executeQuery(queryParameters, resultFormat);
++                if (queryParameters.containsKey("outputContentType")) {
++                    exchange.getResponseHeaders().set("Content-Type", queryParameters.singleValue("outputContentType"));
++                }
++                else {
++                    exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
++                }
++                exchange.sendResponseHeaders(200, 0);
+                 _writeResponse(response, outputStream);
+                 return;
+-            } catch (Error e) {
+-                e.printStackTrace();
+-            	exchange.sendResponseHeaders(500, 0);
+-            	_writeResponse(e.getMessage(), outputStream);
+-            	throw e;
++            }
++            else if ("/sparql".equals(path)) {
++                String response = sparqlForm(queryParameters);
++                Headers headers = exchange.getResponseHeaders();
++                headers.set("Content-Type", "text/html");
++                exchange.sendResponseHeaders(200, 0);
++                _writeResponse(response, outputStream);
++            }
++            else if ("/validate".equals(path)) {
++                String body = Utils.read(exchange.getRequestBody());
++                exchange.sendResponseHeaders(200, 0);
++                try {
++                    validateRDF(queryParameters, body);
++                    _writeResponse("Ok", outputStream);
++                } catch (RDFParseException e) {
++                    _writeResponse("Invalid\n" + e.toString(), outputStream);
++                }
++            }
++            else if ("/export".equals(path)) {
++                export(queryParameters);
++            }
++            else if ("/import".equals(path)) {
++                String body = Utils.read(exchange.getRequestBody());
++                importTrig(body);
++            }
++            else {
++                exchange.sendResponseHeaders(404, 0);
++                return;
+             }
+             exchange.sendResponseHeaders(200, 0);
++        } catch (RuntimeException e) {
++            e.printStackTrace();
++            exchange.sendResponseHeaders(500, 0);
++            String response = Utils.getStackTrace(e);
++            //System.out.println(response);
++            _writeResponse(response, outputStream);
++            return;
++        } catch (Error e) {
++            e.printStackTrace();
++        	exchange.sendResponseHeaders(500, 0);
++        	_writeResponse(e.getMessage(), outputStream);
++        	throw e;
+         } finally {
+             exchange.close();
+         }
+@@ -163,7 +177,7 @@ public class OwlimHttpHandler implements HttpHandler {
+             writer.write(response, 0, response.length());
+             writer.close();
+         } catch (Exception e) {
+-            e.printStackTrace();            
++            e.printStackTrace();
+         }
+     }
+ 
+@@ -209,6 +223,10 @@ public class OwlimHttpHandler implements HttpHandler {
+         tripleStore.export(identifier);
+     }
+ 
++    public void importTrig(String trig) {
++        tripleStore.importTrig(trig);
++    }
++
+     public String sparqlForm(QueryParameters params) {
+         String query;
+         if (params.containsKey("query")) {
+@@ -222,7 +240,7 @@ public class OwlimHttpHandler implements HttpHandler {
+             query += "WHERE { ?subject ?predicate ?object }\n";
+             query += "LIMIT 50";
+         }
+-        return "<html><head><title>Meresco Owlim Sparql Form</title></head>\n"  
++        return "<html><head><title>Meresco Owlim Sparql Form</title></head>\n"
+             + "<body><form action=\"/query\">\n"
+             + "<textarea cols=\"100\" rows=\"20\" name=\"query\">" + StringEscapeUtils.escapeXml(query) + "</textarea><br/>\n"
+             + "<input type=\"hidden\" name=\"outputContentType\" value=\"application/json\"/>\n"
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java b/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
+index 3099ddd..69144ed 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
+@@ -1,28 +1,28 @@
+ /* begin license *
+- * 
++ *
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server. 
+- * 
++ * communicate as a client with the server.
++ *
+  * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+- * 
++ *
+  * This file is part of "Meresco Owlim"
+- * 
++ *
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- * 
++ *
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- * 
++ *
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- * 
++ *
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+@@ -130,7 +130,7 @@ public class OwlimTripleStore implements TripleStore {
+             throw new RuntimeException(e);
+         } finally {
+             close(conn);
+-        }   
++        }
+     }
+ 
+     public void delete(String identifier) {
+@@ -164,7 +164,7 @@ public class OwlimTripleStore implements TripleStore {
+             throw new RuntimeException(e);
+         } finally {
+             close(conn);
+-        }   
++        }
+     }
+ 
+     public long size() {
+@@ -258,7 +258,7 @@ public class OwlimTripleStore implements TripleStore {
+             repository.shutDown();
+             if (!os.toString().equals("")) {
+                 throw new RepositoryException(os.toString());
+-            }   
++            }
+         } catch (RepositoryException e) {
+             e.printStackTrace();
+             throw e;
+@@ -266,7 +266,7 @@ public class OwlimTripleStore implements TripleStore {
+             e.printStackTrace();
+             System.out.println(os.toString());
+             throw e;
+-        }   
++        }
+     }
+ 
+     public void export(String identifier) {
+@@ -279,7 +279,7 @@ public class OwlimTripleStore implements TripleStore {
+             backupDir.mkdirs();
+             File exportFile = new File(backupDir, "backup-" + identifier + ".trig.gz");
+             writer = new GZIPOutputStream(new BufferedOutputStream(new FileOutputStream(exportFile)));
+-            RDFWriter rdfWriter = Rio.createWriter(format, writer);            
++            RDFWriter rdfWriter = Rio.createWriter(format, writer);
+             conn.export(rdfWriter);
+         } catch (Exception e) {
+             throw new RuntimeException(e);
+@@ -293,6 +293,23 @@ public class OwlimTripleStore implements TripleStore {
+         }
+     }
+ 
++    public void importTrig(String trigData) {
++        StringReader reader = new StringReader(trigData);
++        RepositoryConnection conn = null;
++        try {
++            conn = repository.getConnection();
++            conn.add(reader, "", RDFFormat.TRIG);
++        } catch (RepositoryException e) {
++            throw new RuntimeException(e);
++        } catch (IOException e) {
++            throw new RuntimeException(e);
++        } catch (RDFParseException e) {
++            throw new RuntimeException(e);
++        } finally {
++            close(conn);
++        }
++    }
++
+     public void undoCommit() {}
+ 
+ }
+diff --git a/server/src/java/org/meresco/owlimhttpserver/TripleStore.java b/server/src/java/org/meresco/owlimhttpserver/TripleStore.java
+index fdce809..f5b4338 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/TripleStore.java
++++ b/server/src/java/org/meresco/owlimhttpserver/TripleStore.java
+@@ -1,28 +1,28 @@
+ /* begin license *
+- * 
++ *
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server. 
+- * 
++ * communicate as a client with the server.
++ *
+  * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+- * 
++ *
+  * This file is part of "Meresco Owlim"
+- * 
++ *
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- * 
++ *
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- * 
++ *
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- * 
++ *
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+@@ -56,6 +56,8 @@ public interface TripleStore {
+ 
+     void export(String identifier);
+ 
++    void importTrig(String trig);
++
+     void undoCommit();
+ }
+ 
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index 93d10e1..cd86817 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -1,28 +1,28 @@
+ /* begin license *
+- * 
++ *
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server. 
+- * 
++ * communicate as a client with the server.
++ *
+  * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+- * 
++ *
+  * This file is part of "Meresco Owlim"
+- * 
++ *
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- * 
++ *
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- * 
++ *
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- * 
++ *
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+@@ -54,111 +54,6 @@ import org.openrdf.rio.RDFParseException;
+ 
+ 
+ public class OwlimHttpHandlerTest {
+-
+-    public class OwlimHttpHandlerMock extends OwlimHttpHandler {
+-        public List<Object> actions = new ArrayList<Object>();
+-        private Exception _exception = null;
+-
+-        public OwlimHttpHandlerMock() { super(null, null); }
+-        public OwlimHttpHandlerMock(Exception e) { 
+-            super(null, null); 
+-            _exception = e; 
+-        }
+-
+-        public void updateRDF(QueryParameters params, String httpBody) {
+-            if (_exception != null) {
+-                throw new RuntimeException(_exception);
+-            }
+-            actions.add("updateRDF");
+-            actions.add(params);
+-            actions.add(httpBody);
+-        }
+-        public void addRDF(QueryParameters params, String httpBody) {
+-            if (_exception != null) {
+-                throw new RuntimeException(_exception);
+-            }
+-            actions.add("addRDF");
+-            actions.add(params);
+-            actions.add(httpBody);
+-        }
+-        public void deleteRDF(QueryParameters params) {
+-            if (_exception != null) {
+-                throw new RuntimeException(_exception);
+-            }
+-            actions.add("deleteRDF");
+-            actions.add(params);
+-        }
+-        
+-        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
+-            if (_exception != null) {
+-                throw new RuntimeException(_exception);
+-            }
+-            actions.add("executeQuery");
+-            actions.add(params);
+-            actions.add(resultFormat);
+-            return "QUERYRESULT";
+-        }
+-        public void validateRDF(QueryParameters params, String httpBody) {
+-            actions.add("validateRDF");
+-            actions.add(params);
+-            actions.add(httpBody);
+-        }
+-        public String sparqlForm(QueryParameters params) {
+-            actions.add("sparqlForm");
+-            actions.add(params);
+-            return "SPARQLFORM";
+-        }
+-        public void export(QueryParameters params) {
+-            actions.add("export");
+-            actions.add(params);
+-        }
+-    }
+-
+-    public class HttpExchangeMock extends HttpExchange {
+-        private java.net.URI _requestURI;
+-        private String _requestBody;
+-        private ByteArrayOutputStream _responseStream;
+-        private Headers _requestHeaders;
+-        private Headers _responseHeaders;
+-        public int responseCode;
+-        public String responseBody;
+-
+-        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) throws Exception {
+-            super();
+-            _requestURI = new java.net.URI(requestURI);
+-            _requestBody = requestBody;
+-            _responseStream = new ByteArrayOutputStream();
+-            _requestHeaders = requestHeaders;
+-            _responseHeaders = new Headers();
+-        }
+-        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
+-            this(requestURI, requestBody, new Headers());
+-        }
+-
+-        public String getOutput() { return _responseStream.toString(); }
+-        public java.net.URI getRequestURI() { return _requestURI; }
+-        public HttpPrincipal getPrincipal() { return null; }
+-        public void setStreams(InputStream i, OutputStream o) {}
+-        public void setAttribute(Object o) {}
+-        public void setAttribute(String s, Object o) {}
+-        public Object getAttribute(String s) { return null; }
+-        public String getProtocol() { return ""; }
+-        public InetSocketAddress getLocalAddress() { return null; }
+-        public InetSocketAddress getRemoteAddress() { return null; }
+-        public int getResponseCode() { return 0; }
+-        public void sendResponseHeaders(int responseCode, long l) {
+-            this.responseCode = responseCode;
+-        }
+-        public OutputStream getResponseBody() { return _responseStream;  }
+-        public InputStream getRequestBody() { return new ByteArrayInputStream(_requestBody.getBytes()); }
+-        public void close() {};
+-        public HttpContext getHttpContext() { return null; }
+-        public String getRequestMethod() { return ""; }
+-        public Headers getResponseHeaders() { return this._responseHeaders; }
+-        public Headers getRequestHeaders() { return this._requestHeaders; }
+-    }
+-
+-
+     @Test public void testAddRDF() throws TransactionLogException, IOException {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+@@ -213,17 +108,17 @@ public class OwlimHttpHandlerTest {
+         h.updateRDF(parseQS("identifier=id0"), httpBody);
+         assertEquals(Arrays.asList(
+                         "delete:id0",
+-                        "add:id0|<rdf/>"), 
++                        "add:id0|<rdf/>"),
+                      tlmock.actions);
+         h.updateRDF(parseQS("identifier=id1"), httpBody);
+         h.updateRDF(parseQS("identifier=id0"), httpBody);
+         assertEquals(Arrays.asList(
+                         "delete:id0",
+-                        "add:id0|<rdf/>", 
++                        "add:id0|<rdf/>",
+                         "delete:id1",
+                         "add:id1|<rdf/>",
+                         "delete:id0",
+-                        "add:id0|<rdf/>"), 
++                        "add:id0|<rdf/>"),
+                      tlmock.actions);
+     }
+ 
+@@ -231,10 +126,10 @@ public class OwlimHttpHandlerTest {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+-        String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D"; 
++        String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D";
+         String result = h.executeQuery(parseQS(queryString));
+-        
+-        assertEquals(Arrays.asList("executeQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"), 
++
++        assertEquals(Arrays.asList("executeQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"),
+                      tsmock.actions);
+ 
+     }
+@@ -327,8 +222,8 @@ public class OwlimHttpHandlerTest {
+             fail("should not get here.");
+         }
+ 
+-        String emptyRdfDescription = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n" 
+-                + "<rdf:Description rdf:about=\"urn:123\">\n" 
++        String emptyRdfDescription = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n"
++                + "<rdf:Description rdf:about=\"urn:123\">\n"
+                 + "</rdf:Description>\n"
+                 + "</rdf:RDF>";
+         try {
+@@ -337,8 +232,8 @@ public class OwlimHttpHandlerTest {
+             fail("should not get here.");
+         }
+ 
+-        String oneTriple = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n" 
+-                + "<rdf:Description rdf:about=\"urn:123\">\n" 
++        String oneTriple = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n"
++                + "<rdf:Description rdf:about=\"urn:123\">\n"
+                 + "   <somevoc:relation xmlns:somevoc=\"uri:someuri\">Xyz</somevoc:relation>\n"
+                 + "</rdf:Description>\n"
+                 + "</rdf:RDF>";
+@@ -393,7 +288,7 @@ public class OwlimHttpHandlerTest {
+         assertEquals(0, h.actions.size());
+         assertEquals(404, exchange.responseCode);
+     }
+-    
++
+     @Test public void test500ForExceptions() throws Exception {
+         OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception());
+ 
+@@ -411,7 +306,7 @@ public class OwlimHttpHandlerTest {
+ 
+         QueryParameters queryParameters = Utils.parseQS("");
+         String sparqlForm = h.sparqlForm(queryParameters);
+-        String expectedQuery = "PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;\n" + 
++        String expectedQuery = "PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;\n" +
+             "PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;\n" +
+             "\n" +
+             "SELECT ?subject ?predicate ?object\n" +
+@@ -435,7 +330,7 @@ public class OwlimHttpHandlerTest {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+-        
++
+         Headers inputHeaders = new Headers();
+         inputHeaders.add("Accept", "image/jpg");
+         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+@@ -449,7 +344,7 @@ public class OwlimHttpHandlerTest {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+-        
++
+         Headers inputHeaders = new Headers();
+         inputHeaders.add("Accept", "application/xml");
+         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+@@ -482,4 +377,128 @@ public class OwlimHttpHandlerTest {
+         assertEquals(1, tsmock.actions.size());
+         assertEquals("export:identifier", tsmock.actions.get(0));
+     }
++
++    @Test public void testImport() throws Exception {
++        TSMock tsmock = new TSMock();
++        TLMock tlmock = new TLMock();
++        OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
++        String trig = "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> . \n" +
++"@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . \n" +
++"@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n" +
++"\n" +
++"<uri:aContext> { \n" +
++"        <uri:aSubject> <uri:aPredicate> \"a literal  value\" . \n" +
++"}";
++
++        HttpExchangeMock exchange = new HttpExchangeMock("/import", trig);
++        h.handle(exchange);
++        assertEquals(0, tlmock.actions.size());
++        assertEquals(1, tsmock.actions.size());
++        assertEquals("import:" + trig, tsmock.actions.get(0));
++    }
++
++
++    class OwlimHttpHandlerMock extends OwlimHttpHandler {
++        public List<Object> actions = new ArrayList<Object>();
++        private Exception _exception = null;
++
++        public OwlimHttpHandlerMock() { super(null, null); }
++        public OwlimHttpHandlerMock(Exception e) {
++            super(null, null);
++            _exception = e;
++        }
++
++        public void updateRDF(QueryParameters params, String httpBody) {
++            if (_exception != null) {
++                throw new RuntimeException(_exception);
++            }
++            actions.add("updateRDF");
++            actions.add(params);
++            actions.add(httpBody);
++        }
++        public void addRDF(QueryParameters params, String httpBody) {
++            if (_exception != null) {
++                throw new RuntimeException(_exception);
++            }
++            actions.add("addRDF");
++            actions.add(params);
++            actions.add(httpBody);
++        }
++        public void deleteRDF(QueryParameters params) {
++            if (_exception != null) {
++                throw new RuntimeException(_exception);
++            }
++            actions.add("deleteRDF");
++            actions.add(params);
++        }
++
++        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
++            if (_exception != null) {
++                throw new RuntimeException(_exception);
++            }
++            actions.add("executeQuery");
++            actions.add(params);
++            actions.add(resultFormat);
++            return "QUERYRESULT";
++        }
++        public void validateRDF(QueryParameters params, String httpBody) {
++            actions.add("validateRDF");
++            actions.add(params);
++            actions.add(httpBody);
++        }
++        public String sparqlForm(QueryParameters params) {
++            actions.add("sparqlForm");
++            actions.add(params);
++            return "SPARQLFORM";
++        }
++        public void export(QueryParameters params) {
++            actions.add("export");
++            actions.add(params);
++        }
++    }
++
++
++    class HttpExchangeMock extends HttpExchange {
++        private java.net.URI _requestURI;
++        private String _requestBody;
++        private ByteArrayOutputStream _responseStream;
++        private Headers _requestHeaders;
++        private Headers _responseHeaders;
++        public int responseCode;
++        public String responseBody;
++
++        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) throws Exception {
++            super();
++            _requestURI = new java.net.URI(requestURI);
++            _requestBody = requestBody;
++            _responseStream = new ByteArrayOutputStream();
++            _requestHeaders = requestHeaders;
++            _responseHeaders = new Headers();
++        }
++        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
++            this(requestURI, requestBody, new Headers());
++        }
++
++        public String getOutput() { return _responseStream.toString(); }
++        public java.net.URI getRequestURI() { return _requestURI; }
++        public HttpPrincipal getPrincipal() { return null; }
++        public void setStreams(InputStream i, OutputStream o) {}
++        public void setAttribute(Object o) {}
++        public void setAttribute(String s, Object o) {}
++        public Object getAttribute(String s) { return null; }
++        public String getProtocol() { return ""; }
++        public InetSocketAddress getLocalAddress() { return null; }
++        public InetSocketAddress getRemoteAddress() { return null; }
++        public int getResponseCode() { return 0; }
++        public void sendResponseHeaders(int responseCode, long l) {
++            this.responseCode = responseCode;
++        }
++        public OutputStream getResponseBody() { return _responseStream;  }
++        public InputStream getRequestBody() { return new ByteArrayInputStream(_requestBody.getBytes()); }
++        public void close() {};
++        public HttpContext getHttpContext() { return null; }
++        public String getRequestMethod() { return ""; }
++        public Headers getResponseHeaders() { return this._responseHeaders; }
++        public Headers getRequestHeaders() { return this._requestHeaders; }
++    }
+ }
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java
+index c4fc94a..0f9ce38 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java
+@@ -1,28 +1,28 @@
+ /* begin license *
+- * 
++ *
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server. 
+- * 
++ * communicate as a client with the server.
++ *
+  * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+- * 
++ *
+  * This file is part of "Meresco Owlim"
+- * 
++ *
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- * 
++ *
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- * 
++ *
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- * 
++ *
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+@@ -70,10 +70,10 @@ public class OwlimTripleStoreTest {
+ 
+     static final String rdf = "<?xml version='1.0'?>" +
+         "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'" +
+-        "             xmlns:exterms='http://www.example.org/terms/'>" + 
++        "             xmlns:exterms='http://www.example.org/terms/'>" +
+         "  <rdf:Description rdf:about='http://www.example.org/index.html'>" +
+         "      <exterms:creation-date>August 16, 1999</exterms:creation-date>" +
+-        "      <rdf:value>A.M. Özman Yürekli</rdf:value>" + 
++        "      <rdf:value>A.M. Özman Yürekli</rdf:value>" +
+         "  </rdf:Description>" +
+         "</rdf:RDF>";
+ 
+@@ -132,7 +132,7 @@ public class OwlimTripleStoreTest {
+         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
+         assertTrue(answer.endsWith("\n}"));
+     }
+-    
++
+     @Test
+     public void testSparqlResultInXml() throws Exception {
+         String answer = null;
+@@ -185,7 +185,25 @@ public class OwlimTripleStoreTest {
+         while(line != null){
+             filedata.append(line);
+             line = reader.readLine();
+-        } 
++        }
+         assertTrue(filedata.toString(), filedata.toString().contains("<uri:subj> <uri:pred> <uri:obj>"));
+     }
++
++    String trig = "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> . \n" +
++"@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . \n" +
++"@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n" +
++"\n" +
++"<uri:aContext> { \n" +
++"        <uri:aSubject> <uri:aPredicate> \"a literal  value\" . \n" +
++"}";
++
++    @Test
++    public void testImportGetStatements() throws Exception {
++        long startingPoint = ts.size();
++        ts.importTrig(trig);
++        RepositoryResult<Statement> statements = ts.getStatements(null, null, null);
++        assertEquals(startingPoint + 1, statements.asList().size());
++        List<Statement> statementList = ts.getStatements(new URIImpl("uri:aSubject"), null, null).asList();
++        assertEquals(1, statementList.size());
++    }
+ }
+diff --git a/server/src/test/org/meresco/owlimhttpserver/TSMock.java b/server/src/test/org/meresco/owlimhttpserver/TSMock.java
+index 7f7cc28..f433ffa 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/TSMock.java
++++ b/server/src/test/org/meresco/owlimhttpserver/TSMock.java
+@@ -1,27 +1,27 @@
+ /* begin license *
+- * 
++ *
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server. 
+- * 
++ * communicate as a client with the server.
++ *
+  * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+- * 
++ *
+  * This file is part of "Meresco Owlim"
+- * 
++ *
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- * 
++ *
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- * 
++ *
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- * 
++ *
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+@@ -79,7 +79,7 @@ public class TSMock implements TripleStore {
+     public void shutdown() {
+         actions.add("shutdown");
+     }
+-    
++
+     public void startup() {
+         actions.add("startup");
+     }
+@@ -88,6 +88,10 @@ public class TSMock implements TripleStore {
+         actions.add("export:" + identifier);
+     }
+ 
++    public void importTrig(String trig) {
++        actions.add("import:" + trig);
++    }
++
+     public List<Namespace> getNamespaces() {
+         List<Namespace> namespaces = new ArrayList<Namespace>();
+         namespaces.add(new NamespaceImpl("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#"));
+@@ -95,4 +99,3 @@ public class TSMock implements TripleStore {
+         return namespaces;
+     }
+ }
+-
+-- 
+1.7.2.5
+
+
+From d04e9cc9805b2f2b4d6a70e06c66bfadbbba81ab Mon Sep 17 00:00:00 2001
+From: Jurjan-Paul Medema <jurjanpaul@cq2.nl>
+Date: Fri, 4 Jan 2013 09:50:37 +0100
+Subject: [PATCH 2/5] HM/JPM: restarting triplestore, clearing transaction log in importTrig
+
+---
+ .../meresco/owlimhttpserver/OwlimHttpHandler.java  |   18 ++++++++++++++++++
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |    9 +++++----
+ .../test/org/meresco/owlimhttpserver/TLMock.java   |   20 ++++++++++++--------
+ 3 files changed, 35 insertions(+), 12 deletions(-)
+
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+index b460731..21c565a 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+@@ -225,6 +225,24 @@ public class OwlimHttpHandler implements HttpHandler {
+ 
+     public void importTrig(String trig) {
+         tripleStore.importTrig(trig);
++        restartTripleStore();
++    }
++
++    private void restartTripleStore() {
++        System.out.println("Restarting triplestore. Please wait...");
++        try {
++            tripleStore.shutdown();
++            transactionLog.clear();
++            tripleStore.startup();
++            System.out.println("Restart completed.");
++            System.out.flush();
++        } catch (Exception e) {
++            e.printStackTrace();
++            System.err.flush();
++            System.out.println("Restart failed.");
++            System.out.flush();
++            throw new RuntimeException(e);
++        }
+     }
+ 
+     public String sparqlForm(QueryParameters params) {
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index cd86817..5950cdf 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -290,13 +290,13 @@ public class OwlimHttpHandlerTest {
+     }
+ 
+     @Test public void test500ForExceptions() throws Exception {
+-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception());
++        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception("dummy test exception"));
+ 
+         HttpExchangeMock exchange = new HttpExchangeMock("/add", "");
+         h.handle(exchange);
+         assertEquals(0, h.actions.size());
+         assertEquals(500, exchange.responseCode);
+-        assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception"));
++        assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception: dummy test exception"));
+     }
+ 
+     @Test public void testDefaultSparqlForm() throws Exception {
+@@ -392,9 +392,10 @@ public class OwlimHttpHandlerTest {
+ 
+         HttpExchangeMock exchange = new HttpExchangeMock("/import", trig);
+         h.handle(exchange);
+-        assertEquals(0, tlmock.actions.size());
+-        assertEquals(1, tsmock.actions.size());
++        assertEquals(1, tlmock.actions.size());
++        assertEquals(3, tsmock.actions.size());
+         assertEquals("import:" + trig, tsmock.actions.get(0));
++        assertEquals("clear", tlmock.actions.get(0));
+     }
+ 
+ 
+diff --git a/server/src/test/org/meresco/owlimhttpserver/TLMock.java b/server/src/test/org/meresco/owlimhttpserver/TLMock.java
+index d9928d7..c432f9f 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/TLMock.java
++++ b/server/src/test/org/meresco/owlimhttpserver/TLMock.java
+@@ -1,27 +1,27 @@
+ /* begin license *
+- * 
++ *
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server. 
+- * 
++ * communicate as a client with the server.
++ *
+  * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
+- * 
++ *
+  * This file is part of "Meresco Owlim"
+- * 
++ *
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- * 
++ *
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- * 
++ *
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- * 
++ *
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+@@ -50,5 +50,9 @@ public class TLMock extends TransactionLog {
+     public void removeTriple(String filedata) {
+         actions.add("removeTriple:" + filedata);
+     }
++
++    public void clear() {
++        actions.add("clear");
++    }
+ }
+ 
+-- 
+1.7.2.5
+
+
+From a4159d42d530886f302c99824dffa1b097d16caa Mon Sep 17 00:00:00 2001
+From: Jurjan-Paul Medema <jurjanpaul@cq2.nl>
+Date: Fri, 4 Jan 2013 11:02:52 +0100
+Subject: [PATCH 3/5] HM/JPM: suppressing and restoring standard error stream
+
+---
+ .../meresco/owlimhttpserver/OwlimTripleStore.java  |   12 +++++++++---
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |   14 +++++++++++++-
+ .../owlimhttpserver/OwlimTripleStoreTest.java      |   10 ++++++++++
+ 3 files changed, 32 insertions(+), 4 deletions(-)
+
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java b/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
+index 69144ed..25673e5 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
+@@ -251,13 +251,19 @@ public class OwlimTripleStore implements TripleStore {
+     }
+ 
+     public void shutdown() throws Exception {
++        PrintStream originalErrStream = System.err;
+         OutputStream os = new ByteArrayOutputStream();
+         PrintStream ps = new PrintStream(os);
+         try {
+             System.setErr(ps);
+-            repository.shutDown();
+-            if (!os.toString().equals("")) {
+-                throw new RepositoryException(os.toString());
++            try {
++                repository.shutDown();
++                if (!os.toString().equals("")) {
++                    throw new RepositoryException(os.toString());
++                }
++            }
++            finally {
++                System.setErr(originalErrStream);
+             }
+         } catch (RepositoryException e) {
+             e.printStackTrace();
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index 5950cdf..6cb3421 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -40,6 +40,7 @@ import org.openrdf.query.resultio.TupleQueryResultFormat;
+ import java.net.InetSocketAddress;
+ 
+ import java.io.InputStream;
++import java.io.PrintStream;
+ import java.io.ByteArrayInputStream;
+ import java.io.ByteArrayOutputStream;
+ import java.io.OutputStream;
+@@ -293,7 +294,18 @@ public class OwlimHttpHandlerTest {
+         OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception("dummy test exception"));
+ 
+         HttpExchangeMock exchange = new HttpExchangeMock("/add", "");
+-        h.handle(exchange);
++
++        PrintStream originalErrStream = System.err;
++        OutputStream os = new ByteArrayOutputStream();
++        PrintStream ps = new PrintStream(os);
++        System.setErr(ps);
++        try {
++            h.handle(exchange);
++        }
++        finally {
++            System.setErr(originalErrStream);
++        }
++        assertTrue(os.toString().contains("dummy test exception"));
+         assertEquals(0, h.actions.size());
+         assertEquals(500, exchange.responseCode);
+         assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception: dummy test exception"));
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java
+index 0f9ce38..4425da3 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java
+@@ -33,6 +33,9 @@ import java.io.File;
+ import java.io.BufferedReader;
+ import java.io.InputStreamReader;
+ import java.io.FileInputStream;
++import java.io.PrintStream;
++import java.io.ByteArrayOutputStream;
++import java.io.OutputStream;
+ import org.junit.Test;
+ import org.junit.Before;
+ import org.junit.After;
+@@ -162,11 +165,18 @@ public class OwlimTripleStoreTest {
+         File contextFile = new File(tsPath, "Contexts.ids");
+         Process process = Runtime.getRuntime().exec("chmod 0000 " + contextFile);
+         process.waitFor();
++
++        PrintStream originalErrStream = System.err;
++        OutputStream os = new ByteArrayOutputStream();
++        PrintStream ps = new PrintStream(os);
++        System.setErr(ps);
+         try {
+             ts.shutdown();
+             fail("Triplestore shouldn't shutdown correctly");
+         } catch (Exception e) {
+             assertTrue(e.toString().contains("org.openrdf.repository.RepositoryException"));
++        } finally {
++            System.setErr(originalErrStream);
+         }
+     }
+ 
+-- 
+1.7.2.5
+
+
+From 6677d2c1e4e9dfda92fe3c61284150998889e1e6 Mon Sep 17 00:00:00 2001
+From: Jurjan-Paul Medema <jurjanpaul@cq2.nl>
+Date: Fri, 4 Jan 2013 11:26:32 +0100
+Subject: [PATCH 4/5] HM/JPM: added importTrig to HttpClient (+some minor refactorings)
+
+---
+ client/meresco/owlim/httpclient.py                 |   23 ++++---
+ .../org/meresco/owlimhttpserver/OwlimServer.java   |   27 ++++-----
+ .../java/org/meresco/owlimhttpserver/Utils.java    |   37 ++++++------
+ test/client/httpclienttest.py                      |   62 ++++++++++++--------
+ test/integration/owlimtest.py                      |   38 ++++++------
+ 5 files changed, 101 insertions(+), 86 deletions(-)
+
+diff --git a/client/meresco/owlim/httpclient.py b/client/meresco/owlim/httpclient.py
+index 4c9b172..4b9860b 100644
+--- a/client/meresco/owlim/httpclient.py
++++ b/client/meresco/owlim/httpclient.py
+@@ -1,29 +1,29 @@
+ ## begin license ##
+-# 
++#
+ # The Meresco Owlim package consists out of a HTTP server written in Java that
+ # provides access to an Owlim Triple store, as well as python bindings to
+-# communicate as a client with the server. 
+-# 
++# communicate as a client with the server.
++#
+ # Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
+ # Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+ # Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+-# 
++#
+ # This file is part of "Meresco Owlim"
+-# 
++#
+ # "Meresco Owlim" is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation; either version 2 of the License, or
+ # (at your option) any later version.
+-# 
++#
+ # "Meresco Owlim" is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+-# 
++#
+ # You should have received a copy of the GNU General Public License
+ # along with "Meresco Owlim"; if not, write to the Free Software
+ # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-# 
++#
+ ## end license ##
+ 
+ from urllib2 import urlopen
+@@ -38,7 +38,7 @@ from uri import Uri
+ 
+ JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
+ 
+-class InvalidRdfXmlException(Exception): 
++class InvalidRdfXmlException(Exception):
+     pass
+ 
+ class HttpClient(object):
+@@ -84,6 +84,9 @@ class HttpClient(object):
+         path = "/export?%s" % urlencode(dict(identifier=identifier))
+         yield self._send(path=path, body=None)
+ 
++    def importTrig(self, data):
++        yield self._send("/import", body=data)
++
+     def _sparqlQuery(self, query, queryResultFormat=None):
+         path = "/query?%s" % urlencode(dict(query=query))
+         headers = None
+@@ -164,7 +167,7 @@ class HttpClient(object):
+     def _urlopen(self, *args, **kwargs):
+         return urlopen(*args, **kwargs).read()
+ 
+-    
++
+ _typeMapping = {
+     'literal': Literal,
+     'uri': Uri,
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimServer.java b/server/src/java/org/meresco/owlimhttpserver/OwlimServer.java
+index a94eecb..7aa8f28 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimServer.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimServer.java
+@@ -1,28 +1,28 @@
+ /* begin license *
+- * 
++ *
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server. 
+- * 
++ * communicate as a client with the server.
++ *
+  * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+- * 
++ *
+  * This file is part of "Meresco Owlim"
+- * 
++ *
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- * 
++ *
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- * 
++ *
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- * 
++ *
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+@@ -39,7 +39,7 @@ import org.apache.commons.cli.MissingOptionException;
+ 
+ public class OwlimServer {
+     public static void main(String[] args) throws Exception {
+-        Integer port; 
++        Integer port;
+         String storeLocation;
+         String storeName;
+         Option option;
+@@ -77,7 +77,7 @@ public class OwlimServer {
+         port = new Integer(commandLine.getOptionValue("p"));
+         storeLocation = commandLine.getOptionValue("d");
+         storeName = commandLine.getOptionValue("n");
+-        
++
+         if (Charset.defaultCharset() != Charset.forName("UTF-8")) {
+         	System.err.println("file.encoding must be UTF-8.");
+             System.exit(1);
+@@ -99,8 +99,7 @@ public class OwlimServer {
+     }
+ 
+     static void registerShutdownHandler(final TripleStore tripleStore, final TransactionLog transactionLog) {
+-        Runtime.getRuntime().addShutdownHook(new Thread()
+-        {
++        Runtime.getRuntime().addShutdownHook(new Thread() {
+             @Override
+             public void run()
+             {
+@@ -115,8 +114,8 @@ public class OwlimServer {
+                     System.err.flush();
+                     System.out.println("Shutdown failed.");
+                     System.out.flush();
+-                } 
++                }
+             }
+-        });        
++        });
+     }
+ }
+diff --git a/server/src/java/org/meresco/owlimhttpserver/Utils.java b/server/src/java/org/meresco/owlimhttpserver/Utils.java
+index c04707a..5c28a37 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/Utils.java
++++ b/server/src/java/org/meresco/owlimhttpserver/Utils.java
+@@ -1,28 +1,28 @@
+ /* begin license *
+- * 
++ *
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server. 
+- * 
++ * communicate as a client with the server.
++ *
+  * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+- * 
++ *
+  * This file is part of "Meresco Owlim"
+- * 
++ *
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- * 
++ *
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- * 
++ *
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- * 
++ *
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+@@ -102,21 +102,20 @@ class Utils {
+         return path.delete();
+     }
+ 
+-    public static String read(File f) throws IOException { 
++    public static String read(File f) throws IOException {
+         BufferedLineReader br = new BufferedLineReader(new FileReader(f));
+-        String data = "";
++        StringBuilder data = new StringBuilder();
+         String line;
+         while ((line = br.readLine()) != null) {
+-            data += line;
++            data.append(line);
+         }
+-        return data;
++        return data.toString();
+     }
+-    
++
+     public static String read(InputStream in) {
+     	StringBuilder contents = new StringBuilder();
+-    	
+     	BufferedReader input = null;
+-        try { 
++        try {
+             try {
+                 input =  new BufferedReader(new InputStreamReader(in));
+                 char[] buffer = new char[1024];
+@@ -133,7 +132,7 @@ class Utils {
+         }
+         return contents.toString();
+     }
+-    
++
+     public static void write(File f, String data) throws IOException {
+ 		FileWriter fw = new FileWriter(f);
+ 		fw.write(data);
+@@ -141,9 +140,9 @@ class Utils {
+ 	}
+ 
+     public static String getStackTrace(Throwable aThrowable) {
+-        /* 
+-         * shameless partial copy from: 
+-         * http://www.javapractices.com/topic/TopicAction.do?Id=78 
++        /*
++         * shameless partial copy from:
++         * http://www.javapractices.com/topic/TopicAction.do?Id=78
+          */
+         final Writer result = new StringWriter();
+         final PrintWriter printWriter = new PrintWriter(result);
+diff --git a/test/client/httpclienttest.py b/test/client/httpclienttest.py
+index 0c43f0c..49157b8 100644
+--- a/test/client/httpclienttest.py
++++ b/test/client/httpclienttest.py
+@@ -1,29 +1,29 @@
+ ## begin license ##
+-# 
++#
+ # The Meresco Owlim package consists out of a HTTP server written in Java that
+ # provides access to an Owlim Triple store, as well as python bindings to
+-# communicate as a client with the server. 
+-# 
++# communicate as a client with the server.
++#
+ # Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
+ # Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+ # Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+-# 
++#
+ # This file is part of "Meresco Owlim"
+-# 
++#
+ # "Meresco Owlim" is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation; either version 2 of the License, or
+ # (at your option) any later version.
+-# 
++#
+ # "Meresco Owlim" is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+-# 
++#
+ # You should have received a copy of the GNU General Public License
+ # along with "Meresco Owlim"; if not, write to the Free Software
+ # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-# 
++#
+ ## end license ##
+ 
+ from seecr.test import SeecrTestCase, CallTrace
+@@ -41,7 +41,7 @@ class HttpClientTest(SeecrTestCase):
+ 
+         g = compose(client.add(identifier="id", partname="ignored", data=RDFDATA))
+         self.assertRaises(
+-            IOError, 
++            IOError,
+             lambda: self._resultFromServerResponse(g, "Error description", responseStatus='500'))
+ 
+         toSend = []
+@@ -70,7 +70,7 @@ class HttpClientTest(SeecrTestCase):
+ 
+         g = compose(client.delete(identifier="id"))
+         self.assertRaises(
+-            IOError, 
++            IOError,
+             lambda: self._resultFromServerResponse(g, "Error description", responseStatus="500"))
+ 
+         toSend = []
+@@ -103,11 +103,11 @@ class HttpClientTest(SeecrTestCase):
+         self.assertEquals("SELECT DISTINCT ?s ?p ?o WHERE { ?s ?p ?o }", ''.join(client._getStatementsSparQL(subject=None, predicate=None, object=None)))
+ 
+         self.assertEquals("SELECT DISTINCT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001")))
+-        
++
+         self.assertEquals("SELECT DISTINCT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name")))
+ 
+         self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> <uri:obj> }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="uri:obj")))
+-        
++
+         self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> \"object\" }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="object")))
+ 
+ 
+@@ -181,6 +181,20 @@ class HttpClientTest(SeecrTestCase):
+         list(compose(client.export(identifier="id")))
+         self.assertEquals([("/export?identifier=id", None)], toSend)
+ 
++    def testImport(self):
++        client = HttpClient(host="localhost", port=9999)
++        toSend = []
++        client._send = lambda path, body: toSend.append((path, body))
++        trigData = """@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
++@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
++@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
++
++<uri:aContext> {
++        <uri:aSubject> <uri:aPredicate> "a literal  value" .
++}"""
++        list(compose(client.importTrig(data=trigData)))
++        self.assertEquals([("/import", trigData)], toSend)
++
+     def _resultFromServerResponse(self, g, data, responseStatus='200'):
+         s = g.next()
+         self.assertEquals(Suspend, type(s))
+@@ -193,15 +207,15 @@ class HttpClientTest(SeecrTestCase):
+             if len(e.args) > 0:
+                 return e.args[0]
+ 
+-        
++
+ PARSED_RESULT_JSON = [
+     {
+-        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), 
+-        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), 
++        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
++        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+         u'o': Literal(u'word', lang="eng")
+     }, {
+-        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), 
+-        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'), 
++        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
++        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
+         u'o': Literal(u'woord', lang="dut")
+     }
+ ]
+@@ -210,19 +224,19 @@ RESULT_SPO = [ (d['s'], d['p'], d['o']) for d in PARSED_RESULT_JSON]
+ RESULT_JSON = """{
+         "head": {
+                 "vars": [ "s", "p", "o" ]
+-        }, 
++        },
+         "results": {
+                 "bindings": [
+                         {
+-                                "o": { "type": "literal", "xml:lang": "eng", "value": "word" }, 
+-                                "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" }, 
++                                "o": { "type": "literal", "xml:lang": "eng", "value": "word" },
++                                "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" },
+                                 "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" }
+-                        }, 
++                        },
+                         {
+-                                "o": { "type": "literal", "xml:lang": "dut", "value": "woord" }, 
+-                                "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" }, 
++                                "o": { "type": "literal", "xml:lang": "dut", "value": "woord" },
++                                "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" },
+                                 "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#subject" }
+-                        } 
++                        }
+                 ]
+         }
+ }"""
+diff --git a/test/integration/owlimtest.py b/test/integration/owlimtest.py
+index 822ced3..3280e8d 100644
+--- a/test/integration/owlimtest.py
++++ b/test/integration/owlimtest.py
+@@ -1,34 +1,34 @@
+ ## begin license ##
+-# 
++#
+ # The Meresco Owlim package consists out of a HTTP server written in Java that
+ # provides access to an Owlim Triple store, as well as python bindings to
+-# communicate as a client with the server. 
+-# 
++# communicate as a client with the server.
++#
+ # Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
+-# 
++#
+ # This file is part of "Meresco Owlim"
+-# 
++#
+ # "Meresco Owlim" is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation; either version 2 of the License, or
+ # (at your option) any later version.
+-# 
++#
+ # "Meresco Owlim" is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+-# 
++#
+ # You should have received a copy of the GNU General Public License
+ # along with "Meresco Owlim"; if not, write to the Free Software
+ # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-# 
++#
+ ## end license ##
+ 
+ from shutil import rmtree, copyfile
+-from os.path import join, exists, abspath, isdir
+-from os import remove, kill, waitpid, WNOHANG, system, symlink
++from os.path import join, abspath, isdir
++from os import kill, waitpid, WNOHANG, system, symlink, makedirs
+ from simplejson import loads
+-from urllib import urlopen, urlencode
++from urllib import urlencode
+ from urllib2 import urlopen, Request
+ from signal import SIGKILL
+ from time import time
+@@ -95,7 +95,7 @@ class OwlimTest(IntegrationTestCase):
+         self.startOwlimServer()
+         print time()
+ 
+-    def testDeleteRecord(self): 
++    def testDeleteRecord(self):
+         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+         <rdf:Description>
+             <rdf:type>uri:testDelete</rdf:type>
+@@ -114,7 +114,7 @@ class OwlimTest(IntegrationTestCase):
+         json = self.query('SELECT ?x WHERE {?x ?y "uri:testDeleteUpdated"}')
+         self.assertEquals(1, len(json['results']['bindings']))
+ 
+-        postRequest(self.owlimPort, "/delete?identifier=uri:record", "", parse=False) 
++        postRequest(self.owlimPort, "/delete?identifier=uri:record", "", parse=False)
+         json = self.query('SELECT ?x WHERE {?x ?y "uri:testDelete"}')
+         self.assertEquals(0, len(json['results']['bindings']))
+         json = self.query('SELECT ?x WHERE {?x ?y "uri:testDeleteUpdated"}')
+@@ -200,7 +200,7 @@ class OwlimTest(IntegrationTestCase):
+             <rdf:type>uri:test:acceptHeaders</rdf:type>
+         </rdf:Description>
+     </rdf:RDF>""", parse=False)
+-        
++
+         request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "uri:test:acceptHeaders"}'})), headers={"Accept" : "application/xml"})
+         contents = urlopen(request).read()
+         self.assertEqualsWS("""<?xml version='1.0' encoding='UTF-8'?>
+@@ -215,8 +215,8 @@ class OwlimTest(IntegrationTestCase):
+             </binding>
+         </result>
+     </results>
+-</sparql>""", contents)   
+-       
++</sparql>""", contents)
++
+         headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:test:acceptHeaders"}'}, additionalHeaders={"Accept" : "image/jpg"}, parse=False)
+ 
+         self.assertEquals(["HTTP/1.1 406 Not Acceptable", "Content-type: text/plain"], headers.split('\r\n')[:2])
+@@ -224,14 +224,14 @@ class OwlimTest(IntegrationTestCase):
+ - SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)
+ - BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)
+ - SPARQL/JSON (mimeTypes=application/sparql-results+json; ext=srj)""", body)
+-         
++
+     def testMimeTypeArgument(self):
+         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+         <rdf:Description>
+             <rdf:type>uri:test:mimeType</rdf:type>
+         </rdf:Description>
+     </rdf:RDF>""", parse=False)
+-        
++
+         request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "uri:test:mimeType"}', 'mimeType': 'application/sparql-results+xml'})))
+         contents = urlopen(request).read()
+         self.assertEqualsWS("""<?xml version='1.0' encoding='UTF-8'?>
+@@ -246,7 +246,7 @@ class OwlimTest(IntegrationTestCase):
+             </binding>
+         </result>
+     </results>
+-</sparql>""", contents)   
++</sparql>""", contents)
+ 
+     def query(self, query):
+         return loads(urlopen('http://localhost:%s/query?%s' % (self.owlimPort,
+-- 
+1.7.2.5
+
+
+From 051b2153bb1926b1f50bebf9daf8baf8450874ca Mon Sep 17 00:00:00 2001
+From: Jurjan-Paul Medema <jurjanpaul@cq2.nl>
+Date: Fri, 4 Jan 2013 11:40:34 +0100
+Subject: [PATCH 5/5] HM/JPM: applied license
+
+---
+ client/meresco/__init__.py                         |    2 +-
+ client/meresco/owlim/__init__.py                   |    2 +-
+ client/meresco/owlim/literal.py                    |    2 +-
+ client/meresco/owlim/uri.py                        |    2 +-
+ client/setup.py                                    |    2 +-
+ client/testsetup.sh                                |    2 +-
+ server/build.sh                                    |    2 +-
+ .../owlimhttpserver/BufferedLineReader.java        |    2 +-
+ .../meresco/owlimhttpserver/OwlimHttpServer.java   |    2 +-
+ .../org/meresco/owlimhttpserver/OwlimServer.java   |   18 +++++++-------
+ .../meresco/owlimhttpserver/QueryParameters.java   |    2 +-
+ .../org/meresco/owlimhttpserver/RdfValidator.java  |    2 +-
+ .../meresco/owlimhttpserver/TransactionItem.java   |    2 +-
+ .../meresco/owlimhttpserver/TransactionLog.java    |    2 +-
+ .../owlimhttpserver/TransactionLogException.java   |    2 +-
+ .../java/org/meresco/owlimhttpserver/Utils.java    |   18 +++++++-------
+ server/src/test/alltests.sh                        |    2 +-
+ .../owlimhttpserver/BufferedLineReaderTest.java    |    2 +-
+ .../owlimhttpserver/OwlimHttpServerTest.java       |    2 +-
+ .../meresco/owlimhttpserver/RdfValidatorTest.java  |    2 +-
+ .../test/org/meresco/owlimhttpserver/TLMock.java   |   18 +++++++-------
+ .../owlimhttpserver/TransactionItemTest.java       |    2 +-
+ .../owlimhttpserver/TransactionLogTest.java        |    2 +-
+ test/_alltests.py                                  |    2 +-
+ test/_integrationtest.py                           |    2 +-
+ test/alltests.sh                                   |    2 +-
+ test/client/__init__.py                            |    2 +-
+ test/client/literaltest.py                         |    2 +-
+ test/client/uritest.py                             |    2 +-
+ test/integration/__init__.py                       |    2 +-
+ test/integration/owlimintegrationstate.py          |   26 ++++++++++++++++++++
+ test/integration/owlimtest.py                      |   18 +++++++-------
+ test/integrationtest.sh                            |    2 +-
+ test/sitecustomize.py                              |    2 +-
+ test/testrunner.py                                 |    2 +-
+ 35 files changed, 92 insertions(+), 66 deletions(-)
+
+diff --git a/client/meresco/__init__.py b/client/meresco/__init__.py
+index 8aaee29..3ffb051 100644
+--- a/client/meresco/__init__.py
++++ b/client/meresco/__init__.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/client/meresco/owlim/__init__.py b/client/meresco/owlim/__init__.py
+index d24859a..7e00081 100644
+--- a/client/meresco/owlim/__init__.py
++++ b/client/meresco/owlim/__init__.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/client/meresco/owlim/literal.py b/client/meresco/owlim/literal.py
+index 1e6eb07..b024d3c 100644
+--- a/client/meresco/owlim/literal.py
++++ b/client/meresco/owlim/literal.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/client/meresco/owlim/uri.py b/client/meresco/owlim/uri.py
+index 5ed7a1b..9897255 100644
+--- a/client/meresco/owlim/uri.py
++++ b/client/meresco/owlim/uri.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/client/setup.py b/client/setup.py
+index 21f9b7c..d4adc16 100644
+--- a/client/setup.py
++++ b/client/setup.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/client/testsetup.sh b/client/testsetup.sh
+index eff90b5..7d73965 100755
+--- a/client/testsetup.sh
++++ b/client/testsetup.sh
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/server/build.sh b/server/build.sh
+index ac3aa49..43eb681 100755
+--- a/server/build.sh
++++ b/server/build.sh
+@@ -5,7 +5,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+ # 
+ # This file is part of "Meresco Owlim"
+diff --git a/server/src/java/org/meresco/owlimhttpserver/BufferedLineReader.java b/server/src/java/org/meresco/owlimhttpserver/BufferedLineReader.java
+index dec5a06..60506e1 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/BufferedLineReader.java
++++ b/server/src/java/org/meresco/owlimhttpserver/BufferedLineReader.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2012-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * 
+  * This file is part of "Meresco Owlim"
+  * 
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpServer.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpServer.java
+index 032511d..ee6ed93 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpServer.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpServer.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+  * 
+  * This file is part of "Meresco Owlim"
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimServer.java b/server/src/java/org/meresco/owlimhttpserver/OwlimServer.java
+index 7aa8f28..af05422 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimServer.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimServer.java
+@@ -1,28 +1,28 @@
+ /* begin license *
+- *
++ * 
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server.
+- *
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * communicate as a client with the server. 
++ * 
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+- *
++ * 
+  * This file is part of "Meresco Owlim"
+- *
++ * 
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- *
++ * 
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- *
++ * 
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- *
++ * 
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+diff --git a/server/src/java/org/meresco/owlimhttpserver/QueryParameters.java b/server/src/java/org/meresco/owlimhttpserver/QueryParameters.java
+index 12b7f05..2ae64de 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/QueryParameters.java
++++ b/server/src/java/org/meresco/owlimhttpserver/QueryParameters.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+  * 
+  * This file is part of "Meresco Owlim"
+diff --git a/server/src/java/org/meresco/owlimhttpserver/RdfValidator.java b/server/src/java/org/meresco/owlimhttpserver/RdfValidator.java
+index 361ec31..a03748c 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/RdfValidator.java
++++ b/server/src/java/org/meresco/owlimhttpserver/RdfValidator.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2012-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * 
+  * This file is part of "Meresco Owlim"
+  * 
+diff --git a/server/src/java/org/meresco/owlimhttpserver/TransactionItem.java b/server/src/java/org/meresco/owlimhttpserver/TransactionItem.java
+index 1ad7c48..8f49de8 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/TransactionItem.java
++++ b/server/src/java/org/meresco/owlimhttpserver/TransactionItem.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * 
+  * This file is part of "Meresco Owlim"
+  * 
+diff --git a/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java b/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java
+index 0860b26..0950720 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java
++++ b/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * 
+  * This file is part of "Meresco Owlim"
+  * 
+diff --git a/server/src/java/org/meresco/owlimhttpserver/TransactionLogException.java b/server/src/java/org/meresco/owlimhttpserver/TransactionLogException.java
+index 02b27e8..edb8d1a 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/TransactionLogException.java
++++ b/server/src/java/org/meresco/owlimhttpserver/TransactionLogException.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * 
+  * This file is part of "Meresco Owlim"
+  * 
+diff --git a/server/src/java/org/meresco/owlimhttpserver/Utils.java b/server/src/java/org/meresco/owlimhttpserver/Utils.java
+index 5c28a37..7969b81 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/Utils.java
++++ b/server/src/java/org/meresco/owlimhttpserver/Utils.java
+@@ -1,28 +1,28 @@
+ /* begin license *
+- *
++ * 
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server.
+- *
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * communicate as a client with the server. 
++ * 
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+- *
++ * 
+  * This file is part of "Meresco Owlim"
+- *
++ * 
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- *
++ * 
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- *
++ * 
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- *
++ * 
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+diff --git a/server/src/test/alltests.sh b/server/src/test/alltests.sh
+index c82e261..c4d4d53 100755
+--- a/server/src/test/alltests.sh
++++ b/server/src/test/alltests.sh
+@@ -5,7 +5,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+ # 
+ # This file is part of "Meresco Owlim"
+diff --git a/server/src/test/org/meresco/owlimhttpserver/BufferedLineReaderTest.java b/server/src/test/org/meresco/owlimhttpserver/BufferedLineReaderTest.java
+index 1e24d2e..6ee10b2 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/BufferedLineReaderTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/BufferedLineReaderTest.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2012-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * 
+  * This file is part of "Meresco Owlim"
+  * 
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpServerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpServerTest.java
+index c4a4d72..7d3ee07 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpServerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpServerTest.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+  * 
+  * This file is part of "Meresco Owlim"
+diff --git a/server/src/test/org/meresco/owlimhttpserver/RdfValidatorTest.java b/server/src/test/org/meresco/owlimhttpserver/RdfValidatorTest.java
+index 43a5ddc..9a43c0a 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/RdfValidatorTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/RdfValidatorTest.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2012-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * 
+  * This file is part of "Meresco Owlim"
+  * 
+diff --git a/server/src/test/org/meresco/owlimhttpserver/TLMock.java b/server/src/test/org/meresco/owlimhttpserver/TLMock.java
+index c432f9f..8ed4f9f 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/TLMock.java
++++ b/server/src/test/org/meresco/owlimhttpserver/TLMock.java
+@@ -1,27 +1,27 @@
+ /* begin license *
+- *
++ * 
+  * The Meresco Owlim package consists out of a HTTP server written in Java that
+  * provides access to an Owlim Triple store, as well as python bindings to
+- * communicate as a client with the server.
+- *
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
+- *
++ * communicate as a client with the server. 
++ * 
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
++ * 
+  * This file is part of "Meresco Owlim"
+- *
++ * 
+  * "Meresco Owlim" is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+  * the Free Software Foundation; either version 2 of the License, or
+  * (at your option) any later version.
+- *
++ * 
+  * "Meresco Owlim" is distributed in the hope that it will be useful,
+  * but WITHOUT ANY WARRANTY; without even the implied warranty of
+  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  * GNU General Public License for more details.
+- *
++ * 
+  * You should have received a copy of the GNU General Public License
+  * along with "Meresco Owlim"; if not, write to the Free Software
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- *
++ * 
+  * end license */
+ 
+ package org.meresco.owlimhttpserver;
+diff --git a/server/src/test/org/meresco/owlimhttpserver/TransactionItemTest.java b/server/src/test/org/meresco/owlimhttpserver/TransactionItemTest.java
+index 0144af2..20ff17b 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/TransactionItemTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/TransactionItemTest.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+  * 
+  * This file is part of "Meresco Owlim"
+diff --git a/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java b/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java
+index 34630a2..796c2b7 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java
+@@ -4,7 +4,7 @@
+  * provides access to an Owlim Triple store, as well as python bindings to
+  * communicate as a client with the server. 
+  * 
+- * Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++ * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
+  * 
+  * This file is part of "Meresco Owlim"
+diff --git a/test/_alltests.py b/test/_alltests.py
+index 209b45e..3042b9b 100644
+--- a/test/_alltests.py
++++ b/test/_alltests.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/test/_integrationtest.py b/test/_integrationtest.py
+index 0de1fa3..2d970bf 100644
+--- a/test/_integrationtest.py
++++ b/test/_integrationtest.py
+@@ -6,7 +6,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/test/alltests.sh b/test/alltests.sh
+index ef67860..e1d60a7 100755
+--- a/test/alltests.sh
++++ b/test/alltests.sh
+@@ -5,7 +5,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/test/client/__init__.py b/test/client/__init__.py
+index 086f62a..6bc7f2c 100644
+--- a/test/client/__init__.py
++++ b/test/client/__init__.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2012-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/test/client/literaltest.py b/test/client/literaltest.py
+index c4bcd52..cb53fcf 100644
+--- a/test/client/literaltest.py
++++ b/test/client/literaltest.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/test/client/uritest.py b/test/client/uritest.py
+index 1237f9f..541dc48 100644
+--- a/test/client/uritest.py
++++ b/test/client/uritest.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/test/integration/__init__.py b/test/integration/__init__.py
+index 838ca56..4632f55 100644
+--- a/test/integration/__init__.py
++++ b/test/integration/__init__.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/test/integration/owlimintegrationstate.py b/test/integration/owlimintegrationstate.py
+index 6e32315..4b1d0a1 100644
+--- a/test/integration/owlimintegrationstate.py
++++ b/test/integration/owlimintegrationstate.py
+@@ -1,3 +1,29 @@
++## begin license ##
++# 
++# The Meresco Owlim package consists out of a HTTP server written in Java that
++# provides access to an Owlim Triple store, as well as python bindings to
++# communicate as a client with the server. 
++# 
++# Copyright (C) 2013 Seecr (Seek You Too B.V.) http://seecr.nl
++# 
++# This file is part of "Meresco Owlim"
++# 
++# "Meresco Owlim" is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 2 of the License, or
++# (at your option) any later version.
++# 
++# "Meresco Owlim" is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++# 
++# You should have received a copy of the GNU General Public License
++# along with "Meresco Owlim"; if not, write to the Free Software
++# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++# 
++## end license ##
++
+ from os import system
+ from os.path import join, dirname, abspath
+ 
+diff --git a/test/integration/owlimtest.py b/test/integration/owlimtest.py
+index 3280e8d..aafd818 100644
+--- a/test/integration/owlimtest.py
++++ b/test/integration/owlimtest.py
+@@ -1,27 +1,27 @@
+ ## begin license ##
+-#
++# 
+ # The Meresco Owlim package consists out of a HTTP server written in Java that
+ # provides access to an Owlim Triple store, as well as python bindings to
+-# communicate as a client with the server.
+-#
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
+-#
++# communicate as a client with the server. 
++# 
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
++# 
+ # This file is part of "Meresco Owlim"
+-#
++# 
+ # "Meresco Owlim" is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation; either version 2 of the License, or
+ # (at your option) any later version.
+-#
++# 
+ # "Meresco Owlim" is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+-#
++# 
+ # You should have received a copy of the GNU General Public License
+ # along with "Meresco Owlim"; if not, write to the Free Software
+ # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-#
++# 
+ ## end license ##
+ 
+ from shutil import rmtree, copyfile
+diff --git a/test/integrationtest.sh b/test/integrationtest.sh
+index b8dad72..2baa2ec 100755
+--- a/test/integrationtest.sh
++++ b/test/integrationtest.sh
+@@ -5,7 +5,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/test/sitecustomize.py b/test/sitecustomize.py
+index 25e1b1f..cb5fb37 100644
+--- a/test/sitecustomize.py
++++ b/test/sitecustomize.py
+@@ -4,7 +4,7 @@
+ # provides access to an Owlim Triple store, as well as python bindings to
+ # communicate as a client with the server. 
+ # 
+-# Copyright (C) 2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2012-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+diff --git a/test/testrunner.py b/test/testrunner.py
+index 2a0f6b1..651d2be 100644
+--- a/test/testrunner.py
++++ b/test/testrunner.py
+@@ -6,7 +6,7 @@
+ # 
+ # Copyright (C) 2010-2011 Seek You Too (CQ2) http://www.cq2.nl
+ # Copyright (C) 2010-2011 Stichting Kennisnet http://www.kennisnet.nl
+-# Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ # 
+ # This file is part of "Meresco Owlim"
+ # 
+-- 
+1.7.2.5
+
