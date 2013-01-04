@@ -4,7 +4,7 @@
 # provides access to an Owlim Triple store, as well as python bindings to
 # communicate as a client with the server. 
 # 
-# Copyright (C) 2012 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2012-2013 Seecr (Seek You Too B.V.) http://seecr.nl
 # 
 # This file is part of "Meresco Owlim"
 # 
