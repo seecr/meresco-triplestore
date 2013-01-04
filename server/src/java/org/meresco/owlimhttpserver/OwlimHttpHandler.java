@@ -225,6 +225,24 @@ public class OwlimHttpHandler implements HttpHandler {
 
     public void importTrig(String trig) {
         tripleStore.importTrig(trig);
+        restartTripleStore();
+    }
+
+    private void restartTripleStore() {
+        System.out.println("Restarting triplestore. Please wait...");
+        try {
+            tripleStore.shutdown();
+            transactionLog.clear();
+            tripleStore.startup();
+            System.out.println("Restart completed.");
+            System.out.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.flush();
+            System.out.println("Restart failed.");
+            System.out.flush();
+            throw new RuntimeException(e);
+        }
     }
 
     public String sparqlForm(QueryParameters params) {

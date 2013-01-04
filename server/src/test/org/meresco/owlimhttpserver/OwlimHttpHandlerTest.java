@@ -290,13 +290,13 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void test500ForExceptions() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception());
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception("dummy test exception"));
 
         HttpExchangeMock exchange = new HttpExchangeMock("/add", "");
         h.handle(exchange);
         assertEquals(0, h.actions.size());
         assertEquals(500, exchange.responseCode);
-        assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception"));
+        assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception: dummy test exception"));
     }
 
     @Test public void testDefaultSparqlForm() throws Exception {
@@ -392,9 +392,10 @@ public class OwlimHttpHandlerTest {
 
         HttpExchangeMock exchange = new HttpExchangeMock("/import", trig);
         h.handle(exchange);
-        assertEquals(0, tlmock.actions.size());
-        assertEquals(1, tsmock.actions.size());
+        assertEquals(1, tlmock.actions.size());
+        assertEquals(3, tsmock.actions.size());
         assertEquals("import:" + trig, tsmock.actions.get(0));
+        assertEquals("clear", tlmock.actions.get(0));
     }
 
 
