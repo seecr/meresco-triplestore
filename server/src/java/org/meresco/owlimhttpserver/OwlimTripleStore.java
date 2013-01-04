@@ -251,13 +251,19 @@ public class OwlimTripleStore implements TripleStore {
     }
 
     public void shutdown() throws Exception {
+        PrintStream originalErrStream = System.err;
         OutputStream os = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(os);
         try {
             System.setErr(ps);
-            repository.shutDown();
-            if (!os.toString().equals("")) {
-                throw new RepositoryException(os.toString());
+            try {
+                repository.shutDown();
+                if (!os.toString().equals("")) {
+                    throw new RepositoryException(os.toString());
+                }
+            }
+            finally {
+                System.setErr(originalErrStream);
             }
         } catch (RepositoryException e) {
             e.printStackTrace();

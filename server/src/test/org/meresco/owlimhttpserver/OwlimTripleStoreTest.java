@@ -33,6 +33,9 @@ import java.io.File;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.FileInputStream;
+import java.io.PrintStream;
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import org.junit.Test;
 import org.junit.Before;
 import org.junit.After;
@@ -162,11 +165,18 @@ public class OwlimTripleStoreTest {
         File contextFile = new File(tsPath, "Contexts.ids");
         Process process = Runtime.getRuntime().exec("chmod 0000 " + contextFile);
         process.waitFor();
+
+        PrintStream originalErrStream = System.err;
+        OutputStream os = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(os);
+        System.setErr(ps);
         try {
             ts.shutdown();
             fail("Triplestore shouldn't shutdown correctly");
         } catch (Exception e) {
             assertTrue(e.toString().contains("org.openrdf.repository.RepositoryException"));
+        } finally {
+            System.setErr(originalErrStream);
         }
     }
 

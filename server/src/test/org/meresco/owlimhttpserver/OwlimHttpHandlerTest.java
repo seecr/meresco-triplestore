@@ -40,6 +40,7 @@ import org.openrdf.query.resultio.TupleQueryResultFormat;
 import java.net.InetSocketAddress;
 
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
@@ -293,7 +294,18 @@ public class OwlimHttpHandlerTest {
         OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception("dummy test exception"));
 
         HttpExchangeMock exchange = new HttpExchangeMock("/add", "");
-        h.handle(exchange);
+
+        PrintStream originalErrStream = System.err;
+        OutputStream os = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(os);
+        System.setErr(ps);
+        try {
+            h.handle(exchange);
+        }
+        finally {
+            System.setErr(originalErrStream);
+        }
+        assertTrue(os.toString().contains("dummy test exception"));
         assertEquals(0, h.actions.size());
         assertEquals(500, exchange.responseCode);
         assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception: dummy test exception"));
