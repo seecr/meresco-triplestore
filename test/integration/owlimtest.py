@@ -1,34 +1,34 @@
 ## begin license ##
-# 
+#
 # The Meresco Owlim package consists out of a HTTP server written in Java that
 # provides access to an Owlim Triple store, as well as python bindings to
-# communicate as a client with the server. 
-# 
+# communicate as a client with the server.
+#
 # Copyright (C) 2011-2012 Seecr (Seek You Too B.V.) http://seecr.nl
-# 
+#
 # This file is part of "Meresco Owlim"
-# 
+#
 # "Meresco Owlim" is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # "Meresco Owlim" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with "Meresco Owlim"; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-# 
+#
 ## end license ##
 
 from shutil import rmtree, copyfile
-from os.path import join, exists, abspath, isdir
-from os import remove, kill, waitpid, WNOHANG, system, symlink
+from os.path import join, abspath, isdir
+from os import kill, waitpid, WNOHANG, system, symlink, makedirs
 from simplejson import loads
-from urllib import urlopen, urlencode
+from urllib import urlencode
 from urllib2 import urlopen, Request
 from signal import SIGKILL
 from time import time
@@ -95,7 +95,7 @@ class OwlimTest(IntegrationTestCase):
         self.startOwlimServer()
         print time()
 
-    def testDeleteRecord(self): 
+    def testDeleteRecord(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
         <rdf:Description>
             <rdf:type>uri:testDelete</rdf:type>
@@ -114,7 +114,7 @@ class OwlimTest(IntegrationTestCase):
         json = self.query('SELECT ?x WHERE {?x ?y "uri:testDeleteUpdated"}')
         self.assertEquals(1, len(json['results']['bindings']))
 
-        postRequest(self.owlimPort, "/delete?identifier=uri:record", "", parse=False) 
+        postRequest(self.owlimPort, "/delete?identifier=uri:record", "", parse=False)
         json = self.query('SELECT ?x WHERE {?x ?y "uri:testDelete"}')
         self.assertEquals(0, len(json['results']['bindings']))
         json = self.query('SELECT ?x WHERE {?x ?y "uri:testDeleteUpdated"}')
@@ -200,7 +200,7 @@ class OwlimTest(IntegrationTestCase):
             <rdf:type>uri:test:acceptHeaders</rdf:type>
         </rdf:Description>
     </rdf:RDF>""", parse=False)
-        
+
         request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "uri:test:acceptHeaders"}'})), headers={"Accept" : "application/xml"})
         contents = urlopen(request).read()
         self.assertEqualsWS("""<?xml version='1.0' encoding='UTF-8'?>
@@ -215,8 +215,8 @@ class OwlimTest(IntegrationTestCase):
             </binding>
         </result>
     </results>
-</sparql>""", contents)   
-       
+</sparql>""", contents)
+
         headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:test:acceptHeaders"}'}, additionalHeaders={"Accept" : "image/jpg"}, parse=False)
 
         self.assertEquals(["HTTP/1.1 406 Not Acceptable", "Content-type: text/plain"], headers.split('\r\n')[:2])
@@ -224,14 +224,14 @@ class OwlimTest(IntegrationTestCase):
 - SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)
 - BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)
 - SPARQL/JSON (mimeTypes=application/sparql-results+json; ext=srj)""", body)
-         
+
     def testMimeTypeArgument(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
         <rdf:Description>
             <rdf:type>uri:test:mimeType</rdf:type>
         </rdf:Description>
     </rdf:RDF>""", parse=False)
-        
+
         request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "uri:test:mimeType"}', 'mimeType': 'application/sparql-results+xml'})))
         contents = urlopen(request).read()
         self.assertEqualsWS("""<?xml version='1.0' encoding='UTF-8'?>
@@ -246,7 +246,7 @@ class OwlimTest(IntegrationTestCase):
             </binding>
         </result>
     </results>
-</sparql>""", contents)   
+</sparql>""", contents)
 
     def query(self, query):
         return loads(urlopen('http://localhost:%s/query?%s' % (self.owlimPort,

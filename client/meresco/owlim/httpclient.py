@@ -1,29 +1,29 @@
 ## begin license ##
-# 
+#
 # The Meresco Owlim package consists out of a HTTP server written in Java that
 # provides access to an Owlim Triple store, as well as python bindings to
-# communicate as a client with the server. 
-# 
+# communicate as a client with the server.
+#
 # Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
 # Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
 # Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
-# 
+#
 # This file is part of "Meresco Owlim"
-# 
+#
 # "Meresco Owlim" is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # "Meresco Owlim" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with "Meresco Owlim"; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-# 
+#
 ## end license ##
 
 from urllib2 import urlopen
@@ -38,7 +38,7 @@ from uri import Uri
 
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 
-class InvalidRdfXmlException(Exception): 
+class InvalidRdfXmlException(Exception):
     pass
 
 class HttpClient(object):
@@ -83,6 +83,9 @@ class HttpClient(object):
             raise ValueError("identifier cannot be empty")
         path = "/export?%s" % urlencode(dict(identifier=identifier))
         yield self._send(path=path, body=None)
+
+    def importTrig(self, data):
+        yield self._send("/import", body=data)
 
     def _sparqlQuery(self, query, queryResultFormat=None):
         path = "/query?%s" % urlencode(dict(query=query))
@@ -164,7 +167,7 @@ class HttpClient(object):
     def _urlopen(self, *args, **kwargs):
         return urlopen(*args, **kwargs).read()
 
-    
+
 _typeMapping = {
     'literal': Literal,
     'uri': Uri,
