@@ -24,23 +24,25 @@
 #
 ## end license ##
 
-from sys import path
-from os import system, listdir
-from os.path import isdir, join, dirname
-system("find .. -name '*.pyc' | xargs rm -f")
-if isdir('../deps.d'):
-    for d in listdir('../deps.d'):
-        path.insert(0, join('../deps.d', d))
-path.insert(0, '../client')
 
-import unittest
+class BNode(object):
+    def __init__(self, value):
+        if not isinstance(value, basestring):
+            raise ValueError('Expected a stringlike object')
+        self.value = value
 
-from client.httpclienttest import HttpClientTest
-from client.literaltest import LiteralTest
-from client.uritest import UriTest
-from client.bnodetest import BNodeTest
+    @classmethod
+    def fromDict(cls, valueDict):
+        return cls(valueDict['value'])
 
+    def __str__(self):
+        return self.value
 
-if __name__ == '__main__':
-    unittest.main()
+    def __hash__(self):
+        return hash(str(self))
 
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__, repr(self.value))
+
+    def __eq__(self, other):
+        return other.__class__ is self.__class__ and other.value == self.value

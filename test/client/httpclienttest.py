@@ -32,7 +32,7 @@ from seecr.test import SeecrTestCase, CallTrace
 
 from weightless.core import compose
 from weightless.io import Suspend
-from meresco.owlim import HttpClient, InvalidRdfXmlException, Uri, Literal
+from meresco.owlim import HttpClient, InvalidRdfXmlException, Uri, Literal, BNode
 
 
 class HttpClientTest(SeecrTestCase):
@@ -260,6 +260,10 @@ PARSED_RESULT_JSON = [
         u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
         u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
         u'o': Literal(u'woord', lang="dut")
+    }, {
+        u'p': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+        u's': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
+        u'o': BNode('node12345')
     }
 ]
 RESULT_SPO = [ (d['s'], d['p'], d['o']) for d in PARSED_RESULT_JSON]
@@ -277,6 +281,11 @@ RESULT_JSON = """{
                         },
                         {
                                 "o": { "type": "literal", "xml:lang": "dut", "value": "woord" },
+                                "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" },
+                                "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#subject" }
+                        },
+                        {
+                                "o": { "type": "bnode", "value": "node12345" },
                                 "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" },
                                 "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#subject" }
                         }

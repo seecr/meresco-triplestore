@@ -35,6 +35,7 @@ from meresco.core import Observable
 
 from literal import Literal
 from uri import Uri
+from bnode import BNode
 
 
 JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
@@ -161,6 +162,7 @@ class HttpClient(Observable):
         valueDict = binding.get(key)
         if valueDict is None:
             return default
+        print 'type', valueDict['type']
         mappedType = _typeMapping.get(valueDict['type'])
         return mappedType.fromDict(valueDict) if mappedType else valueDict['value']
 
@@ -186,5 +188,6 @@ class HttpClient(Observable):
 _typeMapping = {
     'literal': Literal,
     'uri': Uri,
+    'bnode': BNode
 }
 
