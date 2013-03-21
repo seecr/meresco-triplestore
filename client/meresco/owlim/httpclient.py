@@ -162,7 +162,6 @@ class HttpClient(Observable):
         valueDict = binding.get(key)
         if valueDict is None:
             return default
-        print 'type', valueDict['type']
         mappedType = _typeMapping.get(valueDict['type'])
         return mappedType.fromDict(valueDict) if mappedType else valueDict['value']
 
@@ -187,6 +186,7 @@ class HttpClient(Observable):
 
 _typeMapping = {
     'literal': Literal,
+    'typed-literal': Literal,
     'uri': Uri,
     'bnode': BNode
 }
