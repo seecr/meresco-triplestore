@@ -29,17 +29,22 @@ package org.meresco.owlimhttpserver;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpHandler;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import java.io.IOException;
 
 import java.net.InetSocketAddress;
+
 
 public class OwlimHttpServer {
     private HttpServer server = null;
 
     public OwlimHttpServer(int port, int backlog) throws IOException {
         server = HttpServer.create(new InetSocketAddress(port), backlog);
-        server.setExecutor(null);
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(50, 200, 60, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(1000));
+        server.setExecutor(executor);  // Note: so far not been able to express this multithreaded capability in a (unit)test
     }
 
     public void setHandler(HttpHandler handler) {

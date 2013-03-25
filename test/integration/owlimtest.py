@@ -32,6 +32,7 @@ from urllib import urlencode
 from urllib2 import urlopen, Request
 from signal import SIGKILL
 from time import time
+from threading import Thread
 
 from seecr.test.utils import getRequest, postRequest
 from seecr.test.integrationtestcase import IntegrationTestCase
@@ -143,24 +144,53 @@ class OwlimTest(IntegrationTestCase):
         json = self.query('SELECT ?obj WHERE { <uri:subject> <uri:predicate> ?obj }')
         self.assertEquals(0, len(json['results']['bindings']))
 
-    def testPerformance(self):
+    def testAddPerformance(self):
         totalTime = 0
-        for i in range(10):
-            postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-        <rdf:Description>
-            <rdf:type>uri:testFirst%s</rdf:type>
-        </rdf:Description>
-    </rdf:RDF>""" % i, parse=False)
-        for i in range(1000):
-            start = time()
-            postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-        <rdf:Description>
-            <rdf:type>uri:testSecond%s</rdf:type>
-        </rdf:Description>
-    </rdf:RDF>""" % i, parse=False)
-            totalTime += time() - start
+        try:
+            for i in range(10):
+                postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+            <rdf:Description>
+                <rdf:type>uri:testFirst%s</rdf:type>
+            </rdf:Description>
+        </rdf:RDF>""" % i, parse=False)
+            number = 1000
+            for i in range(number):
+                start = time()
+                postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+            <rdf:Description>
+                <rdf:type>uri:testSecond%s</rdf:type>
+            </rdf:Description>
+        </rdf:RDF>""" % i, parse=False)
+                totalTime += time() - start
 
-        self.assertTiming(0.003, totalTime / 500, 0.01)
+            self.assertTiming(0.00015, totalTime / number, 0.0075)
+        finally:
+            postRequest(self.owlimPort, "/delete?identifier=uri:record", "")
+
+    def testAddPerformanceInCaseOfThreads(self):
+        number = 25
+        threads = []
+        responses = []
+        try:
+            for i in range(number):
+                def doAdd(i=i):
+                    header, body = postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+            <rdf:Description>
+                <rdf:type>uri:testSecond%s</rdf:type>
+            </rdf:Description>
+        </rdf:RDF>""" % i, parse=False)
+                    responses.append((header, body))
+                threads.append(Thread(target=doAdd))
+
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+            for header, body in responses:
+                self.assertTrue('200 OK' in header, header + '\r\n\r\n' + body)
+        finally:
+            postRequest(self.owlimPort, "/delete?identifier=uri:record", "")
 
     def testFailingCommitKillsTripleStore(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
@@ -227,12 +257,12 @@ class OwlimTest(IntegrationTestCase):
 
     def testMimeTypeArgument(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-        <rdf:Description>
-            <rdf:type>uri:test:mimeType</rdf:type>
+        <rdf:Description rdf:about="uri:test:mimeType">
+            <rdf:value>Value</rdf:value>
         </rdf:Description>
     </rdf:RDF>""", parse=False)
 
-        request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "uri:test:mimeType"}', 'mimeType': 'application/sparql-results+xml'})))
+        request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "Value"}', 'mimeType': 'application/sparql-results+xml'})))
         contents = urlopen(request).read()
         self.assertEqualsWS("""<?xml version='1.0' encoding='UTF-8'?>
 <sparql xmlns='http://www.w3.org/2005/sparql-results#'>
@@ -242,7 +272,7 @@ class OwlimTest(IntegrationTestCase):
     <results>
         <result>
             <binding name='x'>
-                <bnode>node9</bnode>
+                <uri>uri:test:mimeType</uri>
             </binding>
         </result>
     </results>

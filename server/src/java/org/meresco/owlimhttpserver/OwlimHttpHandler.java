@@ -181,27 +181,27 @@ public class OwlimHttpHandler implements HttpHandler {
         }
     }
 
-    public void updateRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
+    public synchronized void updateRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
         String identifier = params.singleValue("identifier");
         transactionLog.delete(identifier);
         transactionLog.add(identifier, httpBody);
     }
 
-    public void addRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
+    public synchronized void addRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
         String identifier = params.singleValue("identifier");
         transactionLog.add(identifier, httpBody);
     }
 
-    public void addTriple(String httpBody) throws TransactionLogException, IOException {
+    public synchronized void addTriple(String httpBody) throws TransactionLogException, IOException {
         transactionLog.addTriple(httpBody);
     }
 
-    public void deleteRDF(QueryParameters params) throws TransactionLogException, IOException {
+    public synchronized void deleteRDF(QueryParameters params) throws TransactionLogException, IOException {
         String identifier = params.singleValue("identifier");
         transactionLog.delete(identifier);
     }
 
-    public void removeTriple(String httpBody) throws TransactionLogException, IOException {
+    public synchronized void removeTriple(String httpBody) throws TransactionLogException, IOException {
         transactionLog.removeTriple(httpBody);
     }
 
@@ -211,6 +211,9 @@ public class OwlimHttpHandler implements HttpHandler {
 
     public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
         String query = params.singleValue("query");
+        if (query == null) {
+            return "";
+        }
         return tripleStore.executeQuery(query, resultFormat);
     }
 
@@ -223,7 +226,7 @@ public class OwlimHttpHandler implements HttpHandler {
         tripleStore.export(identifier);
     }
 
-    public void importTrig(String trig) {
+    public synchronized void importTrig(String trig) {
         tripleStore.importTrig(trig);
         restartTripleStore();
     }

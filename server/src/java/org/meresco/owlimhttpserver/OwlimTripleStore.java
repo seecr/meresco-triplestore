@@ -189,7 +189,6 @@ public class OwlimTripleStore implements TripleStore {
         TupleQueryResult tupleQueryResult = null;
         String result = null;
         try {
-
             try {
                 conn = repository.getConnection();
                 tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, sparQL);
