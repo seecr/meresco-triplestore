@@ -1,0 +1,226 @@
+Changeset created on Tue Mar 26 10:22:13 UTC 2013 by Seecr (Seek You Too B.V.)
+
+Description: SPARQL queries can now be processed concurrently.
+
+    SPARQL queries no longer wait for each other's completion on the Meresco Owlim server. 
+
+Baseline version: 4.4
+
+From 9b78f99bf025a62f02a2f834e7a974177dbeea93 Mon Sep 17 00:00:00 2001
+From: Hendrik Moree <hendrik@seecr.nl>
+Date: Mon, 25 Mar 2013 14:45:25 +0100
+Subject: [PATCH] HM/JPM: Owlim server now supports multi-threaded query processing
+
+---
+ .../meresco/owlimhttpserver/OwlimHttpHandler.java  |   15 +++--
+ .../meresco/owlimhttpserver/OwlimHttpServer.java   |    7 ++-
+ .../meresco/owlimhttpserver/OwlimTripleStore.java  |    1 -
+ test/integration/owlimtest.py                      |   70 ++++++++++++++------
+ 4 files changed, 65 insertions(+), 28 deletions(-)
+
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+index 21c565a..436f996 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+@@ -181,27 +181,27 @@ public class OwlimHttpHandler implements HttpHandler {
+         }
+     }
+ 
+-    public void updateRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
++    public synchronized void updateRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
+         String identifier = params.singleValue("identifier");
+         transactionLog.delete(identifier);
+         transactionLog.add(identifier, httpBody);
+     }
+ 
+-    public void addRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
++    public synchronized void addRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
+         String identifier = params.singleValue("identifier");
+         transactionLog.add(identifier, httpBody);
+     }
+ 
+-    public void addTriple(String httpBody) throws TransactionLogException, IOException {
++    public synchronized void addTriple(String httpBody) throws TransactionLogException, IOException {
+         transactionLog.addTriple(httpBody);
+     }
+ 
+-    public void deleteRDF(QueryParameters params) throws TransactionLogException, IOException {
++    public synchronized void deleteRDF(QueryParameters params) throws TransactionLogException, IOException {
+         String identifier = params.singleValue("identifier");
+         transactionLog.delete(identifier);
+     }
+ 
+-    public void removeTriple(String httpBody) throws TransactionLogException, IOException {
++    public synchronized void removeTriple(String httpBody) throws TransactionLogException, IOException {
+         transactionLog.removeTriple(httpBody);
+     }
+ 
+@@ -211,6 +211,9 @@ public class OwlimHttpHandler implements HttpHandler {
+ 
+     public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
+         String query = params.singleValue("query");
++        if (query == null) {
++            return "";
++        }
+         return tripleStore.executeQuery(query, resultFormat);
+     }
+ 
+@@ -223,7 +226,7 @@ public class OwlimHttpHandler implements HttpHandler {
+         tripleStore.export(identifier);
+     }
+ 
+-    public void importTrig(String trig) {
++    public synchronized void importTrig(String trig) {
+         tripleStore.importTrig(trig);
+         restartTripleStore();
+     }
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpServer.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpServer.java
+index ee6ed93..c04c5bf 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpServer.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpServer.java
+@@ -29,17 +29,22 @@ package org.meresco.owlimhttpserver;
+ 
+ import com.sun.net.httpserver.HttpServer;
+ import com.sun.net.httpserver.HttpHandler;
++import java.util.concurrent.ThreadPoolExecutor;
++import java.util.concurrent.ArrayBlockingQueue;
++import java.util.concurrent.TimeUnit;
+ 
+ import java.io.IOException;
+ 
+ import java.net.InetSocketAddress;
+ 
++
+ public class OwlimHttpServer {
+     private HttpServer server = null;
+ 
+     public OwlimHttpServer(int port, int backlog) throws IOException {
+         server = HttpServer.create(new InetSocketAddress(port), backlog);
+-        server.setExecutor(null);
++        ThreadPoolExecutor executor = new ThreadPoolExecutor(50, 200, 60, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(1000));
++        server.setExecutor(executor);  // Note: so far not been able to express this multithreaded capability in a (unit)test
+     }
+ 
+     public void setHandler(HttpHandler handler) {
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java b/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
+index 25673e5..c6b7041 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
+@@ -189,7 +189,6 @@ public class OwlimTripleStore implements TripleStore {
+         TupleQueryResult tupleQueryResult = null;
+         String result = null;
+         try {
+-
+             try {
+                 conn = repository.getConnection();
+                 tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, sparQL);
+diff --git a/test/integration/owlimtest.py b/test/integration/owlimtest.py
+index aafd818..ea75a0f 100644
+--- a/test/integration/owlimtest.py
++++ b/test/integration/owlimtest.py
+@@ -32,6 +32,7 @@ from urllib import urlencode
+ from urllib2 import urlopen, Request
+ from signal import SIGKILL
+ from time import time
++from threading import Thread
+ 
+ from seecr.test.utils import getRequest, postRequest
+ from seecr.test.integrationtestcase import IntegrationTestCase
+@@ -143,24 +144,53 @@ class OwlimTest(IntegrationTestCase):
+         json = self.query('SELECT ?obj WHERE { <uri:subject> <uri:predicate> ?obj }')
+         self.assertEquals(0, len(json['results']['bindings']))
+ 
+-    def testPerformance(self):
++    def testAddPerformance(self):
+         totalTime = 0
+-        for i in range(10):
+-            postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+-        <rdf:Description>
+-            <rdf:type>uri:testFirst%s</rdf:type>
+-        </rdf:Description>
+-    </rdf:RDF>""" % i, parse=False)
+-        for i in range(1000):
+-            start = time()
+-            postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+-        <rdf:Description>
+-            <rdf:type>uri:testSecond%s</rdf:type>
+-        </rdf:Description>
+-    </rdf:RDF>""" % i, parse=False)
+-            totalTime += time() - start
++        try:
++            for i in range(10):
++                postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
++            <rdf:Description>
++                <rdf:type>uri:testFirst%s</rdf:type>
++            </rdf:Description>
++        </rdf:RDF>""" % i, parse=False)
++            number = 1000
++            for i in range(number):
++                start = time()
++                postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
++            <rdf:Description>
++                <rdf:type>uri:testSecond%s</rdf:type>
++            </rdf:Description>
++        </rdf:RDF>""" % i, parse=False)
++                totalTime += time() - start
+ 
+-        self.assertTiming(0.003, totalTime / 500, 0.01)
++            self.assertTiming(0.00015, totalTime / number, 0.0075)
++        finally:
++            postRequest(self.owlimPort, "/delete?identifier=uri:record", "")
++
++    def testAddPerformanceInCaseOfThreads(self):
++        number = 25
++        threads = []
++        responses = []
++        try:
++            for i in range(number):
++                def doAdd(i=i):
++                    header, body = postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
++            <rdf:Description>
++                <rdf:type>uri:testSecond%s</rdf:type>
++            </rdf:Description>
++        </rdf:RDF>""" % i, parse=False)
++                    responses.append((header, body))
++                threads.append(Thread(target=doAdd))
++
++            for thread in threads:
++                thread.start()
++            for thread in threads:
++                thread.join()
++
++            for header, body in responses:
++                self.assertTrue('200 OK' in header, header + '\r\n\r\n' + body)
++        finally:
++            postRequest(self.owlimPort, "/delete?identifier=uri:record", "")
+ 
+     def testFailingCommitKillsTripleStore(self):
+         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+@@ -227,12 +257,12 @@ class OwlimTest(IntegrationTestCase):
+ 
+     def testMimeTypeArgument(self):
+         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+-        <rdf:Description>
+-            <rdf:type>uri:test:mimeType</rdf:type>
++        <rdf:Description rdf:about="uri:test:mimeType">
++            <rdf:value>Value</rdf:value>
+         </rdf:Description>
+     </rdf:RDF>""", parse=False)
+ 
+-        request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "uri:test:mimeType"}', 'mimeType': 'application/sparql-results+xml'})))
++        request = Request('http://localhost:%s/query?%s' % (self.owlimPort, urlencode({'query': 'SELECT ?x WHERE {?x ?y "Value"}', 'mimeType': 'application/sparql-results+xml'})))
+         contents = urlopen(request).read()
+         self.assertEqualsWS("""<?xml version='1.0' encoding='UTF-8'?>
+ <sparql xmlns='http://www.w3.org/2005/sparql-results#'>
+@@ -242,7 +272,7 @@ class OwlimTest(IntegrationTestCase):
+     <results>
+         <result>
+             <binding name='x'>
+-                <bnode>node9</bnode>
++                <uri>uri:test:mimeType</uri>
+             </binding>
+         </result>
+     </results>
+-- 
+1.7.2.5
+
