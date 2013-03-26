@@ -26,6 +26,8 @@
 #
 ## end license ##
 
+from urllib import urlencode
+
 from seecr.test import SeecrTestCase, CallTrace
 
 from weightless.core import compose
@@ -194,6 +196,47 @@ class HttpClientTest(SeecrTestCase):
 }"""
         list(compose(client.importTrig(data=trigData)))
         self.assertEquals([("/import", trigData)], toSend)
+
+    def testExecuteQueryWithOwlimHostPortFromObserver(self):
+        owlimClient = HttpClient()
+        observer = CallTrace(returnValues={'owlimServer': ('localhost', 1234)})
+        owlimClient.addObserver(observer)
+        kwargs = []
+        def httpget(**_kwargs):
+            kwargs.append(_kwargs)
+            s = Suspend()
+            response = yield s
+            result = s.getResult()
+            raise StopIteration(result)
+        owlimClient._httpget = httpget
+
+        g = compose(owlimClient.executeQuery("select ?x where {}"))
+        self._resultFromServerResponse(g, RESULT_JSON)
+        self.assertEquals(['owlimServer'], observer.calledMethodNames())
+        self.assertEquals("/query?" + urlencode(dict(query='select ?x where {}')), kwargs[0]['request'])
+        self.assertEquals('localhost', kwargs[0]['host'])
+        self.assertEquals(1234, kwargs[0]['port'])
+
+    def testUpdateWithOwlimHostPortFromObserver(self):
+        owlimClient = HttpClient()
+        observer = CallTrace(returnValues={'owlimServer': ('localhost', 1234)})
+        owlimClient.addObserver(observer)
+        kwargs = []
+        def httppost(**_kwargs):
+            kwargs.append(_kwargs)
+            s = Suspend()
+            response = yield s
+            result = s.getResult()
+            raise StopIteration(result)
+        owlimClient._httppost = httppost
+
+        g = compose(owlimClient.addTriple("uri:subject", "uri:predicate", "value"))
+        self._resultFromServerResponse(g, "")
+        self.assertEquals(['owlimServer'], observer.calledMethodNames())
+        self.assertEquals("/addTriple", kwargs[0]['request'])
+        self.assertEquals('localhost', kwargs[0]['host'])
+        self.assertEquals(1234, kwargs[0]['port'])
+
 
     def _resultFromServerResponse(self, g, data, responseStatus='200'):
         s = g.next()

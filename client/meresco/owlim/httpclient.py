@@ -31,6 +31,7 @@ from urllib import urlencode
 from simplejson import loads
 
 from weightless.http import httpget, httppost
+from meresco.core import Observable
 
 from literal import Literal
 from uri import Uri
@@ -41,8 +42,9 @@ JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
 class InvalidRdfXmlException(Exception):
     pass
 
-class HttpClient(object):
-    def __init__(self, host, port, synchronous=False):
+class HttpClient(Observable):
+    def __init__(self, host=None, port=None, synchronous=False):
+        Observable.__init__(self)
         self.host = host
         self.port = port
         self.synchronous = synchronous
@@ -92,10 +94,11 @@ class HttpClient(object):
         headers = None
         if queryResultFormat is not None:
             headers = {'Accept': queryResultFormat}
+        host, port = self._owlimServer()
         if self.synchronous:
-            body = self._urlopen("http://localhost:%s%s" % (self.port, path))
+            body = self._urlopen("http://%s:%s%s" % (host, port, path))
         else:
-            response = yield httpget("localhost", self.port, path, headers=headers)
+            response = yield self._httpget(host=host, port=port, request=path, headers=headers)
             header, body = response.split("\r\n\r\n", 1)
             self._verify200(header, response)
         raise StopIteration(body)
@@ -104,17 +107,14 @@ class HttpClient(object):
         headers = None
         if body:
             headers={'Content-Type': 'text/xml', 'Content-Length': len(body)}
+        host, port = self._owlimServer()
         if self.synchronous:
-            header, body = "", self._urlopen("http://%s:%s%s" % (self.host, self.port, path), data=body)
+            header, body = "", self._urlopen("http://%s:%s%s" % (host, port, path), data=body)
         else:
-            response = yield httppost(host=self.host, port=self.port, request=path, body=body, headers=headers)
+            response = yield self._httppost(host=host, port=port, request=path, body=body, headers=headers)
             header, body = response.split("\r\n\r\n", 1)
             self._verify200(header, response)
         raise StopIteration((header, body))
-
-    def _verify200(self, header, response):
-        if not header.startswith('HTTP/1.1 200'):
-            raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
 
     def _getStatementsSparQL(self, subject=None, predicate=None, object=None):
         if not subject is None and not Uri.matchesUriSyntax(subject):
@@ -164,8 +164,23 @@ class HttpClient(object):
         mappedType = _typeMapping.get(valueDict['type'])
         return mappedType.fromDict(valueDict) if mappedType else valueDict['value']
 
+    def _verify200(self, header, response):
+        if not header.startswith('HTTP/1.1 200'):
+            raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
+
+    def _owlimServer(self):
+        if self.host:
+            return (self.host, self.port)
+        return self.call.owlimServer()
+
     def _urlopen(self, *args, **kwargs):
         return urlopen(*args, **kwargs).read()
+
+    def _httpget(self, **kwargs):
+        return httpget(**kwargs)
+
+    def _httppost(self, **kwargs):
+        return httppost(**kwargs)
 
 
 _typeMapping = {
