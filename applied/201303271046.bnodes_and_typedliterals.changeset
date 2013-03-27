@@ -1,0 +1,513 @@
+Changeset created on Wed Mar 27 10:46:50 UTC 2013 by Seecr (Seek You Too B.V.)
+
+Description: Added support for BNodes and Typed Literals
+
+    Meresco Owlim's HttpClient now translates blank node values into BNode instances
+    and typed literal values into Literal instances.
+
+Baseline version: 1b24e00a07126ac1055b7de7a77c49fa5a1ddce9
+
+From a46fbaf4c86a52cabd45739186cfbfa108bccf19 Mon Sep 17 00:00:00 2001
+From: Seecr Development Team <development@seecr.nl>
+Date: Mon, 11 Mar 2013 11:09:32 +0100
+Subject: [PATCH 1/2] JPM: added BNode class
+
+---
+ client/meresco/owlim/__init__.py   | 17 ++++++------
+ client/meresco/owlim/bnode.py      | 48 ++++++++++++++++++++++++++++++++
+ client/meresco/owlim/httpclient.py |  3 ++
+ client/meresco/owlim/literal.py    | 33 +++++++++++-----------
+ client/meresco/owlim/uri.py        | 26 ++++++++---------
+ server/bin/start-owlim             |  2 +-
+ test/_alltests.py                  | 19 +++++++------
+ test/client/bnodetest.py           | 57 ++++++++++++++++++++++++++++++++++++++
+ test/client/httpclienttest.py      | 11 +++++++-
+ 9 files changed, 167 insertions(+), 49 deletions(-)
+ create mode 100644 client/meresco/owlim/bnode.py
+ create mode 100644 test/client/bnodetest.py
+
+diff --git a/client/meresco/owlim/__init__.py b/client/meresco/owlim/__init__.py
+index 7e00081..6c10940 100644
+--- a/client/meresco/owlim/__init__.py
++++ b/client/meresco/owlim/__init__.py
+@@ -1,30 +1,31 @@
+ ## begin license ##
+-# 
++#
+ # The Meresco Owlim package consists out of a HTTP server written in Java that
+ # provides access to an Owlim Triple store, as well as python bindings to
+-# communicate as a client with the server. 
+-# 
++# communicate as a client with the server.
++#
+ # Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+-# 
++#
+ # This file is part of "Meresco Owlim"
+-# 
++#
+ # "Meresco Owlim" is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation; either version 2 of the License, or
+ # (at your option) any later version.
+-# 
++#
+ # "Meresco Owlim" is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+-# 
++#
+ # You should have received a copy of the GNU General Public License
+ # along with "Meresco Owlim"; if not, write to the Free Software
+ # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-# 
++#
+ ## end license ##
+ 
+ from httpclient import HttpClient, InvalidRdfXmlException
+ 
+ from literal import Literal
+ from uri import Uri
++from bnode import BNode
+diff --git a/client/meresco/owlim/bnode.py b/client/meresco/owlim/bnode.py
+new file mode 100644
+index 0000000..5789975
+--- /dev/null
++++ b/client/meresco/owlim/bnode.py
+@@ -0,0 +1,48 @@
++## begin license ##
++#
++# The Meresco Owlim package consists out of a HTTP server written in Java that
++# provides access to an Owlim Triple store, as well as python bindings to
++# communicate as a client with the server.
++#
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
++#
++# This file is part of "Meresco Owlim"
++#
++# "Meresco Owlim" is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 2 of the License, or
++# (at your option) any later version.
++#
++# "Meresco Owlim" is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with "Meresco Owlim"; if not, write to the Free Software
++# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++#
++## end license ##
++
++
++class BNode(object):
++    def __init__(self, value):
++        if not isinstance(value, basestring):
++            raise ValueError('Expected a stringlike object')
++        self.value = value
++
++    @classmethod
++    def fromDict(cls, valueDict):
++        return cls(valueDict['value'])
++
++    def __str__(self):
++        return self.value
++
++    def __hash__(self):
++        return hash(str(self))
++
++    def __repr__(self):
++        return "%s(%s)" % (self.__class__.__name__, repr(self.value))
++
++    def __eq__(self, other):
++        return other.__class__ is self.__class__ and other.value == self.value
+diff --git a/client/meresco/owlim/httpclient.py b/client/meresco/owlim/httpclient.py
+index d223d0e..9774161 100644
+--- a/client/meresco/owlim/httpclient.py
++++ b/client/meresco/owlim/httpclient.py
+@@ -35,6 +35,7 @@ from meresco.core import Observable
+ 
+ from literal import Literal
+ from uri import Uri
++from bnode import BNode
+ 
+ 
+ JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
+@@ -161,6 +162,7 @@ class HttpClient(Observable):
+         valueDict = binding.get(key)
+         if valueDict is None:
+             return default
++        print 'type', valueDict['type']
+         mappedType = _typeMapping.get(valueDict['type'])
+         return mappedType.fromDict(valueDict) if mappedType else valueDict['value']
+ 
+@@ -186,5 +188,6 @@ class HttpClient(Observable):
+ _typeMapping = {
+     'literal': Literal,
+     'uri': Uri,
++    'bnode': BNode
+ }
+ 
+diff --git a/client/meresco/owlim/literal.py b/client/meresco/owlim/literal.py
+index b024d3c..ffc2839 100644
+--- a/client/meresco/owlim/literal.py
++++ b/client/meresco/owlim/literal.py
+@@ -1,43 +1,43 @@
+ ## begin license ##
+-# 
++#
+ # The Meresco Owlim package consists out of a HTTP server written in Java that
+ # provides access to an Owlim Triple store, as well as python bindings to
+-# communicate as a client with the server. 
+-# 
++# communicate as a client with the server.
++#
+ # Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+-# 
++#
+ # This file is part of "Meresco Owlim"
+-# 
++#
+ # "Meresco Owlim" is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation; either version 2 of the License, or
+ # (at your option) any later version.
+-# 
++#
+ # "Meresco Owlim" is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+-# 
++#
+ # You should have received a copy of the GNU General Public License
+ # along with "Meresco Owlim"; if not, write to the Free Software
+ # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-# 
++#
+ ## end license ##
+ 
+-class Literal(object):
+-    @classmethod
+-    def fromDict(self, valueDict):
+-        return Literal(
+-            value=valueDict['value'], 
+-            lang=valueDict.get('xml:lang', None))
+ 
++class Literal(object):
+     def __init__(self, value, lang=None):
+         if not isinstance(value, basestring):
+             raise ValueError('Expected a stringlike object')
+-
+         self.value = value
+         self.lang = lang
+ 
++    @classmethod
++    def fromDict(cls, valueDict):
++        return cls(
++            value=valueDict['value'],
++            lang=valueDict.get('xml:lang', None))
++
+     def __eq__(self, other):
+         return other.__class__ is self.__class__ and self.value == other.value and other.lang == self.lang
+ 
+@@ -50,7 +50,6 @@ class Literal(object):
+         return self.value
+ 
+     def __repr__(self):
+-        template = "%%s(%%s%s)"        
++        template = "%%s(%%s%s)"
+         template = template % (", lang=" + repr(self.lang) if self.lang else "")
+         return template % (self.__class__.__name__, repr(self.value))
+-
+diff --git a/client/meresco/owlim/uri.py b/client/meresco/owlim/uri.py
+index 9897255..4a53692 100644
+--- a/client/meresco/owlim/uri.py
++++ b/client/meresco/owlim/uri.py
+@@ -1,30 +1,31 @@
+ ## begin license ##
+-# 
++#
+ # The Meresco Owlim package consists out of a HTTP server written in Java that
+ # provides access to an Owlim Triple store, as well as python bindings to
+-# communicate as a client with the server. 
+-# 
++# communicate as a client with the server.
++#
+ # Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+-# 
++#
+ # This file is part of "Meresco Owlim"
+-# 
++#
+ # "Meresco Owlim" is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation; either version 2 of the License, or
+ # (at your option) any later version.
+-# 
++#
+ # "Meresco Owlim" is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+-# 
++#
+ # You should have received a copy of the GNU General Public License
+ # along with "Meresco Owlim"; if not, write to the Free Software
+ # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-# 
++#
+ ## end license ##
+ 
+-from Ft.Xml.Lib import Uri as FtUri 
++from Ft.Xml.Lib import Uri as FtUri
++
+ 
+ class Uri(object):
+     def __init__(self, value):
+@@ -33,8 +34,8 @@ class Uri(object):
+         self.value = value
+ 
+     @classmethod
+-    def fromDict(self, valueDict):
+-        return Uri(valueDict['value'])
++    def fromDict(cls, valueDict):
++        return cls(valueDict['value'])
+ 
+     def __str__(self):
+         return self.value
+@@ -50,6 +51,5 @@ class Uri(object):
+ 
+     @staticmethod
+     def matchesUriSyntax(value):
+-        # should be replaced by check on the (broader) IRI syntax as supported in RDF. 
++        # should be replaced by check on the (broader) IRI syntax as supported in RDF.
+         return FtUri.MatchesUriSyntax(value)
+-
+diff --git a/server/bin/start-owlim b/server/bin/start-owlim
+index ea1769b..e0f12ec 100755
+--- a/server/bin/start-owlim
++++ b/server/bin/start-owlim
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python2.6
+ ## begin license ##
+ # 
+ # The Meresco Owlim package consists out of a HTTP server written in Java that
+diff --git a/test/_alltests.py b/test/_alltests.py
+index 3042b9b..0ee766d 100644
+--- a/test/_alltests.py
++++ b/test/_alltests.py
+@@ -1,27 +1,27 @@
+ ## begin license ##
+-# 
++#
+ # The Meresco Owlim package consists out of a HTTP server written in Java that
+ # provides access to an Owlim Triple store, as well as python bindings to
+-# communicate as a client with the server. 
+-# 
++# communicate as a client with the server.
++#
+ # Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+-# 
++#
+ # This file is part of "Meresco Owlim"
+-# 
++#
+ # "Meresco Owlim" is free software; you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation; either version 2 of the License, or
+ # (at your option) any later version.
+-# 
++#
+ # "Meresco Owlim" is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+-# 
++#
+ # You should have received a copy of the GNU General Public License
+ # along with "Meresco Owlim"; if not, write to the Free Software
+ # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+-# 
++#
+ ## end license ##
+ 
+ from sys import path
+@@ -38,8 +38,9 @@ import unittest
+ from client.httpclienttest import HttpClientTest
+ from client.literaltest import LiteralTest
+ from client.uritest import UriTest
++from client.bnodetest import BNodeTest
+ 
+ 
+ if __name__ == '__main__':
+     unittest.main()
+-    
++
+diff --git a/test/client/bnodetest.py b/test/client/bnodetest.py
+new file mode 100644
+index 0000000..6105d06
+--- /dev/null
++++ b/test/client/bnodetest.py
+@@ -0,0 +1,57 @@
++## begin license ##
++#
++# The Meresco Owlim package consists out of a HTTP server written in Java that
++# provides access to an Owlim Triple store, as well as python bindings to
++# communicate as a client with the server.
++#
++# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
++#
++# This file is part of "Meresco Owlim"
++#
++# "Meresco Owlim" is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 2 of the License, or
++# (at your option) any later version.
++#
++# "Meresco Owlim" is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with "Meresco Owlim"; if not, write to the Free Software
++# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++#
++## end license ##
++
++from seecr.test import SeecrTestCase
++
++from meresco.owlim import Uri, Literal, BNode
++
++
++class BNodeTest(SeecrTestCase):
++    def testCreate(self):
++        bnode = BNode.fromDict({"type": "bnode", "value": "node12345"})
++        self.assertNotEquals("node12345", bnode)
++        self.assertEquals("node12345", str(bnode))
++        self.assertEquals(bnode, BNode('node12345'))
++
++    def testHashForCollections(self):
++        bnode1 = BNode('node12345')
++        bnode2 = BNode('node12345')
++        self.assertEquals(bnode1, bnode2)
++        self.assertEquals(hash(bnode1), hash(bnode2))
++        coll = set([bnode1, bnode2])
++        self.assertEquals(1, len(coll))
++        self.assertNotEqual(hash(bnode1), hash(BNode('NODE12345')))
++
++    def testOnlyStringLikeObjects(self):
++        self.assertRaises(ValueError, lambda: BNode(42))
++        self.assertRaises(ValueError, lambda: BNode(object()))
++        self.assertEquals('node12345', str(BNode('node12345')))
++        self.assertEquals('node12345', str(BNode(u'node12345')))
++
++        # Re-wrapping Uri (or Literal) disallowed
++        self.assertRaises(ValueError, lambda: BNode(BNode('node12345')))
++        self.assertRaises(ValueError, lambda: BNode(Uri('u:ri')))
++        self.assertRaises(ValueError, lambda: BNode(Literal('x')))
+diff --git a/test/client/httpclienttest.py b/test/client/httpclienttest.py
+index 16f945f..8144bed 100644
+--- a/test/client/httpclienttest.py
++++ b/test/client/httpclienttest.py
+@@ -32,7 +32,7 @@ from seecr.test import SeecrTestCase, CallTrace
+ 
+ from weightless.core import compose
+ from weightless.io import Suspend
+-from meresco.owlim import HttpClient, InvalidRdfXmlException, Uri, Literal
++from meresco.owlim import HttpClient, InvalidRdfXmlException, Uri, Literal, BNode
+ 
+ 
+ class HttpClientTest(SeecrTestCase):
+@@ -260,6 +260,10 @@ PARSED_RESULT_JSON = [
+         u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+         u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
+         u'o': Literal(u'woord', lang="dut")
++    }, {
++        u'p': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
++        u's': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
++        u'o': BNode('node12345')
+     }
+ ]
+ RESULT_SPO = [ (d['s'], d['p'], d['o']) for d in PARSED_RESULT_JSON]
+@@ -279,6 +283,11 @@ RESULT_JSON = """{
+                                 "o": { "type": "literal", "xml:lang": "dut", "value": "woord" },
+                                 "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" },
+                                 "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#subject" }
++                        },
++                        {
++                                "o": { "type": "bnode", "value": "node12345" },
++                                "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" },
++                                "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#subject" }
+                         }
+                 ]
+         }
+-- 
+1.7.11.3
+
+
+From 651e4a6958de3e7565ca61d079d67ac37a0df577 Mon Sep 17 00:00:00 2001
+From: Seecr Development Team <development@seecr.nl>
+Date: Thu, 21 Mar 2013 10:57:41 +0100
+Subject: [PATCH 2/2] TS/JPM: now supports 'typed-literal' values in result
+
+---
+ client/meresco/owlim/httpclient.py | 2 +-
+ test/client/httpclienttest.py      | 9 +++++++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/client/meresco/owlim/httpclient.py b/client/meresco/owlim/httpclient.py
+index 9774161..85443e4 100644
+--- a/client/meresco/owlim/httpclient.py
++++ b/client/meresco/owlim/httpclient.py
+@@ -162,7 +162,6 @@ class HttpClient(Observable):
+         valueDict = binding.get(key)
+         if valueDict is None:
+             return default
+-        print 'type', valueDict['type']
+         mappedType = _typeMapping.get(valueDict['type'])
+         return mappedType.fromDict(valueDict) if mappedType else valueDict['value']
+ 
+@@ -187,6 +186,7 @@ class HttpClient(Observable):
+ 
+ _typeMapping = {
+     'literal': Literal,
++    'typed-literal': Literal,
+     'uri': Uri,
+     'bnode': BNode
+ }
+diff --git a/test/client/httpclienttest.py b/test/client/httpclienttest.py
+index 8144bed..17815ca 100644
+--- a/test/client/httpclienttest.py
++++ b/test/client/httpclienttest.py
+@@ -264,6 +264,10 @@ PARSED_RESULT_JSON = [
+         u'p': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+         u's': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
+         u'o': BNode('node12345')
++    }, {
++        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
++        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
++        u'o': Literal(u'3.14')
+     }
+ ]
+ RESULT_SPO = [ (d['s'], d['p'], d['o']) for d in PARSED_RESULT_JSON]
+@@ -288,6 +292,11 @@ RESULT_JSON = """{
+                                 "o": { "type": "bnode", "value": "node12345" },
+                                 "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" },
+                                 "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#subject" }
++                        },
++                        {
++                                "o": { "type": "typed-literal", "value": "3.14", "datatype": "http://www.w3.org/2001/XMLSchema#double"},
++                                "p": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#type" },
++                                "s": { "type": "uri", "value": "http:\/\/www.w3.org\/1999\/02\/22-rdf-syntax-ns#subject" }
+                         }
+                 ]
+         }
+-- 
+1.7.11.3
+
