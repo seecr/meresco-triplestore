@@ -35,17 +35,18 @@ import org.openrdf.model.Namespace;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
 import java.util.List;
+import org.openrdf.query.MalformedQueryException;
+import org.openrdf.rio.RDFParseException;
 
 
 public interface TripleStore {
-    void addRDF(String identifier, String body);
+    void addRDF(String identifier, String body) throws RDFParseException;
     void addTriple(String tripleData);
 
     void delete(String identifier);
     void removeTriple(String tripleData);
 
-    String executeQuery(String sparQL);
-    String executeQuery(String sparQL, TupleQueryResultFormat format);
+    String executeQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException;
 
     RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj);
     List<Namespace> getNamespaces();

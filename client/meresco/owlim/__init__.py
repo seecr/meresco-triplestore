@@ -24,7 +24,7 @@
 #
 ## end license ##
 
-from httpclient import HttpClient, InvalidRdfXmlException
+from httpclient import HttpClient, InvalidRdfXmlException, MalformedQueryException
 
 from literal import Literal
 from uri import Uri

@@ -70,6 +70,7 @@ import org.openrdf.rio.RDFWriter;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParseException;
 
+
 public class OwlimTripleStore implements TripleStore {
     File dir;
     SailRepository repository;
@@ -94,7 +95,7 @@ public class OwlimTripleStore implements TripleStore {
         }
     }
 
-    public void addRDF(String identifier, String rdfData) {
+    public void addRDF(String identifier, String rdfData) throws RDFParseException {
         URI context = new URIImpl(identifier);
         StringReader reader = new StringReader(rdfData);
         RepositoryConnection conn = null;
@@ -106,8 +107,6 @@ public class OwlimTripleStore implements TripleStore {
             throw new RuntimeException(e);
         } catch (IOException e) {
             throw new RuntimeException(e);
-        } catch (RDFParseException e) {
-            throw new RuntimeException(e);
         } finally {
             close(conn);
         }
@@ -116,6 +115,9 @@ public class OwlimTripleStore implements TripleStore {
     public void addTriple(String tripleData) {
         RepositoryConnection conn = null;
         String[] values = tripleData.split("\\|");
+        if (values.length != 3) {
+            throw new IllegalArgumentException("Not a triple: \"" + tripleData + "\"");
+        }
         Value object = null;
         try {
             object = new URIImpl(values[2]);
@@ -179,11 +181,7 @@ public class OwlimTripleStore implements TripleStore {
         }
     }
 
-    public String executeQuery(String sparQL) {
-        return executeQuery(sparQL, TupleQueryResultFormat.JSON);
-    }
-
-    public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) {
+    public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
         RepositoryConnection conn = null;
         TupleQuery tupleQuery = null;
         TupleQueryResult tupleQueryResult = null;
@@ -198,9 +196,6 @@ public class OwlimTripleStore implements TripleStore {
                 result = o.toString("UTF-8");
                 tupleQueryResult.close();
             } catch (QueryEvaluationException e) {
-                throw new RuntimeException(e);
-            } catch (MalformedQueryException e) {
-                System.err.println("Bad SparQL: " + sparQL);
                 throw new RuntimeException(e);
             } catch (IOException e) {
                 throw new RuntimeException(e);

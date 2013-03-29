@@ -51,6 +51,7 @@ import static org.junit.Assert.*;
 import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
 import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
 
+
 public class TransactionLogTest {
     TransactionLog transactionLog;
     File tempdir;
@@ -87,7 +88,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testCommitToTransactionLog() throws FileNotFoundException, Exception {
+    public void testCommitToTransactionLog() throws Exception {
         String xml = "<x>ignoréd</x>";
         String filedata = Base64.encodeBase64String(xml.getBytes());
         transactionLog.add("testRecord", xml);
@@ -223,14 +224,14 @@ public class TransactionLogTest {
         try {
             transactionLog.add("record", "<x>ignored</x>");
             fail("Should raise an TransactionLogException");
-        } catch (TransactionLogException e) {}
+        } catch (RuntimeException e) {}
         ArrayList<String> files = transactionLog.getTransactionItemFiles();
         assertEquals(1, files.size());
         assertEquals(0, countTransactionItems(files.get(0)));
     }
 
     @Test
-    public void testRollbackWhenAddRDFFailes() throws IOException {
+    public void testNotAddedToTransactionLogWhenAddRDFFails() throws IOException {
         class MyTripleStore extends OwlimTripleStore {
             public void addRDF(String identifier, String body) {
                 throw new RuntimeException();
@@ -245,12 +246,12 @@ public class TransactionLogTest {
         try {
             transactionLog.add("record", "data");
             fail("Should raise an Exception");
-        } catch (TransactionLogException e) {}
+        } catch (RuntimeException e) {}
         assertEquals("", Utils.read(transactionLog.transactionLogFilePath));
     }
 
     @Test
-    public void testRollbackWhenDeleteFailes() throws IOException {
+    public void testRollbackWhenDeleteFails() throws IOException {
         class MyTripleStore extends OwlimTripleStore {
             public void delete(String identifier) {
                 throw new RuntimeException();
@@ -265,7 +266,7 @@ public class TransactionLogTest {
         try {
             transactionLog.delete("record");
             fail("Should raise an Exception");
-        } catch (TransactionLogException e) {}
+        } catch (RuntimeException e) {}
         assertEquals("", Utils.read(transactionLog.transactionLogFilePath));
     }
 

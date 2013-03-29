@@ -52,6 +52,8 @@ import org.openrdf.model.Value;
 import org.openrdf.model.impl.URIImpl;
 import org.openrdf.model.impl.LiteralImpl;
 import org.openrdf.repository.RepositoryException;
+import org.openrdf.query.MalformedQueryException;
+
 
 public class OwlimHttpHandler implements HttpHandler {
     TransactionLog transactionLog;
@@ -75,11 +77,23 @@ public class OwlimHttpHandler implements HttpHandler {
             QueryParameters queryParameters = Utils.parseQS(rawQueryString);
             if ("/add".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
-                addRDF(queryParameters, body);
+                try {
+                    addRDF(queryParameters, body);
+                } catch (RDFParseException e) {
+                    exchange.sendResponseHeaders(400, 0);
+                    _writeResponse(e.toString(), outputStream);
+                    return;
+                }
             }
             else if ("/update".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
-                updateRDF(queryParameters, body);
+                try {
+                    updateRDF(queryParameters, body);
+                } catch (RDFParseException e) {
+                    exchange.sendResponseHeaders(400, 0);
+                    _writeResponse(e.toString(), outputStream);
+                    return;
+                }
             }
             else if ("/delete".equals(path)) {
                 deleteRDF(queryParameters);
@@ -114,15 +128,20 @@ public class OwlimHttpHandler implements HttpHandler {
                         return;
                     }
                 }
-                response = executeQuery(queryParameters, resultFormat);
-                if (queryParameters.containsKey("outputContentType")) {
-                    exchange.getResponseHeaders().set("Content-Type", queryParameters.singleValue("outputContentType"));
+                try {
+                    response = executeQuery(queryParameters, resultFormat);
+                    if (queryParameters.containsKey("outputContentType")) {
+                        exchange.getResponseHeaders().set("Content-Type", queryParameters.singleValue("outputContentType"));
+                    }
+                    else {
+                        exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
+                    }
+                    exchange.sendResponseHeaders(200, 0);
+                    _writeResponse(response, outputStream);
+                } catch (MalformedQueryException e) {
+                    exchange.sendResponseHeaders(400, 0);
+                    _writeResponse(e.toString(), outputStream);
                 }
-                else {
-                    exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
-                }
-                exchange.sendResponseHeaders(200, 0);
-                _writeResponse(response, outputStream);
                 return;
             }
             else if ("/sparql".equals(path)) {
@@ -154,6 +173,9 @@ public class OwlimHttpHandler implements HttpHandler {
                 return;
             }
             exchange.sendResponseHeaders(200, 0);
+        } catch (IllegalArgumentException e) {
+            exchange.sendResponseHeaders(400, 0);
+            _writeResponse(e.toString(), outputStream);
         } catch (RuntimeException e) {
             e.printStackTrace();
             exchange.sendResponseHeaders(500, 0);
@@ -181,35 +203,31 @@ public class OwlimHttpHandler implements HttpHandler {
         }
     }
 
-    public synchronized void updateRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
+    public synchronized void updateRDF(QueryParameters params, String httpBody) throws RDFParseException {
         String identifier = params.singleValue("identifier");
         transactionLog.delete(identifier);
         transactionLog.add(identifier, httpBody);
     }
 
-    public synchronized void addRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
+    public synchronized void addRDF(QueryParameters params, String httpBody) throws RDFParseException {
         String identifier = params.singleValue("identifier");
         transactionLog.add(identifier, httpBody);
     }
 
-    public synchronized void addTriple(String httpBody) throws TransactionLogException, IOException {
+    public synchronized void addTriple(String httpBody) {
         transactionLog.addTriple(httpBody);
     }
 
-    public synchronized void deleteRDF(QueryParameters params) throws TransactionLogException, IOException {
+    public synchronized void deleteRDF(QueryParameters params) {
         String identifier = params.singleValue("identifier");
         transactionLog.delete(identifier);
     }
 
-    public synchronized void removeTriple(String httpBody) throws TransactionLogException, IOException {
+    public synchronized void removeTriple(String httpBody) {
         transactionLog.removeTriple(httpBody);
     }
 
-    public String executeQuery(QueryParameters params) {
-        return this.executeQuery(params, TupleQueryResultFormat.JSON);
-    }
-
-    public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
+    public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
         String query = params.singleValue("query");
         if (query == null) {
             return "";

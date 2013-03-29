@@ -34,13 +34,49 @@ from signal import SIGKILL
 from time import time
 from threading import Thread
 
+from weightless.core import compose
+
 from seecr.test.utils import getRequest, postRequest
 from seecr.test.integrationtestcase import IntegrationTestCase
+
+from meresco.owlim import HttpClient, MalformedQueryException, InvalidRdfXmlException
 
 
 class OwlimTest(IntegrationTestCase):
     def testOne(self):
         self.assertTrue('"vars": [ "x" ]' in urlopen("http://localhost:%s/query?%s" % (self.owlimPort, urlencode(dict(query='SELECT ?x WHERE {}')))).read())
+
+    def testAddTripleThatsNotATriple(self):
+        owlimClient = HttpClient(host='localhost', port=self.owlimPort, synchronous=True)
+        try:
+            list(compose(owlimClient.addTriple('uri:subject', 'uri:predicate', '')))
+            self.fail("should not get here")
+        except ValueError, e:
+            self.assertEquals('java.lang.IllegalArgumentException: Not a triple: "uri:subject|uri:predicate|"', str(e))
+
+    def testAddInvalidRdf(self):
+        owlimClient = HttpClient(host='localhost', port=self.owlimPort, synchronous=True)
+        try:
+            list(compose(owlimClient.add('uri:identifier', '<invalidRdf/>')))
+            self.fail("should not get here")
+        except InvalidRdfXmlException, e:
+            self.assertEquals('org.openrdf.rio.RDFParseException: Not a valid (absolute) URI: #invalidRdf [line 1, column 14]', str(e))
+
+    def testAddInvalidIdentifier(self):
+        owlimClient = HttpClient(host='localhost', port=self.owlimPort, synchronous=True)
+        try:
+            list(compose(owlimClient.add('identifier', '<ignore/>')))
+            self.fail("should not get here")
+        except ValueError, e:
+            self.assertEquals('java.lang.IllegalArgumentException: Not a valid (absolute) URI: identifier', str(e))
+
+    def testInvalidSparql(self):
+        owlimClient = HttpClient(host='localhost', port=self.owlimPort, synchronous=True)
+        try:
+            list(compose(owlimClient.executeQuery("""select ?x""")))
+            self.fail("should not get here")
+        except MalformedQueryException, e:
+            self.assertTrue(str(e).startswith('org.openrdf.query.MalformedQueryException: Encountered "<EOF>"'), str(e))
 
     def testKillTripleStoreSavesState(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">

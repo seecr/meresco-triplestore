@@ -131,7 +131,7 @@ public class OwlimTripleStoreTest {
         String answer = null;
 
         ts.addRDF("uri:id0", rdf);
-        answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}");
+        answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}", TupleQueryResultFormat.JSON);
         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
         assertTrue(answer.endsWith("\n}"));
     }

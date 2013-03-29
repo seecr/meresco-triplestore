@@ -39,6 +39,8 @@ import java.util.Date;
 import org.openrdf.model.Value;
 import org.openrdf.model.URI;
 import org.openrdf.model.Resource;
+import org.openrdf.rio.RDFParseException;
+
 
 public class TransactionLog {
     TripleStore tripleStore;
@@ -83,38 +85,28 @@ public class TransactionLog {
         this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
     }
 
-    public void add(String identifier, String filedata) throws TransactionLogException, IOException {
-        doProcess("addRDF", identifier, filedata);
+    public void add(String identifier, String filedata) throws RDFParseException {
+        this.tripleStore.addRDF(identifier, filedata);
+        writeTransactionItem("addRDF", identifier, filedata);
     }
 
-    public void addTriple(String filedata) throws TransactionLogException, IOException {
-        doProcess("addTriple", "", filedata);
+    public void addTriple(String filedata) {
+        this.tripleStore.addTriple(filedata);
+        writeTransactionItem("addTriple", "", filedata);
     }
 
-    public void removeTriple(String filedata) throws TransactionLogException, IOException {
-        doProcess("removeTriple", "", filedata);
+    public void removeTriple(String filedata) {
+        this.tripleStore.removeTriple(filedata);
+        writeTransactionItem("removeTriple", "", filedata);
     }
 
-    public void delete(String identifier) throws TransactionLogException, IOException {
-        doProcess("delete", identifier, "");
+    public void delete(String identifier) {
+        this.tripleStore.delete(identifier);
+        writeTransactionItem("delete", identifier, "");
     }
 
-    void doProcess(String action, String identifier, String filedata) throws TransactionLogException, FileNotFoundException, IOException {
+    void writeTransactionItem(String action, String identifier, String filedata) {
     	TransactionItem tsItem = new TransactionItem(action, identifier, filedata);
-        try {
-            if (action.equals("addRDF")) {
-                this.tripleStore.addRDF(identifier, filedata);
-            } else if (action.equals("delete")) {
-                this.tripleStore.delete(identifier);
-            } else if (action.equals("addTriple")) {
-                this.tripleStore.addTriple(filedata);
-            } else if (action.equals("removeTriple")) {
-                this.tripleStore.removeTriple(filedata);
-            }
-        } catch (Exception e) {
-            throw new TransactionLogException(e);
-        }
-
         try {
             commit(tsItem);
         } catch (Exception e) {
@@ -122,26 +114,29 @@ public class TransactionLog {
         	System.err.println(e);
             throw new Error("Commit on transactionLog failed.", e);
         }
-
         maybeRotate();
     }
 
-    void maybeRotate() throws FileNotFoundException, IOException {
-        if (transactionLogFilePath.length() < this.maxSize) {
-            return;
-        }
-        long newFilename = getTime();
-        ArrayList<String> sortedTsFiles = getTransactionItemFiles();
-        long lastAddedTimeStamp = sortedTsFiles.size() > 1 ? Long.valueOf(sortedTsFiles.get(sortedTsFiles.size() - 2)) : 0;
-        if (newFilename <= lastAddedTimeStamp) { // in theory: only small differences by ntp 
-            return;
-        }
+    void maybeRotate() {
         try {
-            this.transactionLog.close();
-            File newFile = new File(this.transactionLogDir, String.valueOf(newFilename));
-            renameFileTo(this.transactionLogFilePath, newFile);
-        } finally {
-            this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
+            if (transactionLogFilePath.length() < this.maxSize) {
+                return;
+            }
+            long newFilename = getTime();
+            ArrayList<String> sortedTsFiles = getTransactionItemFiles();
+            long lastAddedTimeStamp = sortedTsFiles.size() > 1 ? Long.valueOf(sortedTsFiles.get(sortedTsFiles.size() - 2)) : 0;
+            if (newFilename <= lastAddedTimeStamp) { // in theory: only small differences by ntp 
+                return;
+            }
+            try {
+                this.transactionLog.close();
+                File newFile = new File(this.transactionLogDir, String.valueOf(newFilename));
+                renameFileTo(this.transactionLogFilePath, newFile);
+            } finally {
+                this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -171,7 +166,7 @@ public class TransactionLog {
 			throw new IOException("File " + from.getAbsolutePath() + " could not be moved to " + to.getAbsolutePath());
 		}
 	}
-    
+
     File getTransactionLogDir() {
         return this.transactionLogDir;
     }

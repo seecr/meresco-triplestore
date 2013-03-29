@@ -38,10 +38,12 @@ from uri import Uri
 from bnode import BNode
 
 
-JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
-
 class InvalidRdfXmlException(Exception):
     pass
+
+class MalformedQueryException(Exception):
+    pass
+
 
 class HttpClient(Observable):
     def __init__(self, host=None, port=None, synchronous=False):
@@ -96,12 +98,19 @@ class HttpClient(Observable):
         if queryResultFormat is not None:
             headers = {'Accept': queryResultFormat}
         host, port = self._owlimServer()
-        if self.synchronous:
-            body = self._urlopen("http://%s:%s%s" % (host, port, path))
-        else:
-            response = yield self._httpget(host=host, port=port, request=path, headers=headers)
-            header, body = response.split("\r\n\r\n", 1)
-            self._verify200(header, response)
+        body = None
+        try:
+            if self.synchronous:
+                body = self._urlopen("http://%s:%s%s" % (host, port, path))
+            else:
+                response = yield self._httpget(host=host, port=port, request=path, headers=headers)
+                header, body = response.split("\r\n\r\n", 1)
+                self._verify200(header, response)
+        except Exception, e:
+            errorStr = body or e.read()
+            if 'MalformedQueryException' in errorStr:
+                raise MalformedQueryException(errorStr)
+            raise e
         raise StopIteration(body)
 
     def _send(self, path, body):
@@ -109,13 +118,24 @@ class HttpClient(Observable):
         if body:
             headers={'Content-Type': 'text/xml', 'Content-Length': len(body)}
         host, port = self._owlimServer()
-        if self.synchronous:
-            header, body = "", self._urlopen("http://%s:%s%s" % (host, port, path), data=body)
-        else:
-            response = yield self._httppost(host=host, port=port, request=path, body=body, headers=headers)
-            header, body = response.split("\r\n\r\n", 1)
-            self._verify200(header, response)
-        raise StopIteration((header, body))
+        responseBody = None
+        try:
+            if self.synchronous:
+                header, responseBody = "", self._urlopen("http://%s:%s%s" % (host, port, path), data=body)
+            else:
+                response = yield self._httppost(host=host, port=port, request=path, body=body, headers=headers)
+                header, responseBody = response.split("\r\n\r\n", 1)
+                self._verify200(header, response)
+        except Exception, e:
+            errorStr = responseBody or e.read()
+            if 'IllegalArgumentException' in errorStr:
+                raise ValueError(errorStr)
+            elif 'RDFParseException' in errorStr:
+                raise InvalidRdfXmlException(errorStr)
+            print errorStr
+            from sys import stdout; stdout.flush()
+            raise e
+        raise StopIteration((header, responseBody))
 
     def _getStatementsSparQL(self, subject=None, predicate=None, object=None):
         if not subject is None and not Uri.matchesUriSyntax(subject):
@@ -167,7 +187,7 @@ class HttpClient(Observable):
 
     def _verify200(self, header, response):
         if not header.startswith('HTTP/1.1 200'):
-            raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
+            raise IOError("Expected status 'HTTP/1.1 200' from Owlim triplestore, but got: " + response)
 
     def _owlimServer(self):
         if self.host:

@@ -36,6 +36,7 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.Headers;
 
 import org.openrdf.query.resultio.TupleQueryResultFormat;
+import org.openrdf.query.MalformedQueryException;
 
 import java.net.InetSocketAddress;
 
@@ -123,16 +124,15 @@ public class OwlimHttpHandlerTest {
                      tlmock.actions);
     }
 
-    @Test public void testSparQL() throws TransactionLogException {
+    @Test public void testSparQL() throws TransactionLogException, MalformedQueryException {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
         String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D";
-        String result = h.executeQuery(parseQS(queryString));
+        String result = h.executeQuery(parseQS(queryString), TupleQueryResultFormat.JSON);
 
         assertEquals(Arrays.asList("executeQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"),
                      tsmock.actions);
-
     }
 
     @Test public void testAddDispatch() throws Exception {
@@ -311,6 +311,15 @@ public class OwlimHttpHandlerTest {
         assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception: dummy test exception"));
     }
 
+    @Test public void test400ForMalformedQueryExceptions() throws IOException {
+        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new MalformedQueryException("dummy test exception"));
+        HttpExchangeMock exchange = new HttpExchangeMock("/query", "");
+        h.handle(exchange);
+        assertEquals(0, h.actions.size());
+        assertEquals(400, exchange.responseCode);
+        assertTrue(exchange.getOutput(), exchange.getOutput().startsWith("org.openrdf.query.MalformedQueryException: dummy test exception"));
+    }
+
     @Test public void testDefaultSparqlForm() throws Exception {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
@@ -445,8 +454,11 @@ public class OwlimHttpHandlerTest {
             actions.add(params);
         }
 
-        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
+        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
             if (_exception != null) {
+                if (_exception instanceof MalformedQueryException) {
+                    throw (MalformedQueryException) _exception;
+                }
                 throw new RuntimeException(_exception);
             }
             actions.add("executeQuery");
@@ -480,15 +492,19 @@ public class OwlimHttpHandlerTest {
         public int responseCode;
         public String responseBody;
 
-        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) throws Exception {
+        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) {
             super();
-            _requestURI = new java.net.URI(requestURI);
-            _requestBody = requestBody;
-            _responseStream = new ByteArrayOutputStream();
-            _requestHeaders = requestHeaders;
-            _responseHeaders = new Headers();
+            try {
+                _requestURI = new java.net.URI(requestURI);
+                _requestBody = requestBody;
+                _responseStream = new ByteArrayOutputStream();
+                _requestHeaders = requestHeaders;
+                _responseHeaders = new Headers();
+            } catch (java.net.URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
         }
-        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
+        public HttpExchangeMock(String requestURI, String requestBody) {
             this(requestURI, requestBody, new Headers());
         }
 
