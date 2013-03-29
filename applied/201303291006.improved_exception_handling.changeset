@@ -1,0 +1,982 @@
+Changeset created on Fri Mar 29 10:06:32 UTC 2013 by Seecr (Seek You Too B.V.)
+
+Description: Improved exception handling for invalid queries/updates
+
+    On invalid queries; an MalformedQueryException is raised
+    On invalid rdf/xml for updates; an InvalidRdfXmlException is raised
+
+    Also fixed the recovering of addTriple/removeTriple
+
+Baseline version: 4.4.2.1
+
+From 86f84f8a17c0cad2a50fb552f2615026756ff576 Mon Sep 17 00:00:00 2001
+From: Hendrik Moree <hendrik@seecr.nl>
+Date: Fri, 29 Mar 2013 09:49:33 +0100
+Subject: [PATCH 1/2] HM/JPM: more refined exception handling
+
+---
+ client/meresco/owlim/__init__.py                   |    2 +-
+ client/meresco/owlim/httpclient.py                 |   52 +++++++++----
+ .../meresco/owlimhttpserver/OwlimHttpHandler.java  |   58 ++++++++++-----
+ .../meresco/owlimhttpserver/OwlimTripleStore.java  |   17 ++---
+ .../meresco/owlimhttpserver/TransactionLog.java    |   75 +++++++++-----------
+ .../org/meresco/owlimhttpserver/TripleStore.java   |    7 +-
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |   38 +++++++---
+ .../owlimhttpserver/OwlimTripleStoreTest.java      |    2 +-
+ .../owlimhttpserver/TransactionLogTest.java        |   13 ++--
+ test/integration/owlimtest.py                      |   36 +++++++++
+ 10 files changed, 191 insertions(+), 109 deletions(-)
+
+diff --git a/client/meresco/owlim/__init__.py b/client/meresco/owlim/__init__.py
+index 6c10940..fd9ddff 100644
+--- a/client/meresco/owlim/__init__.py
++++ b/client/meresco/owlim/__init__.py
+@@ -24,7 +24,7 @@
+ #
+ ## end license ##
+ 
+-from httpclient import HttpClient, InvalidRdfXmlException
++from httpclient import HttpClient, InvalidRdfXmlException, MalformedQueryException
+ 
+ from literal import Literal
+ from uri import Uri
+diff --git a/client/meresco/owlim/httpclient.py b/client/meresco/owlim/httpclient.py
+index 85443e4..0513038 100644
+--- a/client/meresco/owlim/httpclient.py
++++ b/client/meresco/owlim/httpclient.py
+@@ -38,11 +38,13 @@ from uri import Uri
+ from bnode import BNode
+ 
+ 
+-JSON_EMPTY_RESULT = '{"results": {"bindings": []}}'
+-
+ class InvalidRdfXmlException(Exception):
+     pass
+ 
++class MalformedQueryException(Exception):
++    pass
++
++
+ class HttpClient(Observable):
+     def __init__(self, host=None, port=None, synchronous=False):
+         Observable.__init__(self)
+@@ -96,12 +98,19 @@ class HttpClient(Observable):
+         if queryResultFormat is not None:
+             headers = {'Accept': queryResultFormat}
+         host, port = self._owlimServer()
+-        if self.synchronous:
+-            body = self._urlopen("http://%s:%s%s" % (host, port, path))
+-        else:
+-            response = yield self._httpget(host=host, port=port, request=path, headers=headers)
+-            header, body = response.split("\r\n\r\n", 1)
+-            self._verify200(header, response)
++        body = None
++        try:
++            if self.synchronous:
++                body = self._urlopen("http://%s:%s%s" % (host, port, path))
++            else:
++                response = yield self._httpget(host=host, port=port, request=path, headers=headers)
++                header, body = response.split("\r\n\r\n", 1)
++                self._verify200(header, response)
++        except Exception, e:
++            errorStr = body or e.read()
++            if 'MalformedQueryException' in errorStr:
++                raise MalformedQueryException(errorStr)
++            raise e
+         raise StopIteration(body)
+ 
+     def _send(self, path, body):
+@@ -109,13 +118,24 @@ class HttpClient(Observable):
+         if body:
+             headers={'Content-Type': 'text/xml', 'Content-Length': len(body)}
+         host, port = self._owlimServer()
+-        if self.synchronous:
+-            header, body = "", self._urlopen("http://%s:%s%s" % (host, port, path), data=body)
+-        else:
+-            response = yield self._httppost(host=host, port=port, request=path, body=body, headers=headers)
+-            header, body = response.split("\r\n\r\n", 1)
+-            self._verify200(header, response)
+-        raise StopIteration((header, body))
++        responseBody = None
++        try:
++            if self.synchronous:
++                header, responseBody = "", self._urlopen("http://%s:%s%s" % (host, port, path), data=body)
++            else:
++                response = yield self._httppost(host=host, port=port, request=path, body=body, headers=headers)
++                header, responseBody = response.split("\r\n\r\n", 1)
++                self._verify200(header, response)
++        except Exception, e:
++            errorStr = responseBody or e.read()
++            if 'IllegalArgumentException' in errorStr:
++                raise ValueError(errorStr)
++            elif 'RDFParseException' in errorStr:
++                raise InvalidRdfXmlException(errorStr)
++            print errorStr
++            from sys import stdout; stdout.flush()
++            raise e
++        raise StopIteration((header, responseBody))
+ 
+     def _getStatementsSparQL(self, subject=None, predicate=None, object=None):
+         if not subject is None and not Uri.matchesUriSyntax(subject):
+@@ -167,7 +187,7 @@ class HttpClient(Observable):
+ 
+     def _verify200(self, header, response):
+         if not header.startswith('HTTP/1.1 200'):
+-            raise IOError("Expected status '200' from Owlim triplestore, but got: " + response)
++            raise IOError("Expected status 'HTTP/1.1 200' from Owlim triplestore, but got: " + response)
+ 
+     def _owlimServer(self):
+         if self.host:
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+index 436f996..abeac3e 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimHttpHandler.java
+@@ -52,6 +52,8 @@ import org.openrdf.model.Value;
+ import org.openrdf.model.impl.URIImpl;
+ import org.openrdf.model.impl.LiteralImpl;
+ import org.openrdf.repository.RepositoryException;
++import org.openrdf.query.MalformedQueryException;
++
+ 
+ public class OwlimHttpHandler implements HttpHandler {
+     TransactionLog transactionLog;
+@@ -75,11 +77,23 @@ public class OwlimHttpHandler implements HttpHandler {
+             QueryParameters queryParameters = Utils.parseQS(rawQueryString);
+             if ("/add".equals(path)) {
+                 String body = Utils.read(exchange.getRequestBody());
+-                addRDF(queryParameters, body);
++                try {
++                    addRDF(queryParameters, body);
++                } catch (RDFParseException e) {
++                    exchange.sendResponseHeaders(400, 0);
++                    _writeResponse(e.toString(), outputStream);
++                    return;
++                }
+             }
+             else if ("/update".equals(path)) {
+                 String body = Utils.read(exchange.getRequestBody());
+-                updateRDF(queryParameters, body);
++                try {
++                    updateRDF(queryParameters, body);
++                } catch (RDFParseException e) {
++                    exchange.sendResponseHeaders(400, 0);
++                    _writeResponse(e.toString(), outputStream);
++                    return;
++                }
+             }
+             else if ("/delete".equals(path)) {
+                 deleteRDF(queryParameters);
+@@ -114,15 +128,20 @@ public class OwlimHttpHandler implements HttpHandler {
+                         return;
+                     }
+                 }
+-                response = executeQuery(queryParameters, resultFormat);
+-                if (queryParameters.containsKey("outputContentType")) {
+-                    exchange.getResponseHeaders().set("Content-Type", queryParameters.singleValue("outputContentType"));
+-                }
+-                else {
+-                    exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
++                try {
++                    response = executeQuery(queryParameters, resultFormat);
++                    if (queryParameters.containsKey("outputContentType")) {
++                        exchange.getResponseHeaders().set("Content-Type", queryParameters.singleValue("outputContentType"));
++                    }
++                    else {
++                        exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
++                    }
++                    exchange.sendResponseHeaders(200, 0);
++                    _writeResponse(response, outputStream);
++                } catch (MalformedQueryException e) {
++                    exchange.sendResponseHeaders(400, 0);
++                    _writeResponse(e.toString(), outputStream);
+                 }
+-                exchange.sendResponseHeaders(200, 0);
+-                _writeResponse(response, outputStream);
+                 return;
+             }
+             else if ("/sparql".equals(path)) {
+@@ -154,6 +173,9 @@ public class OwlimHttpHandler implements HttpHandler {
+                 return;
+             }
+             exchange.sendResponseHeaders(200, 0);
++        } catch (IllegalArgumentException e) {
++            exchange.sendResponseHeaders(400, 0);
++            _writeResponse(e.toString(), outputStream);
+         } catch (RuntimeException e) {
+             e.printStackTrace();
+             exchange.sendResponseHeaders(500, 0);
+@@ -181,35 +203,31 @@ public class OwlimHttpHandler implements HttpHandler {
+         }
+     }
+ 
+-    public synchronized void updateRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
++    public synchronized void updateRDF(QueryParameters params, String httpBody) throws RDFParseException {
+         String identifier = params.singleValue("identifier");
+         transactionLog.delete(identifier);
+         transactionLog.add(identifier, httpBody);
+     }
+ 
+-    public synchronized void addRDF(QueryParameters params, String httpBody) throws TransactionLogException, IOException {
++    public synchronized void addRDF(QueryParameters params, String httpBody) throws RDFParseException {
+         String identifier = params.singleValue("identifier");
+         transactionLog.add(identifier, httpBody);
+     }
+ 
+-    public synchronized void addTriple(String httpBody) throws TransactionLogException, IOException {
++    public synchronized void addTriple(String httpBody) {
+         transactionLog.addTriple(httpBody);
+     }
+ 
+-    public synchronized void deleteRDF(QueryParameters params) throws TransactionLogException, IOException {
++    public synchronized void deleteRDF(QueryParameters params) {
+         String identifier = params.singleValue("identifier");
+         transactionLog.delete(identifier);
+     }
+ 
+-    public synchronized void removeTriple(String httpBody) throws TransactionLogException, IOException {
++    public synchronized void removeTriple(String httpBody) {
+         transactionLog.removeTriple(httpBody);
+     }
+ 
+-    public String executeQuery(QueryParameters params) {
+-        return this.executeQuery(params, TupleQueryResultFormat.JSON);
+-    }
+-
+-    public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
++    public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
+         String query = params.singleValue("query");
+         if (query == null) {
+             return "";
+diff --git a/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java b/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
+index c6b7041..3f73aba 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
++++ b/server/src/java/org/meresco/owlimhttpserver/OwlimTripleStore.java
+@@ -70,6 +70,7 @@ import org.openrdf.rio.RDFWriter;
+ import org.openrdf.rio.RDFFormat;
+ import org.openrdf.rio.RDFParseException;
+ 
++
+ public class OwlimTripleStore implements TripleStore {
+     File dir;
+     SailRepository repository;
+@@ -94,7 +95,7 @@ public class OwlimTripleStore implements TripleStore {
+         }
+     }
+ 
+-    public void addRDF(String identifier, String rdfData) {
++    public void addRDF(String identifier, String rdfData) throws RDFParseException {
+         URI context = new URIImpl(identifier);
+         StringReader reader = new StringReader(rdfData);
+         RepositoryConnection conn = null;
+@@ -106,8 +107,6 @@ public class OwlimTripleStore implements TripleStore {
+             throw new RuntimeException(e);
+         } catch (IOException e) {
+             throw new RuntimeException(e);
+-        } catch (RDFParseException e) {
+-            throw new RuntimeException(e);
+         } finally {
+             close(conn);
+         }
+@@ -116,6 +115,9 @@ public class OwlimTripleStore implements TripleStore {
+     public void addTriple(String tripleData) {
+         RepositoryConnection conn = null;
+         String[] values = tripleData.split("\\|");
++        if (values.length != 3) {
++            throw new IllegalArgumentException("Not a triple: \"" + tripleData + "\"");
++        }
+         Value object = null;
+         try {
+             object = new URIImpl(values[2]);
+@@ -179,11 +181,7 @@ public class OwlimTripleStore implements TripleStore {
+         }
+     }
+ 
+-    public String executeQuery(String sparQL) {
+-        return executeQuery(sparQL, TupleQueryResultFormat.JSON);
+-    }
+-
+-    public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) {
++    public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
+         RepositoryConnection conn = null;
+         TupleQuery tupleQuery = null;
+         TupleQueryResult tupleQueryResult = null;
+@@ -199,9 +197,6 @@ public class OwlimTripleStore implements TripleStore {
+                 tupleQueryResult.close();
+             } catch (QueryEvaluationException e) {
+                 throw new RuntimeException(e);
+-            } catch (MalformedQueryException e) {
+-                System.err.println("Bad SparQL: " + sparQL);
+-                throw new RuntimeException(e);
+             } catch (IOException e) {
+                 throw new RuntimeException(e);
+             } catch (TupleQueryResultHandlerException e) {
+diff --git a/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java b/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java
+index 0950720..175a4b2 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java
++++ b/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java
+@@ -39,6 +39,8 @@ import java.util.Date;
+ import org.openrdf.model.Value;
+ import org.openrdf.model.URI;
+ import org.openrdf.model.Resource;
++import org.openrdf.rio.RDFParseException;
++
+ 
+ public class TransactionLog {
+     TripleStore tripleStore;
+@@ -83,65 +85,58 @@ public class TransactionLog {
+         this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
+     }
+ 
+-    public void add(String identifier, String filedata) throws TransactionLogException, IOException {
+-        doProcess("addRDF", identifier, filedata);
++    public void add(String identifier, String filedata) throws RDFParseException {
++        this.tripleStore.addRDF(identifier, filedata);
++        writeTransactionItem("addRDF", identifier, filedata);
+     }
+ 
+-    public void addTriple(String filedata) throws TransactionLogException, IOException {
+-        doProcess("addTriple", "", filedata);
++    public void addTriple(String filedata) {
++        this.tripleStore.addTriple(filedata);
++        writeTransactionItem("addTriple", "", filedata);
+     }
+ 
+-    public void removeTriple(String filedata) throws TransactionLogException, IOException {
+-        doProcess("removeTriple", "", filedata);
++    public void removeTriple(String filedata) {
++        this.tripleStore.removeTriple(filedata);
++        writeTransactionItem("removeTriple", "", filedata);
+     }
+ 
+-    public void delete(String identifier) throws TransactionLogException, IOException {
+-        doProcess("delete", identifier, "");
++    public void delete(String identifier) {
++        this.tripleStore.delete(identifier);
++        writeTransactionItem("delete", identifier, "");
+     }
+ 
+-    void doProcess(String action, String identifier, String filedata) throws TransactionLogException, FileNotFoundException, IOException {
++    void writeTransactionItem(String action, String identifier, String filedata) {
+     	TransactionItem tsItem = new TransactionItem(action, identifier, filedata);
+         try {
+-            if (action.equals("addRDF")) {
+-                this.tripleStore.addRDF(identifier, filedata);
+-            } else if (action.equals("delete")) {
+-                this.tripleStore.delete(identifier);
+-            } else if (action.equals("addTriple")) {
+-                this.tripleStore.addTriple(filedata);
+-            } else if (action.equals("removeTriple")) {
+-                this.tripleStore.removeTriple(filedata);
+-            }
+-        } catch (Exception e) {
+-            throw new TransactionLogException(e);
+-        }
+-
+-        try {
+             commit(tsItem);
+         } catch (Exception e) {
+         	rollback();
+         	System.err.println(e);
+             throw new Error("Commit on transactionLog failed.", e);
+         }
+-
+         maybeRotate();
+     }
+ 
+-    void maybeRotate() throws FileNotFoundException, IOException {
+-        if (transactionLogFilePath.length() < this.maxSize) {
+-            return;
+-        }
+-        long newFilename = getTime();
+-        ArrayList<String> sortedTsFiles = getTransactionItemFiles();
+-        long lastAddedTimeStamp = sortedTsFiles.size() > 1 ? Long.valueOf(sortedTsFiles.get(sortedTsFiles.size() - 2)) : 0;
+-        if (newFilename <= lastAddedTimeStamp) { // in theory: only small differences by ntp 
+-            return;
+-        }
++    void maybeRotate() {
+         try {
+-            this.transactionLog.close();
+-            File newFile = new File(this.transactionLogDir, String.valueOf(newFilename));
+-            renameFileTo(this.transactionLogFilePath, newFile);
+-        } finally {
+-            this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
++            if (transactionLogFilePath.length() < this.maxSize) {
++                return;
++            }
++            long newFilename = getTime();
++            ArrayList<String> sortedTsFiles = getTransactionItemFiles();
++            long lastAddedTimeStamp = sortedTsFiles.size() > 1 ? Long.valueOf(sortedTsFiles.get(sortedTsFiles.size() - 2)) : 0;
++            if (newFilename <= lastAddedTimeStamp) { // in theory: only small differences by ntp 
++                return;
++            }
++            try {
++                this.transactionLog.close();
++                File newFile = new File(this.transactionLogDir, String.valueOf(newFilename));
++                renameFileTo(this.transactionLogFilePath, newFile);
++            } finally {
++                this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
++            }
++        } catch (IOException e) {
++            throw new RuntimeException(e);
+         }
+     }
+ 
+@@ -171,7 +166,7 @@ public class TransactionLog {
+ 			throw new IOException("File " + from.getAbsolutePath() + " could not be moved to " + to.getAbsolutePath());
+ 		}
+ 	}
+-    
++
+     File getTransactionLogDir() {
+         return this.transactionLogDir;
+     }
+diff --git a/server/src/java/org/meresco/owlimhttpserver/TripleStore.java b/server/src/java/org/meresco/owlimhttpserver/TripleStore.java
+index f5b4338..eec45b9 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/TripleStore.java
++++ b/server/src/java/org/meresco/owlimhttpserver/TripleStore.java
+@@ -35,17 +35,18 @@ import org.openrdf.model.Namespace;
+ import org.openrdf.query.resultio.TupleQueryResultFormat;
+ import org.openrdf.repository.RepositoryResult;
+ import java.util.List;
++import org.openrdf.query.MalformedQueryException;
++import org.openrdf.rio.RDFParseException;
+ 
+ 
+ public interface TripleStore {
+-    void addRDF(String identifier, String body);
++    void addRDF(String identifier, String body) throws RDFParseException;
+     void addTriple(String tripleData);
+ 
+     void delete(String identifier);
+     void removeTriple(String tripleData);
+ 
+-    String executeQuery(String sparQL);
+-    String executeQuery(String sparQL, TupleQueryResultFormat format);
++    String executeQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException;
+ 
+     RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj);
+     List<Namespace> getNamespaces();
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index 6cb3421..04f69be 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -36,6 +36,7 @@ import com.sun.net.httpserver.HttpContext;
+ import com.sun.net.httpserver.Headers;
+ 
+ import org.openrdf.query.resultio.TupleQueryResultFormat;
++import org.openrdf.query.MalformedQueryException;
+ 
+ import java.net.InetSocketAddress;
+ 
+@@ -123,16 +124,15 @@ public class OwlimHttpHandlerTest {
+                      tlmock.actions);
+     }
+ 
+-    @Test public void testSparQL() throws TransactionLogException {
++    @Test public void testSparQL() throws TransactionLogException, MalformedQueryException {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+         String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D";
+-        String result = h.executeQuery(parseQS(queryString));
++        String result = h.executeQuery(parseQS(queryString), TupleQueryResultFormat.JSON);
+ 
+         assertEquals(Arrays.asList("executeQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"),
+                      tsmock.actions);
+-
+     }
+ 
+     @Test public void testAddDispatch() throws Exception {
+@@ -311,6 +311,15 @@ public class OwlimHttpHandlerTest {
+         assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception: dummy test exception"));
+     }
+ 
++    @Test public void test400ForMalformedQueryExceptions() throws IOException {
++        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new MalformedQueryException("dummy test exception"));
++        HttpExchangeMock exchange = new HttpExchangeMock("/query", "");
++        h.handle(exchange);
++        assertEquals(0, h.actions.size());
++        assertEquals(400, exchange.responseCode);
++        assertTrue(exchange.getOutput(), exchange.getOutput().startsWith("org.openrdf.query.MalformedQueryException: dummy test exception"));
++    }
++
+     @Test public void testDefaultSparqlForm() throws Exception {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+@@ -445,8 +454,11 @@ public class OwlimHttpHandlerTest {
+             actions.add(params);
+         }
+ 
+-        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) {
++        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
+             if (_exception != null) {
++                if (_exception instanceof MalformedQueryException) {
++                    throw (MalformedQueryException) _exception;
++                }
+                 throw new RuntimeException(_exception);
+             }
+             actions.add("executeQuery");
+@@ -480,15 +492,19 @@ public class OwlimHttpHandlerTest {
+         public int responseCode;
+         public String responseBody;
+ 
+-        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) throws Exception {
++        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) {
+             super();
+-            _requestURI = new java.net.URI(requestURI);
+-            _requestBody = requestBody;
+-            _responseStream = new ByteArrayOutputStream();
+-            _requestHeaders = requestHeaders;
+-            _responseHeaders = new Headers();
++            try {
++                _requestURI = new java.net.URI(requestURI);
++                _requestBody = requestBody;
++                _responseStream = new ByteArrayOutputStream();
++                _requestHeaders = requestHeaders;
++                _responseHeaders = new Headers();
++            } catch (java.net.URISyntaxException e) {
++                throw new RuntimeException(e);
++            }
+         }
+-        public HttpExchangeMock(String requestURI, String requestBody) throws Exception {
++        public HttpExchangeMock(String requestURI, String requestBody) {
+             this(requestURI, requestBody, new Headers());
+         }
+ 
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java
+index 4425da3..708ba75 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimTripleStoreTest.java
+@@ -131,7 +131,7 @@ public class OwlimTripleStoreTest {
+         String answer = null;
+ 
+         ts.addRDF("uri:id0", rdf);
+-        answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}");
++        answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}", TupleQueryResultFormat.JSON);
+         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
+         assertTrue(answer.endsWith("\n}"));
+     }
+diff --git a/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java b/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java
+index a33cc79..e4f37f4 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java
+@@ -51,6 +51,7 @@ import static org.junit.Assert.*;
+ import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
+ import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
+ 
++
+ public class TransactionLogTest {
+     TransactionLog transactionLog;
+     File tempdir;
+@@ -87,7 +88,7 @@ public class TransactionLogTest {
+     }
+ 
+     @Test
+-    public void testCommitToTransactionLog() throws FileNotFoundException, Exception {
++    public void testCommitToTransactionLog() throws Exception {
+         String xml = "<x>ignoréd</x>";
+         String filedata = Base64.encodeBase64String(xml.getBytes());
+         transactionLog.add("testRecord", xml);
+@@ -223,14 +224,14 @@ public class TransactionLogTest {
+         try {
+             transactionLog.add("record", "<x>ignored</x>");
+             fail("Should raise an TransactionLogException");
+-        } catch (TransactionLogException e) {}
++        } catch (RuntimeException e) {}
+         ArrayList<String> files = transactionLog.getTransactionItemFiles();
+         assertEquals(1, files.size());
+         assertEquals(0, countTransactionItems(files.get(0)));
+     }
+ 
+     @Test
+-    public void testRollbackWhenAddRDFFailes() throws IOException {
++    public void testNotAddedToTransactionLogWhenAddRDFFails() throws IOException {
+         class MyTripleStore extends OwlimTripleStore {
+             public void addRDF(String identifier, String body) {
+                 throw new RuntimeException();
+@@ -245,12 +246,12 @@ public class TransactionLogTest {
+         try {
+             transactionLog.add("record", "data");
+             fail("Should raise an Exception");
+-        } catch (TransactionLogException e) {}
++        } catch (RuntimeException e) {}
+         assertEquals("", Utils.read(transactionLog.transactionLogFilePath));
+     }
+ 
+     @Test
+-    public void testRollbackWhenDeleteFailes() throws IOException {
++    public void testRollbackWhenDeleteFails() throws IOException {
+         class MyTripleStore extends OwlimTripleStore {
+             public void delete(String identifier) {
+                 throw new RuntimeException();
+@@ -265,7 +266,7 @@ public class TransactionLogTest {
+         try {
+             transactionLog.delete("record");
+             fail("Should raise an Exception");
+-        } catch (TransactionLogException e) {}
++        } catch (RuntimeException e) {}
+         assertEquals("", Utils.read(transactionLog.transactionLogFilePath));
+     }
+ 
+diff --git a/test/integration/owlimtest.py b/test/integration/owlimtest.py
+index ea75a0f..4c6e7b6 100644
+--- a/test/integration/owlimtest.py
++++ b/test/integration/owlimtest.py
+@@ -34,14 +34,50 @@ from signal import SIGKILL
+ from time import time
+ from threading import Thread
+ 
++from weightless.core import compose
++
+ from seecr.test.utils import getRequest, postRequest
+ from seecr.test.integrationtestcase import IntegrationTestCase
+ 
++from meresco.owlim import HttpClient, MalformedQueryException, InvalidRdfXmlException
++
+ 
+ class OwlimTest(IntegrationTestCase):
+     def testOne(self):
+         self.assertTrue('"vars": [ "x" ]' in urlopen("http://localhost:%s/query?%s" % (self.owlimPort, urlencode(dict(query='SELECT ?x WHERE {}')))).read())
+ 
++    def testAddTripleThatsNotATriple(self):
++        owlimClient = HttpClient(host='localhost', port=self.owlimPort, synchronous=True)
++        try:
++            list(compose(owlimClient.addTriple('uri:subject', 'uri:predicate', '')))
++            self.fail("should not get here")
++        except ValueError, e:
++            self.assertEquals('java.lang.IllegalArgumentException: Not a triple: "uri:subject|uri:predicate|"', str(e))
++
++    def testAddInvalidRdf(self):
++        owlimClient = HttpClient(host='localhost', port=self.owlimPort, synchronous=True)
++        try:
++            list(compose(owlimClient.add('uri:identifier', '<invalidRdf/>')))
++            self.fail("should not get here")
++        except InvalidRdfXmlException, e:
++            self.assertEquals('org.openrdf.rio.RDFParseException: Not a valid (absolute) URI: #invalidRdf [line 1, column 14]', str(e))
++
++    def testAddInvalidIdentifier(self):
++        owlimClient = HttpClient(host='localhost', port=self.owlimPort, synchronous=True)
++        try:
++            list(compose(owlimClient.add('identifier', '<ignore/>')))
++            self.fail("should not get here")
++        except ValueError, e:
++            self.assertEquals('java.lang.IllegalArgumentException: Not a valid (absolute) URI: identifier', str(e))
++
++    def testInvalidSparql(self):
++        owlimClient = HttpClient(host='localhost', port=self.owlimPort, synchronous=True)
++        try:
++            list(compose(owlimClient.executeQuery("""select ?x""")))
++            self.fail("should not get here")
++        except MalformedQueryException, e:
++            self.assertTrue(str(e).startswith('org.openrdf.query.MalformedQueryException: Encountered "<EOF>"'), str(e))
++
+     def testKillTripleStoreSavesState(self):
+         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+         <rdf:Description>
+-- 
+1.7.2.5
+
+
+From c698ba89d0ca61e9864c0e1249dd194110d33788 Mon Sep 17 00:00:00 2001
+From: Hendrik Moree <hendrik@seecr.nl>
+Date: Fri, 29 Mar 2013 10:50:30 +0100
+Subject: [PATCH 2/2] JPM/HM: TransactionLog recovering for addTriple and removeTriple
+
+---
+ client/meresco/owlim/httpclient.py                 |    2 -
+ .../meresco/owlimhttpserver/TransactionLog.java    |   42 ++++++++++++++------
+ .../owlimhttpserver/OwlimHttpHandlerTest.java      |   16 ++++----
+ .../owlimhttpserver/TransactionLogTest.java        |   16 ++++----
+ test/integration/owlimtest.py                      |   11 +++--
+ 5 files changed, 52 insertions(+), 35 deletions(-)
+
+diff --git a/client/meresco/owlim/httpclient.py b/client/meresco/owlim/httpclient.py
+index 0513038..cb97726 100644
+--- a/client/meresco/owlim/httpclient.py
++++ b/client/meresco/owlim/httpclient.py
+@@ -132,8 +132,6 @@ class HttpClient(Observable):
+                 raise ValueError(errorStr)
+             elif 'RDFParseException' in errorStr:
+                 raise InvalidRdfXmlException(errorStr)
+-            print errorStr
+-            from sys import stdout; stdout.flush()
+             raise e
+         raise StopIteration((header, responseBody))
+ 
+diff --git a/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java b/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java
+index 175a4b2..867f036 100644
+--- a/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java
++++ b/server/src/java/org/meresco/owlimhttpserver/TransactionLog.java
+@@ -180,7 +180,6 @@ public class TransactionLog {
+         		transactionItemsWithoutCurrent.add(Long.valueOf(t));
+         	}
+         }
+-        
+         Collections.sort(transactionItemsWithoutCurrent);
+         for (Long t : transactionItemsWithoutCurrent) {
+             result.add(String.valueOf(t));
+@@ -242,23 +241,21 @@ public class TransactionLog {
+         long lastTime = 0;
+         for (File f : tsFiles) {
+             lastTime = new Date().getTime();
+-            int count = 0;
++            int lineNo = 0;
++            int itemCount = 0;
+             BufferedLineReader blr = new BufferedLineReader(new FileReader(f));
+             String line;
+             StringBuilder tsItem = new StringBuilder();
+             while ((line = blr.readLine()) != null) {
++                lineNo += 1;
+             	tsItem.append(line);
+             	if (!line.contains("</transaction_item>")) {
+                     continue;
+                 }
+-                count += 1;
++                itemCount += 1;
+                 try {
+                 	TransactionItem item = TransactionItem.read(tsItem.toString());
+-                    if (item.getAction().equals("addRDF")) {
+-                        this.tripleStore.addRDF(item.getIdentifier(), item.getFiledata());
+-                    } else if (item.getAction().equals("delete")) {
+-                        this.tripleStore.delete(item.getIdentifier());
+-                    }
++                    processTransactionItem(item);
+                     timeSpent += new Date().getTime() - lastTime;
+                     lastTime = new Date().getTime();
+                     int itemLength = tsItem.length();
+@@ -267,7 +264,7 @@ public class TransactionLog {
+                     tsItem = new StringBuilder();
+                 } catch (Exception e) {
+                     System.err.println(e);
+-                    throw new TransactionLogException("Corrupted transaction_item in " + f.getAbsolutePath() + ". This should never occur.");
++                    throw new TransactionLogException("Corrupted transaction_item in " + f.getAbsolutePath() + " at line " + lineNo + ". This should never occur.");
+                 }
+             }
+             if (tsItem.length() > 0) {
+@@ -277,10 +274,10 @@ public class TransactionLog {
+                     throw new TransactionLogException("Last TransactionLog item is incomplete while not in the committing state. This should never occur.");
+                 }
+             }
+-            if (count > 0) {
++            if (itemCount > 0) {
+                 persistTripleStore(f);
+             }
+-            totalCount += count;
++            totalCount += itemCount;
+             blr.close();
+         }
+         if (this.committingFilePath.exists()) {
+@@ -289,7 +286,28 @@ public class TransactionLog {
+         System.out.println("Recovering of " + totalCount + " items completed.");
+         return;
+     }
+-    
++
++    private void processTransactionItem(TransactionItem item) {
++        String action = item.getAction();
++        String identifier = item.getIdentifier();
++        String data = item.getFiledata();
++        try {
++            if (action.equals("addRDF")) {
++                this.tripleStore.addRDF(identifier, data);
++            } else if (action.equals("delete")) {
++                this.tripleStore.delete(identifier);
++            } else if (action.equals("addTriple")) {
++                this.tripleStore.addTriple(data);
++            } else if (action.equals("removeTriple")) {
++                this.tripleStore.removeTriple(data);
++            }
++        } catch (RuntimeException e) {
++            throw e;
++        } catch (Exception e) {
++            throw new RuntimeException(e);
++        }
++    }
++
+     private void printProgress(long newItemSize, long totalSize, long timeSpent) {
+     	long sizeInMb = totalSize / 1024 / 1024;
+     	long newSizeInMb = (totalSize + newItemSize) / 1024 / 1024;
+diff --git a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+index 04f69be..38301a6 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/OwlimHttpHandlerTest.java
+@@ -56,7 +56,7 @@ import org.openrdf.rio.RDFParseException;
+ 
+ 
+ public class OwlimHttpHandlerTest {
+-    @Test public void testAddRDF() throws TransactionLogException, IOException {
++    @Test public void testAddRDF() throws Exception {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+@@ -66,7 +66,7 @@ public class OwlimHttpHandlerTest {
+         assertEquals(Arrays.asList("add:identifier" + "|" + httpBody), tlmock.actions);
+     }
+ 
+-    @Test public void testAddTriple() throws TransactionLogException, IOException {
++    @Test public void testAddTriple() throws Exception {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+@@ -75,7 +75,7 @@ public class OwlimHttpHandlerTest {
+         assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|uri:obj"), tlmock.actions);
+     }
+ 
+-    @Test public void testAddTripleWithStringAsObject() throws TransactionLogException, IOException {
++    @Test public void testAddTripleWithStringAsObject() throws Exception {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+@@ -84,7 +84,7 @@ public class OwlimHttpHandlerTest {
+         assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|string"), tlmock.actions);
+     }
+ 
+-    @Test public void testRemoveTriple() throws TransactionLogException, IOException {
++    @Test public void testRemoveTriple() throws Exception {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+@@ -93,7 +93,7 @@ public class OwlimHttpHandlerTest {
+         assertEquals(Arrays.asList("removeTriple:uri:subj|uri:pred|string"), tlmock.actions);
+     }
+ 
+-    @Test public void testDeleteRDF() throws TransactionLogException, IOException {
++    @Test public void testDeleteRDF() throws Exception {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+@@ -102,7 +102,7 @@ public class OwlimHttpHandlerTest {
+         assertEquals(Arrays.asList("delete:identifier"), tlmock.actions);
+     }
+ 
+-    @Test public void testUpdateRDF() throws TransactionLogException, IOException {
++    @Test public void testUpdateRDF() throws Exception {
+         TSMock tsmock = new TSMock();
+         TLMock tlmock = new TLMock();
+         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
+@@ -430,7 +430,7 @@ public class OwlimHttpHandlerTest {
+             _exception = e;
+         }
+ 
+-        public void updateRDF(QueryParameters params, String httpBody) {
++        public void updateRDF(QueryParameters params, String httpBody) throws RDFParseException {
+             if (_exception != null) {
+                 throw new RuntimeException(_exception);
+             }
+@@ -438,7 +438,7 @@ public class OwlimHttpHandlerTest {
+             actions.add(params);
+             actions.add(httpBody);
+         }
+-        public void addRDF(QueryParameters params, String httpBody) {
++        public void addRDF(QueryParameters params, String httpBody) throws RDFParseException {
+             if (_exception != null) {
+                 throw new RuntimeException(_exception);
+             }
+diff --git a/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java b/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java
+index e4f37f4..3a31516 100644
+--- a/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java
++++ b/server/src/test/org/meresco/owlimhttpserver/TransactionLogTest.java
+@@ -127,7 +127,7 @@ public class TransactionLogTest {
+     }
+ 
+     @Test
+-    public void testAddSuccesfullRecord() throws FileNotFoundException, TransactionLogException, IOException {
++    public void testAddSuccesfullRecord() throws Exception {
+     	assertTrue(transactionLog.committedFilePath.isFile());
+     	assertFalse(transactionLog.committingFilePath.isFile());
+     	transactionLog.add("record", "<x>ignored</x>");
+@@ -214,7 +214,7 @@ public class TransactionLogTest {
+     }
+ 
+     @Test
+-    public void testAddNotWhenFailed() throws IOException {
++    public void testAddNotWhenFailed() throws Exception {
+         class MyTripleStore extends OwlimTripleStore {
+             public void addRDF(String identifier, String body) {
+                 throw new RuntimeException();
+@@ -231,7 +231,7 @@ public class TransactionLogTest {
+     }
+ 
+     @Test
+-    public void testNotAddedToTransactionLogWhenAddRDFFails() throws IOException {
++    public void testNotAddedToTransactionLogWhenAddRDFFails() throws Exception {
+         class MyTripleStore extends OwlimTripleStore {
+             public void addRDF(String identifier, String body) {
+                 throw new RuntimeException();
+@@ -317,7 +317,7 @@ public class TransactionLogTest {
+         PrintStream orig_stderr = System.err;
+         System.setErr(ps);
+         try {
+-            transactionLog.doProcess("addRDF", "record.rdf", "data");
++            transactionLog.writeTransactionItem("addRDF", "record.rdf", "data");
+             fail("Should raise an Exception");
+         } catch (Error e) {}
+     	finally {
+@@ -333,7 +333,7 @@ public class TransactionLogTest {
+     }
+ 
+     @Test
+-    public void testClearTransactionLog() throws TransactionLogException, IOException {
++    public void testClearTransactionLog() throws Exception {
+         transactionLog.add("record", "data");
+         assertEquals(1, transactionLog.getTransactionItemFiles().size());
+         transactionLog.clear();
+@@ -349,7 +349,7 @@ public class TransactionLogTest {
+     }
+ 
+     @Test
+-    public void testClearNotWhenShutdownFails() throws TransactionLogException, IOException {
++    public void testClearNotWhenShutdownFails() throws Exception {
+         addFilesToTransactionLog();
+         assertEquals(1, transactionLog.getTransactionItemFiles().size());
+ 
+@@ -452,7 +452,7 @@ public class TransactionLogTest {
+     		transactionLog.recoverTripleStore();
+     		fail("Should fail");
+     	} catch (TransactionLogException e)  {
+-    		assertEquals("Corrupted transaction_item in " + transactionLog.transactionLogFilePath.getAbsolutePath() + ". This should never occur.", e.getMessage());
++    		assertEquals("Corrupted transaction_item in " + transactionLog.transactionLogFilePath.getAbsolutePath() + " at line 9. This should never occur.", e.getMessage());
+     		assertTrue(os.toString(), os.toString().contains("XML document structures must start and end within the same entity."));
+     	} finally {
+     		System.setErr(err);
+@@ -676,7 +676,7 @@ public class TransactionLogTest {
+         assertEquals(StringUtils.repeat(".", 50) + " 50Mb", stdout.toString(), stdout.toString());
+     }
+ 
+-    private void addFilesToTransactionLog() throws TransactionLogException, IOException {
++    private void addFilesToTransactionLog() throws Exception {
+         transactionLog.add("testRecord.rdf", "<x>ignored</x>");
+         transactionLog.delete("testRecord.rdf");
+     }
+diff --git a/test/integration/owlimtest.py b/test/integration/owlimtest.py
+index 4c6e7b6..db2261c 100644
+--- a/test/integration/owlimtest.py
++++ b/test/integration/owlimtest.py
+@@ -96,18 +96,19 @@ class OwlimTest(IntegrationTestCase):
+     def testKillTripleStoreRecoversFromTransactionLog(self):
+         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+         <rdf:Description>
+-            <rdf:type>uri:testKillTripleStoreRecoversFromTransactionLog</rdf:type>
++            <rdf:type rdf:resource="uri:testKillTripleStoreRecoversFromTransactionLog"/>
+         </rdf:Description>
+     </rdf:RDF>""", parse=False)
+-        json = self.query('SELECT ?x WHERE {?x ?y "uri:testKillTripleStoreRecoversFromTransactionLog"}')
+-        self.assertEquals(1, len(json['results']['bindings']))
++        postRequest(self.owlimPort, "/addTriple", "uri:subject|http://www.w3.org/1999/02/22-rdf-syntax-ns#type|uri:testKillTripleStoreRecoversFromTransactionLog")
++        json = self.query('SELECT ?x WHERE {?x ?y <uri:testKillTripleStoreRecoversFromTransactionLog>}')
++        self.assertEquals(2, len(json['results']['bindings']))
+ 
+         kill(self.pids['owlim'], SIGKILL)
+         waitpid(self.pids['owlim'], WNOHANG)
+         self.startOwlimServer()
+ 
+-        json = self.query('SELECT ?x WHERE {?x ?y "uri:testKillTripleStoreRecoversFromTransactionLog"}')
+-        self.assertEquals(1, len(json['results']['bindings']))
++        json = self.query('SELECT ?x WHERE {?x ?y <uri:testKillTripleStoreRecoversFromTransactionLog>}')
++        self.assertEquals(2, len(json['results']['bindings']))
+ 
+     def xxxtestKillAndRestoreLargeTransactionLogTiming(self):
+         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+-- 
+1.7.2.5
+
