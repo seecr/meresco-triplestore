@@ -56,7 +56,7 @@ import org.openrdf.rio.RDFParseException;
 
 
 public class OwlimHttpHandlerTest {
-    @Test public void testAddRDF() throws TransactionLogException, IOException {
+    @Test public void testAddRDF() throws Exception {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
@@ -66,7 +66,7 @@ public class OwlimHttpHandlerTest {
         assertEquals(Arrays.asList("add:identifier" + "|" + httpBody), tlmock.actions);
     }
 
-    @Test public void testAddTriple() throws TransactionLogException, IOException {
+    @Test public void testAddTriple() throws Exception {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
@@ -75,7 +75,7 @@ public class OwlimHttpHandlerTest {
         assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|uri:obj"), tlmock.actions);
     }
 
-    @Test public void testAddTripleWithStringAsObject() throws TransactionLogException, IOException {
+    @Test public void testAddTripleWithStringAsObject() throws Exception {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
@@ -84,7 +84,7 @@ public class OwlimHttpHandlerTest {
         assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|string"), tlmock.actions);
     }
 
-    @Test public void testRemoveTriple() throws TransactionLogException, IOException {
+    @Test public void testRemoveTriple() throws Exception {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
@@ -93,7 +93,7 @@ public class OwlimHttpHandlerTest {
         assertEquals(Arrays.asList("removeTriple:uri:subj|uri:pred|string"), tlmock.actions);
     }
 
-    @Test public void testDeleteRDF() throws TransactionLogException, IOException {
+    @Test public void testDeleteRDF() throws Exception {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
@@ -102,7 +102,7 @@ public class OwlimHttpHandlerTest {
         assertEquals(Arrays.asList("delete:identifier"), tlmock.actions);
     }
 
-    @Test public void testUpdateRDF() throws TransactionLogException, IOException {
+    @Test public void testUpdateRDF() throws Exception {
         TSMock tsmock = new TSMock();
         TLMock tlmock = new TLMock();
         OwlimHttpHandler h = new OwlimHttpHandler(tlmock, tsmock);
@@ -430,7 +430,7 @@ public class OwlimHttpHandlerTest {
             _exception = e;
         }
 
-        public void updateRDF(QueryParameters params, String httpBody) {
+        public void updateRDF(QueryParameters params, String httpBody) throws RDFParseException {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
             }
@@ -438,7 +438,7 @@ public class OwlimHttpHandlerTest {
             actions.add(params);
             actions.add(httpBody);
         }
-        public void addRDF(QueryParameters params, String httpBody) {
+        public void addRDF(QueryParameters params, String httpBody) throws RDFParseException {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
             }

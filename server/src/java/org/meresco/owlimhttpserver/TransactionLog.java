@@ -180,7 +180,6 @@ public class TransactionLog {
         		transactionItemsWithoutCurrent.add(Long.valueOf(t));
         	}
         }
-        
         Collections.sort(transactionItemsWithoutCurrent);
         for (Long t : transactionItemsWithoutCurrent) {
             result.add(String.valueOf(t));
@@ -242,23 +241,21 @@ public class TransactionLog {
         long lastTime = 0;
         for (File f : tsFiles) {
             lastTime = new Date().getTime();
-            int count = 0;
+            int lineNo = 0;
+            int itemCount = 0;
             BufferedLineReader blr = new BufferedLineReader(new FileReader(f));
             String line;
             StringBuilder tsItem = new StringBuilder();
             while ((line = blr.readLine()) != null) {
+                lineNo += 1;
             	tsItem.append(line);
             	if (!line.contains("</transaction_item>")) {
                     continue;
                 }
-                count += 1;
+                itemCount += 1;
                 try {
                 	TransactionItem item = TransactionItem.read(tsItem.toString());
-                    if (item.getAction().equals("addRDF")) {
-                        this.tripleStore.addRDF(item.getIdentifier(), item.getFiledata());
-                    } else if (item.getAction().equals("delete")) {
-                        this.tripleStore.delete(item.getIdentifier());
-                    }
+                    processTransactionItem(item);
                     timeSpent += new Date().getTime() - lastTime;
                     lastTime = new Date().getTime();
                     int itemLength = tsItem.length();
@@ -267,7 +264,7 @@ public class TransactionLog {
                     tsItem = new StringBuilder();
                 } catch (Exception e) {
                     System.err.println(e);
-                    throw new TransactionLogException("Corrupted transaction_item in " + f.getAbsolutePath() + ". This should never occur.");
+                    throw new TransactionLogException("Corrupted transaction_item in " + f.getAbsolutePath() + " at line " + lineNo + ". This should never occur.");
                 }
             }
             if (tsItem.length() > 0) {
@@ -277,10 +274,10 @@ public class TransactionLog {
                     throw new TransactionLogException("Last TransactionLog item is incomplete while not in the committing state. This should never occur.");
                 }
             }
-            if (count > 0) {
+            if (itemCount > 0) {
                 persistTripleStore(f);
             }
-            totalCount += count;
+            totalCount += itemCount;
             blr.close();
         }
         if (this.committingFilePath.exists()) {
@@ -289,7 +286,28 @@ public class TransactionLog {
         System.out.println("Recovering of " + totalCount + " items completed.");
         return;
     }
-    
+
+    private void processTransactionItem(TransactionItem item) {
+        String action = item.getAction();
+        String identifier = item.getIdentifier();
+        String data = item.getFiledata();
+        try {
+            if (action.equals("addRDF")) {
+                this.tripleStore.addRDF(identifier, data);
+            } else if (action.equals("delete")) {
+                this.tripleStore.delete(identifier);
+            } else if (action.equals("addTriple")) {
+                this.tripleStore.addTriple(data);
+            } else if (action.equals("removeTriple")) {
+                this.tripleStore.removeTriple(data);
+            }
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private void printProgress(long newItemSize, long totalSize, long timeSpent) {
     	long sizeInMb = totalSize / 1024 / 1024;
     	long newSizeInMb = (totalSize + newItemSize) / 1024 / 1024;

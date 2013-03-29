@@ -132,8 +132,6 @@ class HttpClient(Observable):
                 raise ValueError(errorStr)
             elif 'RDFParseException' in errorStr:
                 raise InvalidRdfXmlException(errorStr)
-            print errorStr
-            from sys import stdout; stdout.flush()
             raise e
         raise StopIteration((header, responseBody))
 

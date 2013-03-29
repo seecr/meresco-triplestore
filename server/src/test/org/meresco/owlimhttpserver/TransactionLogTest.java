@@ -127,7 +127,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testAddSuccesfullRecord() throws FileNotFoundException, TransactionLogException, IOException {
+    public void testAddSuccesfullRecord() throws Exception {
     	assertTrue(transactionLog.committedFilePath.isFile());
     	assertFalse(transactionLog.committingFilePath.isFile());
     	transactionLog.add("record", "<x>ignored</x>");
@@ -214,7 +214,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testAddNotWhenFailed() throws IOException {
+    public void testAddNotWhenFailed() throws Exception {
         class MyTripleStore extends OwlimTripleStore {
             public void addRDF(String identifier, String body) {
                 throw new RuntimeException();
@@ -231,7 +231,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testNotAddedToTransactionLogWhenAddRDFFails() throws IOException {
+    public void testNotAddedToTransactionLogWhenAddRDFFails() throws Exception {
         class MyTripleStore extends OwlimTripleStore {
             public void addRDF(String identifier, String body) {
                 throw new RuntimeException();
@@ -317,7 +317,7 @@ public class TransactionLogTest {
         PrintStream orig_stderr = System.err;
         System.setErr(ps);
         try {
-            transactionLog.doProcess("addRDF", "record.rdf", "data");
+            transactionLog.writeTransactionItem("addRDF", "record.rdf", "data");
             fail("Should raise an Exception");
         } catch (Error e) {}
     	finally {
@@ -333,7 +333,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testClearTransactionLog() throws TransactionLogException, IOException {
+    public void testClearTransactionLog() throws Exception {
         transactionLog.add("record", "data");
         assertEquals(1, transactionLog.getTransactionItemFiles().size());
         transactionLog.clear();
@@ -349,7 +349,7 @@ public class TransactionLogTest {
     }
 
     @Test
-    public void testClearNotWhenShutdownFails() throws TransactionLogException, IOException {
+    public void testClearNotWhenShutdownFails() throws Exception {
         addFilesToTransactionLog();
         assertEquals(1, transactionLog.getTransactionItemFiles().size());
 
@@ -452,7 +452,7 @@ public class TransactionLogTest {
     		transactionLog.recoverTripleStore();
     		fail("Should fail");
     	} catch (TransactionLogException e)  {
-    		assertEquals("Corrupted transaction_item in " + transactionLog.transactionLogFilePath.getAbsolutePath() + ". This should never occur.", e.getMessage());
+    		assertEquals("Corrupted transaction_item in " + transactionLog.transactionLogFilePath.getAbsolutePath() + " at line 9. This should never occur.", e.getMessage());
     		assertTrue(os.toString(), os.toString().contains("XML document structures must start and end within the same entity."));
     	} finally {
     		System.setErr(err);
@@ -676,7 +676,7 @@ public class TransactionLogTest {
         assertEquals(StringUtils.repeat(".", 50) + " 50Mb", stdout.toString(), stdout.toString());
     }
 
-    private void addFilesToTransactionLog() throws TransactionLogException, IOException {
+    private void addFilesToTransactionLog() throws Exception {
         transactionLog.add("testRecord.rdf", "<x>ignored</x>");
         transactionLog.delete("testRecord.rdf");
     }

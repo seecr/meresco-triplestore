@@ -96,18 +96,19 @@ class OwlimTest(IntegrationTestCase):
     def testKillTripleStoreRecoversFromTransactionLog(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
         <rdf:Description>
-            <rdf:type>uri:testKillTripleStoreRecoversFromTransactionLog</rdf:type>
+            <rdf:type rdf:resource="uri:testKillTripleStoreRecoversFromTransactionLog"/>
         </rdf:Description>
     </rdf:RDF>""", parse=False)
-        json = self.query('SELECT ?x WHERE {?x ?y "uri:testKillTripleStoreRecoversFromTransactionLog"}')
-        self.assertEquals(1, len(json['results']['bindings']))
+        postRequest(self.owlimPort, "/addTriple", "uri:subject|http://www.w3.org/1999/02/22-rdf-syntax-ns#type|uri:testKillTripleStoreRecoversFromTransactionLog")
+        json = self.query('SELECT ?x WHERE {?x ?y <uri:testKillTripleStoreRecoversFromTransactionLog>}')
+        self.assertEquals(2, len(json['results']['bindings']))
 
         kill(self.pids['owlim'], SIGKILL)
         waitpid(self.pids['owlim'], WNOHANG)
         self.startOwlimServer()
 
-        json = self.query('SELECT ?x WHERE {?x ?y "uri:testKillTripleStoreRecoversFromTransactionLog"}')
-        self.assertEquals(1, len(json['results']['bindings']))
+        json = self.query('SELECT ?x WHERE {?x ?y <uri:testKillTripleStoreRecoversFromTransactionLog>}')
+        self.assertEquals(2, len(json['results']['bindings']))
 
     def xxxtestKillAndRestoreLargeTransactionLogTiming(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
