@@ -1,4 +1,3 @@
-python2.6
 #lenny:openjdk-6-jre-headless
 #squeeze:openjdk-6-jre-headless
 #centos5:java-1.6.0-openjdk
