@@ -237,6 +237,29 @@ class HttpClientTest(SeecrTestCase):
         self.assertEquals('localhost', kwargs[0]['host'])
         self.assertEquals(1234, kwargs[0]['port'])
 
+    def testErrorInHttpGet(self):
+        owlimClient = HttpClient()
+        observer = CallTrace(returnValues={'owlimServer': ('localhost', 1234)})
+        owlimClient.addObserver(observer)
+        def httpget(**_kwargs):
+            raise ValueError("error")
+            yield
+        owlimClient._httpget = httpget
+
+        g = compose(owlimClient.executeQuery("select ?x where {}"))
+        self.assertRaises(ValueError, lambda: self._resultFromServerResponse(g, RESULT_JSON))
+
+    def testErrorInAdd(self):
+        owlimClient = HttpClient()
+        observer = CallTrace(returnValues={'owlimServer': ('localhost', 1234)})
+        owlimClient.addObserver(observer)
+        def httppost(**_kwargs):
+            raise ValueError("error")
+            yield
+        owlimClient._httppost = httppost
+
+        g = compose(owlimClient.addTriple("uri:subject", "uri:predicate", "value"))
+        self.assertRaises(ValueError, lambda: self._resultFromServerResponse(g, ""))
 
     def _resultFromServerResponse(self, g, data, responseStatus='200'):
         s = g.next()

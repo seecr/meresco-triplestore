@@ -107,7 +107,7 @@ class HttpClient(Observable):
                 header, body = response.split("\r\n\r\n", 1)
                 self._verify200(header, response)
         except Exception, e:
-            errorStr = body or e.read()
+            errorStr = e.read() if hasattr(e, 'read') else (body or str(e))
             if 'MalformedQueryException' in errorStr:
                 raise MalformedQueryException(errorStr)
             raise e
@@ -127,7 +127,7 @@ class HttpClient(Observable):
                 header, responseBody = response.split("\r\n\r\n", 1)
                 self._verify200(header, response)
         except Exception, e:
-            errorStr = responseBody or e.read()
+            errorStr = e.read() if hasattr(e, 'read') else (body or str(e))
             if 'IllegalArgumentException' in errorStr:
                 raise ValueError(errorStr)
             elif 'RDFParseException' in errorStr:
