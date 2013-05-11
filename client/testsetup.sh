@@ -24,27 +24,32 @@
 # 
 ## end license ##
 
-set -e
-
+set -o errexit
 rm -rf tmp build
+mydir=$(cd $(dirname $0); pwd)
+source /usr/share/seecr-test/functions
 
-python setup.py install --root tmp
-cp -r ../test tmp/test
-find tmp -name '*.py' -exec sed '/DO_NOT_DISTRIBUTE/d' -i {} \;
-
-cp meresco/__init__.py tmp/usr/local/lib/python2.6/dist-packages/meresco
-
-export PYTHONPATH=`pwd`/tmp/usr/local/lib/python2.6/dist-packages
-
-testtorun=$1
-if [ -z "$testtorun" ]; then
-    testtorun="alltests.sh --client"
+pyversions="2.6"
+if distro_is_debian_wheezy; then
+    pyversions="2.6 2.7"
 fi
 
-(
-cd tmp/test
-./$testtorun
-)
+VERSION="x.y.z"
 
+for pyversion in $pyversions; do
+    definePythonVars $pyversion
+    echo "###### $pyversion, $PYTHON"
+    ${PYTHON} setup.py install --root tmp
+done
+cp -r ../test tmp/test
+removeDoNotDistribute tmp
+find tmp -name '*.py' -exec sed -r -e "
+    s/\\\$Version:[^\\\$]*\\\$/\\\$Version: ${VERSION}\\\$/;
+    " -i '{}' \;
+
+(
+    cd tmp/test
+    ./alltests.sh --client
+)
 rm -rf tmp build
 

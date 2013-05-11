@@ -29,6 +29,7 @@ from distutils.core import setup
 setup(
     name='meresco-owlim',
     packages=[
+        'meresco',                  #DO_NOT_DISTRIBUTE
         'meresco.owlim',
     ],
     version='%VERSION%',

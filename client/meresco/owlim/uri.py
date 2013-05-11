@@ -24,7 +24,7 @@
 #
 ## end license ##
 
-from Ft.Xml.Lib import Uri as FtUri
+from fturi import MatchesUriSyntax
 
 
 class Uri(object):
@@ -52,4 +52,4 @@ class Uri(object):
     @staticmethod
     def matchesUriSyntax(value):
         # should be replaced by check on the (broader) IRI syntax as supported in RDF.
-        return FtUri.MatchesUriSyntax(value)
+        return MatchesUriSyntax(value)
