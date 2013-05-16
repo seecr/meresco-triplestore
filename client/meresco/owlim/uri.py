@@ -24,8 +24,7 @@
 #
 ## end license ##
 
-from fturi import MatchesUriSyntax
-
+import rfc3987
 
 class Uri(object):
     def __init__(self, value):
@@ -51,5 +50,9 @@ class Uri(object):
 
     @staticmethod
     def matchesUriSyntax(value):
-        # should be replaced by check on the (broader) IRI syntax as supported in RDF.
-        return MatchesUriSyntax(value)
+        try:
+            rfc3987.parse(value, rule='IRI')
+            return True
+        except ValueError:
+            return False
+        
