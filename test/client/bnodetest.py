@@ -33,7 +33,7 @@ class BNodeTest(SeecrTestCase):
     def testCreate(self):
         bnode = BNode.fromDict({"type": "bnode", "value": "node12345"})
         self.assertNotEquals("node12345", bnode)
-        self.assertEquals("node12345", str(bnode))
+        self.assertEquals("noe12345", str(bnode))
         self.assertEquals(bnode, BNode('node12345'))
 
     def testHashForCollections(self):
