@@ -31,7 +31,7 @@ from simplejson import loads
 
 from os import system
 
-class AutoCommitDisabledTest(IntegrationTestCase):
+class TxLogDisabledTest(IntegrationTestCase):
 
     def testKillTripleStoreWithoutTsLogWontRecover(self):
         system("chmod -R u-w %s" % self.owlimDataDir) #make owlim's dir inaccessible to force failure

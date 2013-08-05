@@ -57,9 +57,9 @@ if __name__ == '__main__':
         fastMode=fastMode).addToTestRunner(runner)
 
     OwlimIntegrationState(
-        'noAutoCommit',
+        'noTxLog',
         tests=[
-            'integration.autocommitdisabledtest.AutoCommitDisabledTest'
+            'integration.txlogdisabledtest.TxLogDisabledTest'
         ],
         fastMode=fastMode).addToTestRunner(runner)
 

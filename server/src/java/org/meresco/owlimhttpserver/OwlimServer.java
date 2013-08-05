@@ -61,7 +61,7 @@ public class OwlimServer {
         option.setRequired(true);
         options.addOption(option);
 
-        option = new Option(null, "disableAutoCommit", false, "Use transactionLog");
+        option = new Option(null, "disableTransactionLog", false, "Disable use of transactionlog; Server must be shutdown to persist.");
         option.setType(Boolean.class);
         options.addOption(option);
 
@@ -78,7 +78,7 @@ public class OwlimServer {
         Integer port = new Integer(commandLine.getOptionValue("p"));
         String storeLocation = commandLine.getOptionValue("d");
         String storeName = commandLine.getOptionValue("n");
-        Boolean autoCommit = ! commandLine.hasOption("disableAutoCommit");
+        Boolean disableTransactionLog = commandLine.hasOption("disableTransactionLog");
 
         if (Charset.defaultCharset() != Charset.forName("UTF-8")) {
         	System.err.println("file.encoding must be UTF-8.");
@@ -86,7 +86,7 @@ public class OwlimServer {
         }
 
         TripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName);
-        if (autoCommit) {
+        if (!disableTransactionLog) {
         	tripleStore = new TripleStoreTx(tripleStore, new File(storeLocation));
         }
         OwlimHttpHandler handler = new OwlimHttpHandler(tripleStore);

@@ -46,7 +46,7 @@ class OwlimIntegrationState(IntegrationState):
             system('mkdir --parents ' + self.owlimDataDir)
 
     def setUp(self):
-        flags = ['disableAutoCommit'] if self.stateName == 'noAutoCommit' else []
+        flags = ['disableTransactionLog'] if self.stateName == 'noTxLog' else []
         self.startOwlimServer(flags)
 
     def binDir(self):
