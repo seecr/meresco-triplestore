@@ -67,7 +67,7 @@ public class OwlimTripleStoreTest {
 
     @Test
     public void testOne() {
-        assertEquals(tempdir.getAbsolutePath(), ts.dir.getAbsolutePath());
+        assertEquals(tempdir.getAbsolutePath(), ts.repository.getDataDir().getAbsolutePath());
         assertTrue(new File(new File(tempdir, "storageName"), "entities").isFile());
     }
 
@@ -81,9 +81,9 @@ public class OwlimTripleStoreTest {
         "</rdf:RDF>";
 
     @Test
-    public void testAddRDFGetStatements() throws Exception {
+    public void testAddGetStatements() throws Exception {
         long startingPoint = ts.size();
-        ts.addRDF("uri:id0", rdf);
+        ts.add("uri:id0", rdf);
         RepositoryResult<Statement> statements = ts.getStatements(null, null, null);
         assertEquals(startingPoint + 2, statements.asList().size());
         List<Statement> statementList = ts.getStatements(new URIImpl("http://www.example.org/index.html"), null, null).asList();
@@ -94,7 +94,7 @@ public class OwlimTripleStoreTest {
 
     @Test
     public void testGetNamespaces() throws Exception {
-        ts.addRDF("uri:id0", rdf);
+        ts.add("uri:id0", rdf);
         List<Namespace> namespacesList = ts.getNamespaces();
         assertEquals(5, namespacesList.size());
         assertEquals("http://www.w3.org/2000/01/rdf-schema#", namespacesList.get(0).getName());
@@ -120,7 +120,7 @@ public class OwlimTripleStoreTest {
 
     @Test
     public void testDelete() throws Exception {
-        ts.addRDF("uri:id0", rdf);
+        ts.add("uri:id0", rdf);
         long startingPoint = ts.size();
         ts.delete("uri:id0");
         assertEquals(startingPoint - 2, ts.size());
@@ -130,7 +130,7 @@ public class OwlimTripleStoreTest {
     public void testSparql() throws Exception {
         String answer = null;
 
-        ts.addRDF("uri:id0", rdf);
+        ts.add("uri:id0", rdf);
         answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}", TupleQueryResultFormat.JSON);
         assertTrue(answer.indexOf("\"z\": { \"type\": \"literal\", \"value\": \"A.M. Özman Yürekli\" },") > -1);
         assertTrue(answer.endsWith("\n}"));
@@ -140,7 +140,7 @@ public class OwlimTripleStoreTest {
     public void testSparqlResultInXml() throws Exception {
         String answer = null;
 
-        ts.addRDF("uri:id0", rdf);
+        ts.add("uri:id0", rdf);
         answer = ts.executeQuery("SELECT ?x ?y ?z WHERE {?x ?y ?z}", TupleQueryResultFormat.SPARQL);
         assertTrue(answer.startsWith("<?xml"));
         assertTrue(answer.indexOf("<literal>A.M. Özman Yürekli</literal>") > -1);
@@ -149,7 +149,7 @@ public class OwlimTripleStoreTest {
 
     @Test
     public void testShutdown() throws Exception {
-        ts.addRDF("uri:id0", rdf);
+        ts.add("uri:id0", rdf);
         ts.shutdown();
         OwlimTripleStore ts = new OwlimTripleStore(tempdir, "storageName");
         RepositoryResult<Statement> statements = ts.getStatements(null, null, null);

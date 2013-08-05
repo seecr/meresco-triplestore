@@ -40,7 +40,7 @@ import org.openrdf.rio.RDFParseException;
 
 
 public interface TripleStore {
-    void addRDF(String identifier, String body) throws RDFParseException;
+    void add(String identifier, String body) throws RDFParseException;
     void addTriple(String tripleData);
 
     void delete(String identifier);
@@ -59,6 +59,6 @@ public interface TripleStore {
 
     void importTrig(String trig);
 
-    void undoCommit();
+    long size();
 }
 

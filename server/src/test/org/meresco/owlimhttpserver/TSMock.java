@@ -42,7 +42,7 @@ import org.openrdf.repository.RepositoryResult;
 public class TSMock implements TripleStore {
     public List<String> actions = new ArrayList<String>();
 
-    public void addRDF(String identifier, String data) {
+    public void add(String identifier, String data) {
         actions.add("add:" + identifier + "|" + data);
     }
 
@@ -98,4 +98,10 @@ public class TSMock implements TripleStore {
         namespaces.add(new NamespaceImpl("rdfs", "http://www.w3.org/2000/01/rdf-schema#"));
         return namespaces;
     }
+
+	@Override
+	public long size() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 }

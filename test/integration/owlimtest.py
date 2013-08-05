@@ -33,6 +33,7 @@ from urllib2 import urlopen, Request
 from signal import SIGKILL
 from time import time
 from threading import Thread
+from socket import error as socketError
 
 from weightless.core import compose
 
@@ -240,7 +241,7 @@ class OwlimTest(IntegrationTestCase):
         json = loads(body)
         self.assertEquals(1, len(json['results']['bindings']))
 
-        system("chmod 0555 %s" % self.owlimDataDir)
+        system("chmod u-w %s" % self.owlimDataDir) #make owlim's dir inaccessible to force failure
         try:
             header, body = postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
             <rdf:Description>
@@ -249,17 +250,14 @@ class OwlimTest(IntegrationTestCase):
         </rdf:RDF>""", parse=False)
             self.assertTrue("500" in header, header)
         finally:
-            system("chmod 0755 %s" % self.owlimDataDir)
+            system("chmod u+w %s" % self.owlimDataDir)
+
+        try:
+            headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}'}, parse=False)
+            self.fail()
+        except socketError:
+            pass
         self.startOwlimServer()
-
-        headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore"}'}, parse=False)
-        json = loads(body)
-        self.assertEquals(1, len(json['results']['bindings']))
-
-
-        headers, body = getRequest(self.owlimPort, "/query", arguments={'query': 'SELECT ?x WHERE {?x ?y "uri:testFailingCommitKillsTripleStore2"}'}, parse=False)
-        json = loads(body)
-        self.assertEquals(1, len(json['results']['bindings']))
 
     def testAcceptHeaders(self):
         postRequest(self.owlimPort, "/add?identifier=uri:record", """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">

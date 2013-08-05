@@ -72,30 +72,30 @@ import org.openrdf.rio.RDFParseException;
 
 
 public class OwlimTripleStore implements TripleStore {
-    File dir;
+    File directory;
     SailRepository repository;
 
     OwlimTripleStore() {}
 
     public OwlimTripleStore(File directory, String storageName) {
-        dir = directory;
+    	this.directory = directory;
         SailImpl owlimSail = new SailImpl();
         repository = new SailRepository(owlimSail);
         owlimSail.setParameter(Repository.PARAM_STORAGE_FOLDER, storageName);
         owlimSail.setParameter("ruleset", "empty");
+        repository.setDataDir(directory);
         startup();
     }
 
     public void startup() {
         try {
-            repository.setDataDir(dir);
             repository.initialize();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public void addRDF(String identifier, String rdfData) throws RDFParseException {
+    public void add(String identifier, String rdfData) throws RDFParseException {
         URI context = new URIImpl(identifier);
         StringReader reader = new StringReader(rdfData);
         RepositoryConnection conn = null;
@@ -275,7 +275,7 @@ public class OwlimTripleStore implements TripleStore {
         RDFFormat format = RDFFormat.TRIG;
         try {
             conn = repository.getConnection();
-            File backupDir = new File(dir, "backups");
+            File backupDir = new File(directory, "backups");
             backupDir.mkdirs();
             File exportFile = new File(backupDir, "backup-" + identifier + ".trig.gz");
             writer = new GZIPOutputStream(new BufferedOutputStream(new FileOutputStream(exportFile)));

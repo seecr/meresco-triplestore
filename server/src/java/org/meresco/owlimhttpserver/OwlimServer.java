@@ -39,9 +39,6 @@ import org.apache.commons.cli.MissingOptionException;
 
 public class OwlimServer {
     public static void main(String[] args) throws Exception {
-        Integer port;
-        String storeLocation;
-        String storeName;
         Option option;
 
         Options options = new Options();
@@ -64,6 +61,10 @@ public class OwlimServer {
         option.setRequired(true);
         options.addOption(option);
 
+        option = new Option(null, "disableAutoCommit", false, "Use transactionLog");
+        option.setType(Boolean.class);
+        options.addOption(option);
+
         PosixParser parser = new PosixParser();
         CommandLine commandLine = null;
         try {
@@ -74,22 +75,24 @@ public class OwlimServer {
             System.exit(1);
         }
 
-        port = new Integer(commandLine.getOptionValue("p"));
-        storeLocation = commandLine.getOptionValue("d");
-        storeName = commandLine.getOptionValue("n");
+        Integer port = new Integer(commandLine.getOptionValue("p"));
+        String storeLocation = commandLine.getOptionValue("d");
+        String storeName = commandLine.getOptionValue("n");
+        Boolean autoCommit = ! commandLine.hasOption("disableAutoCommit");
 
         if (Charset.defaultCharset() != Charset.forName("UTF-8")) {
         	System.err.println("file.encoding must be UTF-8.");
             System.exit(1);
         }
 
-        OwlimTripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName);
-        TransactionLog transactionLog = new TransactionLog(tripleStore, new File(storeLocation));
-        transactionLog.init();
-        OwlimHttpHandler handler = new OwlimHttpHandler(transactionLog, tripleStore);
+        TripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName);
+        if (autoCommit) {
+        	tripleStore = new TripleStoreTx(tripleStore, new File(storeLocation));
+        }
+        OwlimHttpHandler handler = new OwlimHttpHandler(tripleStore);
         OwlimHttpServer httpServer = new OwlimHttpServer(port, 15);
 
-        registerShutdownHandler(tripleStore, transactionLog);
+        registerShutdownHandler(tripleStore);
 
         System.out.println("Triplestore started with " + String.valueOf(tripleStore.size()) + " statements");
         System.out.flush();
@@ -98,7 +101,7 @@ public class OwlimServer {
         httpServer.start();
     }
 
-    static void registerShutdownHandler(final TripleStore tripleStore, final TransactionLog transactionLog) {
+    static void registerShutdownHandler(final TripleStore tripleStore) {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run()
@@ -106,7 +109,6 @@ public class OwlimServer {
                 System.out.println("Shutting down triplestore. Please wait...");
                 try {
                     tripleStore.shutdown();
-                    transactionLog.clear();
                     System.out.println("Shutdown completed.");
                     System.out.flush();
                 } catch (Exception e) {

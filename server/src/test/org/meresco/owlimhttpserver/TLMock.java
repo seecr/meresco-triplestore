@@ -32,7 +32,7 @@ import org.openrdf.model.URI;
 import org.openrdf.model.Resource;
 import org.openrdf.model.Value;
 
-public class TLMock extends TransactionLog {
+public class TLMock extends TripleStoreTx {
     public List<String> actions = new ArrayList<String>();
 
     public void add(String identifier, String data) {

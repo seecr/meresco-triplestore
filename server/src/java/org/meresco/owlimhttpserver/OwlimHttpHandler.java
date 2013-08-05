@@ -40,6 +40,7 @@ import java.io.BufferedWriter;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.concurrent.ExecutorService;
 
 import java.net.URI;
 
@@ -56,13 +57,11 @@ import org.openrdf.query.MalformedQueryException;
 
 
 public class OwlimHttpHandler implements HttpHandler {
-    TransactionLog transactionLog;
     TripleStore tripleStore;
     RdfValidator validator;
     List<String> allowed_contenttypes;
 
-    public OwlimHttpHandler(TransactionLog transactionLog, TripleStore tripleStore) {
-        this.transactionLog = transactionLog;
+    public OwlimHttpHandler(TripleStore tripleStore) {
         this.tripleStore = tripleStore;
         this.validator = new RdfValidator();
     }
@@ -187,7 +186,9 @@ public class OwlimHttpHandler implements HttpHandler {
             e.printStackTrace();
         	exchange.sendResponseHeaders(500, 0);
         	_writeResponse(e.getMessage(), outputStream);
-        	throw e;
+            exchange.getHttpContext().getServer().stop(0);
+            ((ExecutorService) exchange.getHttpContext().getServer().getExecutor()).shutdownNow();
+            return;
         } finally {
             exchange.close();
         }
@@ -205,26 +206,26 @@ public class OwlimHttpHandler implements HttpHandler {
 
     public synchronized void updateRDF(QueryParameters params, String httpBody) throws RDFParseException {
         String identifier = params.singleValue("identifier");
-        transactionLog.delete(identifier);
-        transactionLog.add(identifier, httpBody);
+        this.tripleStore.delete(identifier);
+        this.tripleStore.add(identifier, httpBody);
     }
 
     public synchronized void addRDF(QueryParameters params, String httpBody) throws RDFParseException {
         String identifier = params.singleValue("identifier");
-        transactionLog.add(identifier, httpBody);
+        this.tripleStore.add(identifier, httpBody);
     }
 
     public synchronized void addTriple(String httpBody) {
-        transactionLog.addTriple(httpBody);
+    	this.tripleStore.addTriple(httpBody);
     }
 
     public synchronized void deleteRDF(QueryParameters params) {
         String identifier = params.singleValue("identifier");
-        transactionLog.delete(identifier);
+        this.tripleStore.delete(identifier);
     }
 
     public synchronized void removeTriple(String httpBody) {
-        transactionLog.removeTriple(httpBody);
+    	this.tripleStore.removeTriple(httpBody);
     }
 
     public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
@@ -232,7 +233,7 @@ public class OwlimHttpHandler implements HttpHandler {
         if (query == null) {
             return "";
         }
-        return tripleStore.executeQuery(query, resultFormat);
+        return this.tripleStore.executeQuery(query, resultFormat);
     }
 
     public void validateRDF(QueryParameters params, String httpBody) throws RDFParseException {
@@ -241,29 +242,11 @@ public class OwlimHttpHandler implements HttpHandler {
 
     public void export(QueryParameters params) {
         String identifier = params.singleValue("identifier");
-        tripleStore.export(identifier);
+        this.tripleStore.export(identifier);
     }
 
     public synchronized void importTrig(String trig) {
-        tripleStore.importTrig(trig);
-        restartTripleStore();
-    }
-
-    private void restartTripleStore() {
-        System.out.println("Restarting triplestore. Please wait...");
-        try {
-            tripleStore.shutdown();
-            transactionLog.clear();
-            tripleStore.startup();
-            System.out.println("Restart completed.");
-            System.out.flush();
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.err.flush();
-            System.out.println("Restart failed.");
-            System.out.flush();
-            throw new RuntimeException(e);
-        }
+    	this.tripleStore.importTrig(trig);
     }
 
     public String sparqlForm(QueryParameters params) {
@@ -272,7 +255,7 @@ public class OwlimHttpHandler implements HttpHandler {
             query = params.singleValue("query");
         } else {
             query = "";
-            for (Namespace namespace : tripleStore.getNamespaces()) {
+            for (Namespace namespace : this.tripleStore.getNamespaces()) {
                 query += "PREFIX " + namespace.getPrefix() + ": <" + namespace.getName() + ">\n";
             }
             query += "\nSELECT ?subject ?predicate ?object\n";

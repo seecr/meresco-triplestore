@@ -30,19 +30,25 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
+
+import org.openrdf.model.Namespace;
+import org.openrdf.model.Statement;
 import org.openrdf.model.Value;
 import org.openrdf.model.URI;
 import org.openrdf.model.Resource;
+import org.openrdf.query.MalformedQueryException;
+import org.openrdf.query.resultio.TupleQueryResultFormat;
+import org.openrdf.repository.RepositoryResult;
 import org.openrdf.rio.RDFParseException;
 
 
-public class TransactionLog {
+public class TripleStoreTx implements TripleStore {
     TripleStore tripleStore;
     File transactionLogDir;
     File transactionLogFilePath;
@@ -57,14 +63,14 @@ public class TransactionLog {
     private final static String CURRENT_TRANSACTIONLOG_NAME = "current";
     private static final int BUFFER_SIZE = 1024*1024;
 
-    TransactionLog() {}
+    TripleStoreTx() {}
 
-    public TransactionLog(TripleStore tripleStore, File baseDir, double maxSizeInMb) throws IOException {
+    public TripleStoreTx(TripleStore tripleStore, File baseDir, double maxSizeInMb) throws Exception {
         this(tripleStore, baseDir);
         this.maxSize = (long) (maxSizeInMb * (double)1024 * (double)1024);
     }
 
-    public TransactionLog(TripleStore tripleStore, File baseDir) throws IOException {
+    public TripleStoreTx(TripleStore tripleStore, File baseDir) throws Exception {
         this.tripleStore = tripleStore;
         this.transactionLogDir = new File(baseDir, "transactionLog");
         this.transactionLogDir.mkdirs();
@@ -74,6 +80,7 @@ public class TransactionLog {
         clearTempLogDir();
         this.committedFilePath = new File(baseDir, "committed");
         this.committingFilePath = new File(baseDir, "committing");
+        this.init();
         this.maxSize = (long) (500 * (double)1024 * (double)1024);
     }
 
@@ -85,24 +92,38 @@ public class TransactionLog {
         this.transactionLog = new BufferedWriter(new FileWriter(this.transactionLogFilePath), BUFFER_SIZE);
     }
 
-    public void add(String identifier, String filedata) throws RDFParseException {
-        this.tripleStore.addRDF(identifier, filedata);
-        writeTransactionItem("addRDF", identifier, filedata);
+    @Override
+	public void add(String identifier, String filedata) throws RDFParseException {
+        this.tripleStore.add(identifier, filedata);
+        writeTransactionItem("add", identifier, filedata);
     }
 
-    public void addTriple(String filedata) {
+    @Override
+	public void addTriple(String filedata) {
         this.tripleStore.addTriple(filedata);
         writeTransactionItem("addTriple", "", filedata);
     }
 
-    public void removeTriple(String filedata) {
+    @Override
+	public void removeTriple(String filedata) {
         this.tripleStore.removeTriple(filedata);
         writeTransactionItem("removeTriple", "", filedata);
     }
 
-    public void delete(String identifier) {
+    @Override
+	public void delete(String identifier) {
         this.tripleStore.delete(identifier);
         writeTransactionItem("delete", identifier, "");
+    }
+    
+    @Override
+	public void importTrig(String trig) {
+		this.tripleStore.importTrig(trig);
+		restartTripleStore();
+	}
+    
+    public long size() {
+    	return this.tripleStore.size();
     }
 
     void writeTransactionItem(String action, String identifier, String filedata) {
@@ -110,7 +131,6 @@ public class TransactionLog {
         try {
             commit(tsItem);
         } catch (Exception e) {
-        	rollback();
         	System.err.println(e);
             throw new Error("Commit on transactionLog failed.", e);
         }
@@ -156,10 +176,6 @@ public class TransactionLog {
 			throw new IOException("File could not be deleted.");
 		}
 	}
-
-    void rollback() {
-        this.tripleStore.undoCommit();
-    }
 
     private void renameFileTo(File from, File to) throws IOException {
 		if (!from.renameTo(to)) {
@@ -292,8 +308,8 @@ public class TransactionLog {
         String identifier = item.getIdentifier();
         String data = item.getFiledata();
         try {
-            if (action.equals("addRDF")) {
-                this.tripleStore.addRDF(identifier, data);
+            if (action.equals("add")) {
+                this.tripleStore.add(identifier, data);
             } else if (action.equals("delete")) {
                 this.tripleStore.delete(identifier);
             } else if (action.equals("addTriple")) {
@@ -324,4 +340,52 @@ public class TransactionLog {
     	}
     	System.out.flush();
     }
+    
+    private void restartTripleStore() {
+        System.out.println("Restarting triplestore. Please wait...");
+        try {
+        	this.tripleStore.shutdown();
+            clear();
+            this.tripleStore.startup();
+            System.out.println("Restart completed.");
+            System.out.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.flush();
+            System.out.println("Restart failed.");
+            System.out.flush();
+            throw new RuntimeException(e);
+        }
+    }
+
+	@Override
+	public String executeQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException {
+		return this.tripleStore.executeQuery(sparQL, format);
+	}
+
+	@Override
+	public RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj) {
+		return this.tripleStore.getStatements(subj, pred, obj);
+	}
+
+	@Override
+	public List<Namespace> getNamespaces() {
+		return this.tripleStore.getNamespaces();
+	}
+
+	@Override
+	public void shutdown() throws Exception {
+		this.tripleStore.shutdown();
+		this.clear();
+	}
+
+	@Override
+	public void startup() {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public void export(String identifier) {
+		this.tripleStore.export(identifier);
+	}
 }
