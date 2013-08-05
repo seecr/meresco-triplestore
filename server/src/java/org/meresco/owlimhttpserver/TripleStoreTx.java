@@ -52,8 +52,6 @@ public class TripleStoreTx implements TripleStore {
     TripleStore tripleStore;
     File transactionLogDir;
     File transactionLogFilePath;
-    @Deprecated
-    File tempLogDir;
     File committedFilePath;
     File committingFilePath;
     BufferedWriter transactionLog;
@@ -76,8 +74,6 @@ public class TripleStoreTx implements TripleStore {
         this.transactionLogDir.mkdirs();
         this.transactionLogFilePath = new File(this.transactionLogDir, CURRENT_TRANSACTIONLOG_NAME);
         System.out.println("Transaction log in " + this.transactionLogFilePath);
-        this.tempLogDir = new File(baseDir, "tempLog");
-        clearTempLogDir();
         this.committedFilePath = new File(baseDir, "committed");
         this.committingFilePath = new File(baseDir, "committing");
         this.init();
@@ -218,17 +214,6 @@ public class TripleStoreTx implements TripleStore {
 
     void clear(File transactionItemFile) throws IOException {
         deleteFile(transactionItemFile);
-    }
-
-    @Deprecated
-    void clearTempLogDir() throws IOException {
-    	if (!this.tempLogDir.exists()) {
-    		return;
-    	}
-        for (String filename: this.tempLogDir.list()) {
-            deleteFile(new File(this.tempLogDir, filename));
-        }
-        deleteFile(this.tempLogDir);
     }
 
     void persistTripleStore(File transactionFile) throws Exception {

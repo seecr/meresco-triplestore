@@ -530,15 +530,6 @@ public class TripleStoreTxTest {
     }
 
     @Test
-    public void testClearTempLogDir() throws Exception {
-    	transactionLog.tempLogDir.mkdir();
-    	Utils.write(new File(transactionLog.tempLogDir, "tempfile"), "a prepared file");
-        assertEquals(1, transactionLog.tempLogDir.list().length);
-        transactionLog = new TripleStoreTx(tsMock, tempdir);
-        assertFalse(transactionLog.tempLogDir.exists());
-    }
-
-    @Test
     public void testCommitCreatesCommittingFile() throws Exception {
     	TransactionItem tsItem = new TransactionItem("add", "record", "ignored");
         transactionLog.transactionLog.close();
