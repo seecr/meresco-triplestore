@@ -37,6 +37,7 @@ import java.io.PrintStream;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import org.junit.Test;
+import org.junit.Ignore;
 import org.junit.Before;
 import org.junit.After;
 import static org.junit.Assert.*;
@@ -156,7 +157,7 @@ public class OwlimTripleStoreTest {
         assertEquals(2, statements.asList().size());
     }
 
-    @Test
+    @Ignore @Test
     public void testShutdownFails() throws Exception {
         File tsPath = new File(tempdir, "anotherOne");
         ts = new OwlimTripleStore(tempdir, "anotherOne");
