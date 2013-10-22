@@ -182,8 +182,6 @@ public class OwlimTripleStore implements TripleStore {
     }
 
     public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
-        System.out.println("executeQuery");
-        System.out.flush();
         RepositoryConnection conn = null;
         TupleQuery tupleQuery = null;
         TupleQueryResult tupleQueryResult = null;
@@ -249,16 +247,10 @@ public class OwlimTripleStore implements TripleStore {
     public void shutdown() throws Exception {
     	try {
             repository.shutDown();
-            System.out.println("shutted down");
-            System.out.flush();
         } catch (RepositoryException e) {
-            System.out.println("Stacktrace1");
-            System.out.flush();
             e.printStackTrace();
             throw e;
         } catch (Exception e) {
-            System.out.println("Stacktrace1");
-            System.out.flush();
             e.printStackTrace();
             throw e;
         }
