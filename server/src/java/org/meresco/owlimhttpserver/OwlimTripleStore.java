@@ -101,8 +101,8 @@ public class OwlimTripleStore implements TripleStore {
         RepositoryConnection conn = null;
         try {
             conn = repository.getConnection();
-            conn.setAutoCommit(false);
             conn.add(reader, "", RDFFormat.RDFXML, context);
+            conn.commit();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
@@ -126,8 +126,8 @@ public class OwlimTripleStore implements TripleStore {
         }
         try {
             conn = repository.getConnection();
-            conn.setAutoCommit(false);
             conn.add(new URIImpl(values[0]), new URIImpl(values[1]), object);
+            conn.commit();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         } finally {
@@ -140,8 +140,8 @@ public class OwlimTripleStore implements TripleStore {
         RepositoryConnection conn = null;
         try {
             conn = repository.getConnection();
-            conn.setAutoCommit(false);
             conn.clear(context);
+            conn.commit();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         } finally {
@@ -160,8 +160,8 @@ public class OwlimTripleStore implements TripleStore {
         }
         try {
             conn = repository.getConnection();
-            conn.setAutoCommit(false);
             conn.remove(new URIImpl(values[0]), new URIImpl(values[1]), object);
+            conn.commit();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         } finally {
@@ -182,6 +182,8 @@ public class OwlimTripleStore implements TripleStore {
     }
 
     public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
+        System.out.println("executeQuery");
+        System.out.flush();
         RepositoryConnection conn = null;
         TupleQuery tupleQuery = null;
         TupleQueryResult tupleQueryResult = null;
@@ -201,12 +203,12 @@ public class OwlimTripleStore implements TripleStore {
                 throw new RuntimeException(e);
             } catch (TupleQueryResultHandlerException e) {
                 throw new RuntimeException(e);
+            } finally {
+                close(conn);
             }
             return result;
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
-        } finally {
-            close(conn);
         }
     }
 
@@ -245,26 +247,19 @@ public class OwlimTripleStore implements TripleStore {
     }
 
     public void shutdown() throws Exception {
-        PrintStream originalErrStream = System.err;
-        OutputStream os = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(os);
-        try {
-            System.setErr(ps);
-            try {
-                repository.shutDown();
-                if (!os.toString().equals("")) {
-                    throw new RepositoryException(os.toString());
-                }
-            }
-            finally {
-                System.setErr(originalErrStream);
-            }
+    	try {
+            repository.shutDown();
+            System.out.println("shutted down");
+            System.out.flush();
         } catch (RepositoryException e) {
+            System.out.println("Stacktrace1");
+            System.out.flush();
             e.printStackTrace();
             throw e;
         } catch (Exception e) {
+            System.out.println("Stacktrace1");
+            System.out.flush();
             e.printStackTrace();
-            System.out.println(os.toString());
             throw e;
         }
     }
