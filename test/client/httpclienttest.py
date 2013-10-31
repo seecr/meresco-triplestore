@@ -112,20 +112,11 @@ class HttpClientTest(SeecrTestCase):
 
         self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> \"object\" }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="object")))
 
-
     def testExecuteQuery(self):
         client = HttpClient(host="localhost", port=9999)
         gen = compose(client.executeQuery('SPARQL'))
         result = self._resultFromServerResponse(gen, RESULT_JSON)
         self.assertEquals(PARSED_RESULT_JSON, result)
-
-    def testExecuteQueryWithQueryResultFormat(self):
-        client = HttpClient(host="localhost", port=9999)
-        gen = compose(client.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
-        suspend = gen.next()
-        self.assertEquals(Suspend, type(suspend))
-        httpgetHeaders = suspend._doNext.__self__.gi_frame.f_locals['headers']
-        self.assertEquals({'Accept': 'application/sparql-results+xml'}, httpgetHeaders)
 
     def testDontParseIfNotJSON(self):
         SPARQL_XML = """<sparql xmlns='http://www.w3.org/2005/sparql-results#'>
