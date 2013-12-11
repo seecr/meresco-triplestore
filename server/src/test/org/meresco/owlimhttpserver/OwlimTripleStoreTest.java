@@ -63,13 +63,14 @@ public class OwlimTripleStoreTest {
 
     @After
     public void tearDown() throws Exception {
+        ts.shutdown();
         deleteDirectory(tempdir);
     }
 
     @Test
     public void testOne() {
         assertEquals(tempdir.getAbsolutePath(), ts.repository.getDataDir().getAbsolutePath());
-        assertTrue(new File(new File(tempdir, "storageName"), "entities").isFile());
+        assertTrue(new File(tempdir, "entities").isFile());
     }
 
     static final String rdf = "<?xml version='1.0'?>" +
@@ -183,8 +184,6 @@ public class OwlimTripleStoreTest {
 
     @Test
     public void testExport() throws Exception {
-        ts = new OwlimTripleStore(tempdir, "storageName");
-        ts.startup();
         ts.addTriple("uri:subj|uri:pred|uri:obj");
         ts.export("identifier");
         ts.shutdown();

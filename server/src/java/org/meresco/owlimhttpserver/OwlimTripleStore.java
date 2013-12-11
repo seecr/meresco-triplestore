@@ -70,6 +70,9 @@ import org.openrdf.rio.RDFWriter;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParseException;
 
+import org.openrdf.sail.memory.MemoryStore;
+import org.openrdf.sail.nativerdf.NativeStore;
+
 
 public class OwlimTripleStore implements TripleStore {
     File directory;
@@ -79,11 +82,11 @@ public class OwlimTripleStore implements TripleStore {
 
     public OwlimTripleStore(File directory, String storageName) {
     	this.directory = directory;
-        SailImpl owlimSail = new SailImpl();
+        MemoryStore owlimSail = new MemoryStore(directory);
         repository = new SailRepository(owlimSail);
-        owlimSail.setParameter(Repository.PARAM_STORAGE_FOLDER, storageName);
-        owlimSail.setParameter("ruleset", "empty");
-        repository.setDataDir(directory);
+        // owlimSail.setParameter(Repository.PARAM_STORAGE_FOLDER, storageName);
+        // owlimSail.setParameter("ruleset", "empty");
+        // repository.setDataDir(directory);
         startup();
     }
 
