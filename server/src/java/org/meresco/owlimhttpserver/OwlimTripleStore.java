@@ -82,8 +82,9 @@ public class OwlimTripleStore implements TripleStore {
 
     public OwlimTripleStore(File directory, String storageName) {
     	this.directory = directory;
-        MemoryStore owlimSail = new MemoryStore(directory);
-        repository = new SailRepository(owlimSail);
+        MemoryStore sail = new MemoryStore(directory);
+        sail.setSyncDelay(60000L);
+        repository = new SailRepository(sail);
         // owlimSail.setParameter(Repository.PARAM_STORAGE_FOLDER, storageName);
         // owlimSail.setParameter("ruleset", "empty");
         // repository.setDataDir(directory);
