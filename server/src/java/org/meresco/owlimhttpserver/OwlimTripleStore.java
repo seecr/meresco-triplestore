@@ -38,9 +38,6 @@ import java.io.BufferedOutputStream;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
-import com.ontotext.trree.owlim_ext.Repository;
-import com.ontotext.trree.owlim_ext.SailImpl;
-
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.query.resultio.QueryResultIO;
 
@@ -60,29 +57,27 @@ import org.openrdf.model.URI;
 import org.openrdf.model.Value;
 import org.openrdf.model.Namespace;
 
+import org.openrdf.repository.Repository;
 import org.openrdf.repository.RepositoryConnection;
 import org.openrdf.repository.RepositoryException;
 import org.openrdf.repository.RepositoryResult;
-import org.openrdf.repository.sail.SailRepository;
 
 import org.openrdf.rio.Rio;
 import org.openrdf.rio.RDFWriter;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParseException;
 
+import virtuoso.sesame2.driver.VirtuosoRepository;
 
 public class OwlimTripleStore implements TripleStore {
     File directory;
-    SailRepository repository;
+    VirtuosoRepository repository;
 
     OwlimTripleStore() {}
 
     public OwlimTripleStore(File directory, String storageName) {
     	this.directory = directory;
-        SailImpl owlimSail = new SailImpl();
-        repository = new SailRepository(owlimSail);
-        owlimSail.setParameter(Repository.PARAM_STORAGE_FOLDER, storageName);
-        owlimSail.setParameter("ruleset", "empty");
+        repository = new VirtuosoRepository("jdbc:virtuoso://localhost:1111","dba","dba");
         repository.setDataDir(directory);
         startup();
     }
