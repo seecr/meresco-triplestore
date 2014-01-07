@@ -1,30 +1,30 @@
 /* begin license *
- * 
+ *
  * The Meresco Owlim package consists out of a HTTP server written in Java that
  * provides access to an Owlim Triple store, as well as python bindings to
- * communicate as a client with the server. 
- * 
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
- * 
+ * communicate as a client with the server.
+ *
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
+ *
  * This file is part of "Meresco Owlim"
- * 
+ *
  * "Meresco Owlim" is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * "Meresco Owlim" is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with "Meresco Owlim"; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- * 
+ *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -48,8 +48,8 @@ import org.openrdf.repository.RepositoryResult;
 import org.openrdf.rio.RDFParseException;
 
 
-public class TripleStoreTx implements TripleStore {
-    TripleStore tripleStore;
+public class TransactionLog implements Triplestore {
+    Triplestore tripleStore;
     File transactionLogDir;
     File transactionLogFilePath;
     File committedFilePath;
@@ -61,14 +61,14 @@ public class TripleStoreTx implements TripleStore {
     private final static String CURRENT_TRANSACTIONLOG_NAME = "current";
     private static final int BUFFER_SIZE = 1024*1024;
 
-    TripleStoreTx() {}
+    TransactionLog() {}
 
-    public TripleStoreTx(TripleStore tripleStore, File baseDir, double maxSizeInMb) throws Exception {
+    public TransactionLog(Triplestore tripleStore, File baseDir, double maxSizeInMb) throws Exception {
         this(tripleStore, baseDir);
         this.maxSize = (long) (maxSizeInMb * (double)1024 * (double)1024);
     }
 
-    public TripleStoreTx(TripleStore tripleStore, File baseDir) throws Exception {
+    public TransactionLog(Triplestore tripleStore, File baseDir) throws Exception {
         this.tripleStore = tripleStore;
         this.transactionLogDir = new File(baseDir, "transactionLog");
         this.transactionLogDir.mkdirs();
@@ -111,13 +111,13 @@ public class TripleStoreTx implements TripleStore {
         this.tripleStore.delete(identifier);
         writeTransactionItem("delete", identifier, "");
     }
-    
+
     @Override
 	public void importTrig(String trig) {
 		this.tripleStore.importTrig(trig);
 		restartTripleStore();
 	}
-    
+
     public long size() {
     	return this.tripleStore.size();
     }
@@ -141,7 +141,7 @@ public class TripleStoreTx implements TripleStore {
             long newFilename = getTime();
             ArrayList<String> sortedTsFiles = getTransactionItemFiles();
             long lastAddedTimeStamp = sortedTsFiles.size() > 1 ? Long.valueOf(sortedTsFiles.get(sortedTsFiles.size() - 2)) : 0;
-            if (newFilename <= lastAddedTimeStamp) { // in theory: only small differences by ntp 
+            if (newFilename <= lastAddedTimeStamp) { // in theory: only small differences by ntp
                 return;
             }
             try {
@@ -325,7 +325,7 @@ public class TripleStoreTx implements TripleStore {
     	}
     	System.out.flush();
     }
-    
+
     private void restartTripleStore() {
         System.out.println("Restarting triplestore. Please wait...");
         try {

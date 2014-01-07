@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
  * This file is part of "Meresco Owlim"
@@ -25,7 +25,7 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import java.io.File;
 import java.nio.charset.Charset;
@@ -37,7 +37,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.MissingOptionException;
 
-public class OwlimServer {
+public class Server {
     public static void main(String[] args) throws Exception {
         Option option;
 
@@ -85,12 +85,12 @@ public class OwlimServer {
             System.exit(1);
         }
 
-        TripleStore tripleStore = new OwlimTripleStore(new File(storeLocation), storeName);
+        Triplestore tripleStore = new OwlimTriplestore(new File(storeLocation), storeName);
         if (!disableTransactionLog) {
-        	tripleStore = new TripleStoreTx(tripleStore, new File(storeLocation));
+        	tripleStore = new TransactionLog(tripleStore, new File(storeLocation));
         }
-        OwlimHttpHandler handler = new OwlimHttpHandler(tripleStore);
-        OwlimHttpServer httpServer = new OwlimHttpServer(port, 15);
+        HttpHandler handler = new HttpHandler(tripleStore);
+        HttpServer httpServer = new HttpServer(port, 15);
 
         registerShutdownHandler(tripleStore, httpServer);
 
@@ -98,10 +98,10 @@ public class OwlimServer {
         System.out.flush();
 
         httpServer.setHandler(handler);
-        httpServer.start();   
+        httpServer.start();
     }
 
-    static void registerShutdownHandler(final TripleStore tripleStore, final OwlimHttpServer httpServer) {
+    static void registerShutdownHandler(final Triplestore tripleStore, final HttpServer httpServer) {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run()

@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
  * This file is part of "Meresco Owlim"
@@ -25,7 +25,7 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -51,14 +51,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 
-import static org.meresco.owlimhttpserver.Utils.parseQS;
+import static org.meresco.triplestore.Utils.parseQS;
+
 import org.openrdf.rio.RDFParseException;
 
 
-public class OwlimHttpHandlerTest {
+public class HttpHandlerTest {
     @Test public void testAddRDF() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
         String queryString = "identifier=identifier";
         String httpBody = "<rdf/>";
         h.addRDF(parseQS(queryString), httpBody);
@@ -67,7 +68,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testAddTriple() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
         String httpBody = "uri:subj|uri:pred|uri:obj";
         h.addTriple(httpBody);
         assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|uri:obj"), tsmock.actions);
@@ -75,7 +76,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testAddTripleWithStringAsObject() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
         String httpBody = "uri:subj|uri:pred|string";
         h.addTriple(httpBody);
         assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|string"), tsmock.actions);
@@ -83,7 +84,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testRemoveTriple() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
         String httpBody = "uri:subj|uri:pred|string";
         h.removeTriple(httpBody);
         assertEquals(Arrays.asList("removeTriple:uri:subj|uri:pred|string"), tsmock.actions);
@@ -91,7 +92,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testDeleteRDF() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
         String queryString = "identifier=identifier";
         h.deleteRDF(parseQS(queryString));
         assertEquals(Arrays.asList("delete:identifier"), tsmock.actions);
@@ -99,7 +100,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testUpdateRDF() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
         String httpBody = "<rdf/>";
         h.updateRDF(parseQS("identifier=id0"), httpBody);
         assertEquals(Arrays.asList(
@@ -120,7 +121,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testSparQL() throws TransactionLogException, MalformedQueryException {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
         String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D";
         String result = h.executeQuery(parseQS(queryString), TupleQueryResultFormat.JSON);
 
@@ -129,7 +130,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void testAddDispatch() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+        HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/add?id=IDENTIFIER", "<rdf/>");
         h.handle(exchange);
@@ -143,7 +144,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void testUpdateDispatch() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+        HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/update?id=IDENTIFIER", "<rdf/>");
         h.handle(exchange);
@@ -156,7 +157,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void testDeleteDispatch() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+        HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/delete?id=IDENTIFIER", "");
         h.handle(exchange);
@@ -168,7 +169,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void testQueryDispatch() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+        HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
         h.handle(exchange);
@@ -182,7 +183,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void testQueryWithResultFormatDispatch() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+        HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/query?format=SPARQL&query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
         h.handle(exchange);
@@ -198,7 +199,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testValidate() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
         String queryString = "identifier=identifier";
         String notRDF = "<notrdf/>";
         try {
@@ -238,7 +239,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void testSparqlDispatch() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+        HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/sparql", "");
         h.handle(exchange);
@@ -249,7 +250,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void testSparqlWithQueryParametersDispatch() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+        HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/sparql?query=x", "");
         h.handle(exchange);
@@ -261,7 +262,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void testValidateDispatch() throws Exception {
-        OwlimHttpHandler h = new OwlimHttpHandler(null);
+        HttpHandler h = new HttpHandler(null);
         HttpExchangeMock exchange = new HttpExchangeMock("/validate?identifier=IDENTIFIER", "<rdf:Description xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf\" about=\"notanuri\"/>");
         h.handle(exchange);
         assertEquals(200, exchange.responseCode);
@@ -274,7 +275,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void test404ForOtherRequests() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+        HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/", "");
         h.handle(exchange);
@@ -283,7 +284,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void test500ForExceptions() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new Exception("dummy test exception"));
+        HttpHandlerMock h = new HttpHandlerMock(new Exception("dummy test exception"));
 
         HttpExchangeMock exchange = new HttpExchangeMock("/add", "");
 
@@ -304,7 +305,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void test400ForMalformedQueryExceptions() throws IOException {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock(new MalformedQueryException("dummy test exception"));
+        HttpHandlerMock h = new HttpHandlerMock(new MalformedQueryException("dummy test exception"));
         HttpExchangeMock exchange = new HttpExchangeMock("/query", "");
         h.handle(exchange);
         assertEquals(0, h.actions.size());
@@ -314,7 +315,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testDefaultSparqlForm() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
 
         QueryParameters queryParameters = Utils.parseQS("");
         String sparqlForm = h.sparqlForm(queryParameters);
@@ -329,7 +330,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testSparqlFormWithQueryArgument() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
 
         QueryParameters queryParameters = Utils.parseQS("query=SELECT+%3Fx+WHERE+%7B%7D%0A");
         String sparqlForm = h.sparqlForm(queryParameters);
@@ -339,7 +340,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testContentTypeAccepted() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
 
         Headers inputHeaders = new Headers();
         inputHeaders.add("Accept", "image/jpg");
@@ -352,7 +353,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testContentType() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
 
         Headers inputHeaders = new Headers();
         inputHeaders.add("Accept", "application/xml");
@@ -364,7 +365,7 @@ public class OwlimHttpHandlerTest {
     }
 
     @Test public void testExportDispatch() throws Exception {
-        OwlimHttpHandlerMock h = new OwlimHttpHandlerMock();
+        HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/export?identifier=identifier", "");
         h.handle(exchange);
@@ -377,7 +378,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testExport() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
 
         HttpExchangeMock exchange = new HttpExchangeMock("/export?identifier=identifier", "");
         h.handle(exchange);
@@ -387,7 +388,7 @@ public class OwlimHttpHandlerTest {
 
     @Test public void testImport() throws Exception {
         TSMock tsmock = new TSMock();
-        OwlimHttpHandler h = new OwlimHttpHandler(tsmock);
+        HttpHandler h = new HttpHandler(tsmock);
         String trig = "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> . \n" +
 "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . \n" +
 "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n" +
@@ -403,12 +404,12 @@ public class OwlimHttpHandlerTest {
     }
 
 
-    class OwlimHttpHandlerMock extends OwlimHttpHandler {
+    class HttpHandlerMock extends HttpHandler {
         public List<Object> actions = new ArrayList<Object>();
         private Exception _exception = null;
 
-        public OwlimHttpHandlerMock() { super(null); }
-        public OwlimHttpHandlerMock(Exception e) {
+        public HttpHandlerMock() { super(null); }
+        public HttpHandlerMock(Exception e) {
             super(null);
             _exception = e;
         }

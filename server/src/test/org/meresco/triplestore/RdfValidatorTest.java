@@ -24,7 +24,7 @@
  * 
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 
 import org.junit.Test;

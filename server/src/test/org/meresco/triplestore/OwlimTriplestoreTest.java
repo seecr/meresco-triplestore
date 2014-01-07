@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
  * This file is part of "Meresco Owlim"
@@ -25,7 +25,7 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import java.util.List;
 import java.util.zip.GZIPInputStream;
@@ -42,8 +42,9 @@ import org.junit.Before;
 import org.junit.After;
 import static org.junit.Assert.*;
 
-import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
-import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
+import static org.meresco.triplestore.Utils.createTempDirectory;
+import static org.meresco.triplestore.Utils.deleteDirectory;
+
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
 import org.openrdf.model.Statement;
@@ -51,14 +52,14 @@ import org.openrdf.model.Namespace;
 import org.openrdf.model.impl.URIImpl;
 import org.openrdf.model.impl.LiteralImpl;
 
-public class OwlimTripleStoreTest {
-    OwlimTripleStore ts;
+public class OwlimTriplestoreTest {
+    OwlimTriplestore ts;
     File tempdir;
 
     @Before
     public void setUp() throws Exception {
         tempdir = createTempDirectory();
-        ts = new OwlimTripleStore(tempdir, "storageName");
+        ts = new OwlimTriplestore(tempdir, "storageName");
     }
 
     @After
@@ -152,7 +153,7 @@ public class OwlimTripleStoreTest {
     public void testShutdown() throws Exception {
         ts.add("uri:id0", rdf);
         ts.shutdown();
-        OwlimTripleStore ts = new OwlimTripleStore(tempdir, "storageName");
+        OwlimTriplestore ts = new OwlimTriplestore(tempdir, "storageName");
         RepositoryResult<Statement> statements = ts.getStatements(null, null, null);
         assertEquals(2, statements.asList().size());
     }
@@ -160,7 +161,7 @@ public class OwlimTripleStoreTest {
     @Ignore @Test
     public void testShutdownFails() throws Exception {
         File tsPath = new File(tempdir, "anotherOne");
-        ts = new OwlimTripleStore(tempdir, "anotherOne");
+        ts = new OwlimTriplestore(tempdir, "anotherOne");
         ts.shutdown();
         ts.startup();
         File contextFile = new File(tsPath, "Contexts.ids");
@@ -183,7 +184,7 @@ public class OwlimTripleStoreTest {
 
     @Test
     public void testExport() throws Exception {
-        ts = new OwlimTripleStore(tempdir, "storageName");
+        ts = new OwlimTriplestore(tempdir, "storageName");
         ts.startup();
         ts.addTriple("uri:subj|uri:pred|uri:obj");
         ts.export("identifier");

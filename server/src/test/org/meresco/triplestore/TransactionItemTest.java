@@ -25,7 +25,7 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import java.io.File;
 import org.apache.commons.lang3.StringEscapeUtils;
@@ -35,8 +35,8 @@ import org.junit.Before;
 import org.junit.After;
 import static org.junit.Assert.*;
 
-import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
-import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
+import static org.meresco.triplestore.Utils.createTempDirectory;
+import static org.meresco.triplestore.Utils.deleteDirectory;
 
 public class TransactionItemTest {
     File tempdir;

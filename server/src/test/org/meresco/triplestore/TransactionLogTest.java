@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
  * This file is part of "Meresco Owlim"
@@ -25,7 +25,7 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -48,12 +48,12 @@ import org.junit.After;
 
 import static org.junit.Assert.*;
 
-import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
-import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
+import static org.meresco.triplestore.Utils.createTempDirectory;
+import static org.meresco.triplestore.Utils.deleteDirectory;
 
 
-public class TripleStoreTxTest {
-    TripleStoreTx transactionLog;
+public class TransactionLogTest {
+    TransactionLog transactionLog;
     File tempdir;
     TSMock tsMock;
     PrintStream orig_stdout;
@@ -77,13 +77,13 @@ public class TripleStoreTxTest {
 
     public void setTransactionLog(double maxSizeInMb) throws Exception {
         tsMock = new TSMock();
-        transactionLog = new TripleStoreTx(tsMock, tempdir, maxSizeInMb);
+        transactionLog = new TransactionLog(tsMock, tempdir, maxSizeInMb);
         transactionLog.init();
     }
 
     public void setTransactionLog() throws Exception {
         tsMock = new TSMock();
-        transactionLog = new TripleStoreTx(tsMock, tempdir);
+        transactionLog = new TransactionLog(tsMock, tempdir);
         transactionLog.init();
     }
 
@@ -164,12 +164,12 @@ public class TripleStoreTxTest {
     @Test
     public void testAddTriple() throws Exception {
         final ArrayList<String> calls = new ArrayList<String>();
-        class MyTripleStore extends OwlimTripleStore {
+        class MyTripleStore extends SesameTriplestore {
             public void addTriple(String body) {
                 calls.add("addTriple");
             }
         }
-        TripleStoreTx transactionLog = new TripleStoreTx(new MyTripleStore(), tempdir);
+        TransactionLog transactionLog = new TransactionLog(new MyTripleStore(), tempdir);
         transactionLog.init();
 
         transactionLog.addTriple("uri:subj|uri:pred|uri:subj");
@@ -190,12 +190,12 @@ public class TripleStoreTxTest {
     @Test
     public void testRemoveTriple() throws Exception {
         final ArrayList<String> calls = new ArrayList<String>();
-        class MyTripleStore extends OwlimTripleStore {
+        class MyTripleStore extends SesameTriplestore {
             public void removeTriple(String body) {
                 calls.add("removeTriple");
             }
         }
-        TripleStoreTx transactionLog = new TripleStoreTx(new MyTripleStore(), tempdir);
+        TransactionLog transactionLog = new TransactionLog(new MyTripleStore(), tempdir);
         transactionLog.init();
 
         transactionLog.removeTriple("uri:subj|uri:pred|uri:subj");
@@ -215,12 +215,12 @@ public class TripleStoreTxTest {
 
     @Test
     public void testAddNotWhenFailed() throws Exception {
-        class MyTripleStore extends OwlimTripleStore {
+        class MyTripleStore extends SesameTriplestore {
             public void add(String identifier, String body) {
                 throw new RuntimeException();
             }
         }
-        TripleStoreTx transactionLog = new TripleStoreTx(new MyTripleStore(), tempdir);
+        TransactionLog transactionLog = new TransactionLog(new MyTripleStore(), tempdir);
         try {
             transactionLog.add("record", "<x>ignored</x>");
             fail("Should raise an TransactionLogException");
@@ -232,17 +232,17 @@ public class TripleStoreTxTest {
 
     @Test
     public void testNotAddedToTransactionLogWhenAddFails() throws Exception {
-        class MyTripleStore extends OwlimTripleStore {
+        class MyTripleStore extends SesameTriplestore {
             public void add(String identifier, String body) {
                 throw new RuntimeException();
             }
         }
-        class MyTransactionLog extends TripleStoreTx {
-            public MyTransactionLog(TripleStore tripleStore, File baseDir) throws Exception {
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(Triplestore tripleStore, File baseDir) throws Exception {
                 super(tripleStore, baseDir);
             }
         }
-        TripleStoreTx transactionLog = new MyTransactionLog(new MyTripleStore(), tempdir);
+        TransactionLog transactionLog = new MyTransactionLog(new MyTripleStore(), tempdir);
         try {
             transactionLog.add("record", "data");
             fail("Should raise an Exception");
@@ -252,17 +252,17 @@ public class TripleStoreTxTest {
 
     @Test
     public void testRollbackWhenDeleteFails() throws Exception {
-        class MyTripleStore extends OwlimTripleStore {
+        class MyTripleStore extends SesameTriplestore {
             public void delete(String identifier) {
                 throw new RuntimeException();
             }
         }
-        class MyTransactionLog extends TripleStoreTx {
-            public MyTransactionLog(TripleStore tripleStore, File baseDir) throws Exception {
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(Triplestore tripleStore, File baseDir) throws Exception {
                 super(tripleStore, baseDir);
             }
         }
-        TripleStoreTx transactionLog = new MyTransactionLog(new MyTripleStore(), tempdir);
+        TransactionLog transactionLog = new MyTransactionLog(new MyTripleStore(), tempdir);
         try {
             transactionLog.delete("record");
             fail("Should raise an Exception");
@@ -273,8 +273,8 @@ public class TripleStoreTxTest {
     @Test
     public void testFailingCommit() throws Exception {
         final List<Boolean> committed = new ArrayList<Boolean>();
-        class MyTransactionLog extends TripleStoreTx {
-            public MyTransactionLog(TripleStore tripleStore, File baseDir) throws Exception {
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(Triplestore tripleStore, File baseDir) throws Exception {
                 super(tripleStore, baseDir);
             }
             void commit_do(TransactionItem tsItem) throws IOException {
@@ -334,7 +334,7 @@ public class TripleStoreTxTest {
                 throw new RuntimeException();
             }
         }
-        transactionLog = new TripleStoreTx(new MyTripleStore(), tempdir);
+        transactionLog = new TransactionLog(new MyTripleStore(), tempdir);
         addFilesToTransactionLog();
         assertEquals(1, transactionLog.getTransactionItemFiles().size());
 
@@ -350,7 +350,7 @@ public class TripleStoreTxTest {
 
     @Test
     public void testClearOnlyOneFile() throws Exception {
-    	transactionLog = new TripleStoreTx(this.tsMock, this.tempdir, 1.0/1024/1024*5);
+    	transactionLog = new TransactionLog(this.tsMock, this.tempdir, 1.0/1024/1024*5);
     	transactionLog.init();
     	transactionLog.add("testRecord", "<x>ignored</x>");
         Thread.sleep(1);
@@ -373,13 +373,13 @@ public class TripleStoreTxTest {
 
     @Test
     public void testStrangeCharacter() throws Exception {
-        transactionLog = new TripleStoreTx(this.tsMock, this.tempdir, 1024);
+        transactionLog = new TransactionLog(this.tsMock, this.tempdir, 1024);
         transactionLog.init();
         transactionLog.add("testRecord", "redrum:md5:43494d3c3ab83ba652004d940127738e|http://data.linkedmdb.org/resource/movie/plots|Symphony in Blood Red is an Italian &apos;giallo&apos;, a horror film inspired by the work of Dario Argento. It is the first feature movie directed by Luigi Pastore, and in collaboration with Antonio Tentori (Cat In The Brain), who co-wrote the screenplay.");
         ArrayList<String> files = transactionLog.getTransactionItemFiles();
         assertEquals(1, files.size());
         tsMock = new TSMock();
-        transactionLog = new TripleStoreTx(tsMock, tempdir);
+        transactionLog = new TransactionLog(tsMock, tempdir);
         transactionLog.recoverTripleStore();
     }
 
@@ -389,7 +389,7 @@ public class TripleStoreTxTest {
         assertEquals(1, transactionLog.getTransactionItemFiles().size());
 
         this.tsMock = new TSMock();
-        transactionLog = new TripleStoreTx(this.tsMock, this.tempdir);
+        transactionLog = new TransactionLog(this.tsMock, this.tempdir);
         transactionLog.persistTripleStore(transactionLog.transactionLogDir.listFiles()[0]);
         assertEquals(6, this.tsMock.actions.size());
         assertEquals("add:testRecord.rdf|<x>ignored</x>", this.tsMock.actions.get(0));
@@ -404,7 +404,7 @@ public class TripleStoreTxTest {
     public void testRecoverTransactionLog() throws TransactionLogException, Exception {
         addFilesToTransactionLog();
         tsMock = new TSMock();
-        transactionLog = new TripleStoreTx(tsMock, tempdir);
+        transactionLog = new TransactionLog(tsMock, tempdir);
         transactionLog.recoverTripleStore();
         assertEquals(4, tsMock.actions.size());
         assertEquals("add:testRecord.rdf|<x>ignored</x>", tsMock.actions.get(0));
@@ -488,8 +488,8 @@ public class TripleStoreTxTest {
     public void testNotPersistingOnInitIfTransactionLogIsEmpty() throws Exception {
         final List<Boolean> recoverCalled = new ArrayList<Boolean>();
         final List<Boolean> persistCalled = new ArrayList<Boolean>();
-        class MyTransactionLog extends TripleStoreTx {
-            public MyTransactionLog(TripleStore triplestore, File baseDir) throws Exception {
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(Triplestore triplestore, File baseDir) throws Exception {
                 super(triplestore, baseDir);
             }
             void persistTripleStore(File transactionLogFile) {
@@ -510,8 +510,8 @@ public class TripleStoreTxTest {
     public void testPersistOnInitIfTransactionLogIsNotEmpty() throws Exception {
         final List<Boolean> recoverCalled = new ArrayList<Boolean>();
         final List<Boolean> persistCalled = new ArrayList<Boolean>();
-        class MyTransactionLog extends TripleStoreTx {
-            public MyTransactionLog(TripleStore triplestore, File baseDir) throws Exception {
+        class MyTransactionLog extends TransactionLog {
+            public MyTransactionLog(Triplestore triplestore, File baseDir) throws Exception {
                 super(triplestore, baseDir);
             }
             void persistTripleStore(File transactionLogFile) {
@@ -601,7 +601,7 @@ public class TripleStoreTxTest {
 		"    <action>add</action>";
     	Utils.write(transactionLog.transactionLogFilePath, currentData);
     	try {
-    		transactionLog = new TripleStoreTx(tsMock, tempdir);
+    		transactionLog = new TransactionLog(tsMock, tempdir);
         	fail("commited state with incomplete transactionLog should fail");
     	} catch (Exception e) {
     		assertEquals("Last TransactionLog item is incomplete while not in the committing state. This should never occur.", e.getMessage());
@@ -644,11 +644,11 @@ public class TripleStoreTxTest {
 		    }
 		}
 		tsMock = new MyTSMock();
-		transactionLog = new TripleStoreTx(tsMock, tempdir);
+		transactionLog = new TransactionLog(tsMock, tempdir);
         transactionLog.init();
         assertEquals(StringUtils.repeat(".", 50) + " 50Mb", stdout.toString(), stdout.toString());
     }
-    
+
     @Test
     public void testImportTrig() throws Exception {
     	transactionLog.importTrig("<uri:subj> <uri:pred> <uri:obj>;");

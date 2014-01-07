@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
  * This file is part of "Meresco Owlim"
@@ -25,9 +25,8 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
-import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -38,11 +37,11 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 
 
-public class OwlimHttpServer {
-    private HttpServer server = null;
+public class HttpServer {
+    private com.sun.net.httpserver.HttpServer server = null;
 
-    public OwlimHttpServer(int port, int backlog) throws IOException {
-        server = HttpServer.create(new InetSocketAddress(port), backlog);
+    public HttpServer(int port, int backlog) throws IOException {
+        server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(port), backlog);
         ThreadPoolExecutor executor = new ThreadPoolExecutor(50, 200, 60, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(1000));
         server.setExecutor(executor);  // Note: so far not been able to express this multithreaded capability in a (unit)test
     }

@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
  * This file is part of "Meresco Owlim"
@@ -25,9 +25,8 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
-import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.Headers;
 
@@ -56,12 +55,12 @@ import org.openrdf.repository.RepositoryException;
 import org.openrdf.query.MalformedQueryException;
 
 
-public class OwlimHttpHandler implements HttpHandler {
-    TripleStore tripleStore;
+public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
+    Triplestore tripleStore;
     RdfValidator validator;
     List<String> allowed_contenttypes;
 
-    public OwlimHttpHandler(TripleStore tripleStore) {
+    public HttpHandler(Triplestore tripleStore) {
         this.tripleStore = tripleStore;
         this.validator = new RdfValidator();
     }

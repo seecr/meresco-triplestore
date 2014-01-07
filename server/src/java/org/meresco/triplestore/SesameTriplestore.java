@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
  * This file is part of "Meresco Owlim"
@@ -25,7 +25,7 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,9 +37,6 @@ import java.io.FileOutputStream;
 import java.io.BufferedOutputStream;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
-
-import com.ontotext.trree.owlim_ext.Repository;
-import com.ontotext.trree.owlim_ext.SailImpl;
 
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.query.resultio.QueryResultIO;
@@ -63,28 +60,21 @@ import org.openrdf.model.Namespace;
 import org.openrdf.repository.RepositoryConnection;
 import org.openrdf.repository.RepositoryException;
 import org.openrdf.repository.RepositoryResult;
-import org.openrdf.repository.sail.SailRepository;
+import org.openrdf.repository.Repository;
 
 import org.openrdf.rio.Rio;
 import org.openrdf.rio.RDFWriter;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParseException;
 
-
-public class OwlimTripleStore implements TripleStore {
+public class SesameTriplestore implements Triplestore {
     File directory;
-    SailRepository repository;
+    Repository repository;
 
-    OwlimTripleStore() {}
+    public SesameTriplestore() {}
 
-    public OwlimTripleStore(File directory, String storageName) {
-    	this.directory = directory;
-        SailImpl owlimSail = new SailImpl();
-        repository = new SailRepository(owlimSail);
-        owlimSail.setParameter(Repository.PARAM_STORAGE_FOLDER, storageName);
-        owlimSail.setParameter("ruleset", "empty");
-        repository.setDataDir(directory);
-        startup();
+    public SesameTriplestore(File directory) {
+        this.directory = directory;
     }
 
     public void startup() {

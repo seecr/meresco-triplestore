@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
  *
  * This file is part of "Meresco Owlim"
  *
@@ -24,7 +24,7 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
 
 
-public class TSMock implements TripleStore {
+public class TSMock implements Triplestore {
     public List<String> actions = new ArrayList<String>();
 
     public void add(String identifier, String data) {

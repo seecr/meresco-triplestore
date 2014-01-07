@@ -4,7 +4,7 @@
  * provides access to an Owlim Triple store, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
  * This file is part of "Meresco Owlim"
@@ -25,7 +25,7 @@
  *
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import org.openrdf.model.Resource;
 import org.openrdf.model.Statement;
@@ -39,7 +39,7 @@ import org.openrdf.query.MalformedQueryException;
 import org.openrdf.rio.RDFParseException;
 
 
-public interface TripleStore {
+public interface Triplestore {
     void add(String identifier, String body) throws RDFParseException;
     void addTriple(String tripleData);
 

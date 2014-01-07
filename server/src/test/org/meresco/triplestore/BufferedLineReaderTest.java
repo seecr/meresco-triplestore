@@ -24,11 +24,11 @@
  * 
  * end license */
 
-package org.meresco.owlimhttpserver;
+package org.meresco.triplestore;
 
 import static org.junit.Assert.*;
-import static org.meresco.owlimhttpserver.Utils.createTempDirectory;
-import static org.meresco.owlimhttpserver.Utils.deleteDirectory;
+import static org.meresco.triplestore.Utils.createTempDirectory;
+import static org.meresco.triplestore.Utils.deleteDirectory;
 
 import java.io.BufferedReader;
 import java.io.File;
