@@ -28,19 +28,20 @@
 
 VERSION=$1
 
-OWLIMJARS=$(find /usr/share/java/owlim-lite-java/ -type f -name "*.jar")
+#OWLIMJARS=$(find /usr/share/java/owlim-lite-java/ -type f -name "*.jar")
 JARS=$(find jars -type f -name "*.jar")
 
 BUILDDIR=./build
-TARGET=meresco-owlim.jar
+TARGET=meresco-triplestore.jar
 if [ "${VERSION}" != "" ]; then
-    TARGET=meresco-owlim-${VERSION}.jar
+    TARGET=meresco-triplestore-${VERSION}.jar
 fi
 
 test -d $BUILDDIR && rm -r $BUILDDIR
 mkdir $BUILDDIR
 
-CP="$(echo $OWLIMJARS | tr ' ' ':'):$(echo $JARS | tr ' ' ':')"
+#CP="$(echo $OWLIMJARS | tr ' ' ':'):$(echo $JARS | tr ' ' ':')"
+CP="$(echo $JARS | tr ' ' ':')"
 
 javaFiles=$(find src/java -name "*.java")
 javac -d $BUILDDIR -cp $CP $javaFiles
