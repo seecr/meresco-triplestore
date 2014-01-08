@@ -48,7 +48,6 @@ public interface Triplestore {
 
     String executeQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException;
 
-    RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj);
     List<Namespace> getNamespaces();
 
     void shutdown() throws Exception;

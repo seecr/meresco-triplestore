@@ -349,11 +349,6 @@ public class TransactionLog implements Triplestore {
 	}
 
 	@Override
-	public RepositoryResult<Statement> getStatements(Resource subj, URI pred, Value obj) {
-		return this.tripleStore.getStatements(subj, pred, obj);
-	}
-
-	@Override
 	public List<Namespace> getNamespaces() {
 		return this.tripleStore.getNamespaces();
 	}

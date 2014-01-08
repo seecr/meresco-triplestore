@@ -200,18 +200,6 @@ public class SesameTriplestore implements Triplestore {
         }
     }
 
-    public RepositoryResult<Statement> getStatements(Resource subject, URI predicate, Value object) {
-        RepositoryConnection conn = null;
-        try {
-            conn = repository.getConnection();
-            return conn.getStatements(subject, predicate, object, false);
-        } catch (RepositoryException e) {
-            throw new RuntimeException(e);
-        } finally {
-            close(conn);
-        }
-    }
-
     public List<Namespace> getNamespaces() {
         RepositoryConnection conn = null;
         try {
