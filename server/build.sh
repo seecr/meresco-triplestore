@@ -28,6 +28,8 @@
 
 VERSION=$1
 
+javac -version 2>&1 | grep 1.6 > /dev/null || echo "javac should be java 6"; exit 1
+
 JARS=$(find jars -type f -name "*.jar")
 
 BUILDDIR=./build
