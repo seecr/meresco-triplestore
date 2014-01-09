@@ -28,7 +28,10 @@
 
 VERSION=$1
 
-javac -version 2>&1 | grep 1.6 > /dev/null || echo "javac should be java 6"; exit 1
+if ! javac -version 2>&1 | grep 1.6 > /dev/null; then
+    echo "javac should be java 6"
+    exit 1
+fi
 
 JARS=$(find jars -type f -name "*.jar")
 
