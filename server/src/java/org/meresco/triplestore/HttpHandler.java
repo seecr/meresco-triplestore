@@ -261,7 +261,7 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             query += "WHERE { ?subject ?predicate ?object }\n";
             query += "LIMIT 50";
         }
-        return "<html><head><title>Meresco Owlim Sparql Form</title></head>\n"
+        return "<html><head><title>Meresco Triplestore Sparql Form</title></head>\n"
             + "<body><form action=\"/query\">\n"
             + "<textarea cols=\"100\" rows=\"20\" name=\"query\">" + StringEscapeUtils.escapeXml(query) + "</textarea><br/>\n"
             + "<input type=\"hidden\" name=\"outputContentType\" value=\"application/json\"/>\n"

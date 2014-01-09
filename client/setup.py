@@ -27,10 +27,10 @@
 from distutils.core import setup
 
 setup(
-    name='meresco-owlim',
+    name='meresco-triplestore',
     packages=[
         'meresco',                  #DO_NOT_DISTRIBUTE
-        'meresco.owlim',
+        'meresco.triplestore',
     ],
     version='%VERSION%',
     url='http://www.seecr.nl',

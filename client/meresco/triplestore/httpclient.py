@@ -97,7 +97,7 @@ class HttpClient(Observable):
         headers = None
         if queryResultFormat is not None:
             headers = {'Accept': queryResultFormat}
-        host, port = self._owlimServer()
+        host, port = self._triplestoreServer()
         body = None
         try:
             if self.synchronous:
@@ -117,7 +117,7 @@ class HttpClient(Observable):
         headers = None
         if body:
             headers={'Content-Type': 'text/xml', 'Content-Length': len(body)}
-        host, port = self._owlimServer()
+        host, port = self._triplestoreServer()
         responseBody = None
         try:
             if self.synchronous:
@@ -185,12 +185,12 @@ class HttpClient(Observable):
 
     def _verify200(self, header, response):
         if not header.startswith('HTTP/1.1 200'):
-            raise IOError("Expected status 'HTTP/1.1 200' from Owlim triplestore, but got: " + response)
+            raise IOError("Expected status 'HTTP/1.1 200' from triplestore, but got: " + response)
 
-    def _owlimServer(self):
+    def _triplestoreServer(self):
         if self.host:
             return (self.host, self.port)
-        return self.call.owlimServer()
+        return self.call.triplestoreServer()
 
     def _urlopen(self, *args, **kwargs):
         return urlopen(*args, **kwargs).read()

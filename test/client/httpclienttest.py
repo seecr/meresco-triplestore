@@ -1,27 +1,27 @@
 ## begin license ##
 #
-# The Meresco Owlim package consists out of a HTTP server written in Java that
-# provides access to an Owlim Triple store, as well as python bindings to
+# The Meresco Triplestore package consists out of a HTTP server written in Java that
+# provides access to an Triplestore with a Sesame Interface, as well as python bindings to
 # communicate as a client with the server.
 #
 # Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
 # Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
-# Copyright (C) 2011-2013 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
 #
-# This file is part of "Meresco Owlim"
+# This file is part of "Meresco Triplestore"
 #
-# "Meresco Owlim" is free software; you can redistribute it and/or modify
+# "Meresco Triplestore" is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
 #
-# "Meresco Owlim" is distributed in the hope that it will be useful,
+# "Meresco Triplestore" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with "Meresco Owlim"; if not, write to the Free Software
+# along with "Meresco Triplestore"; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 ## end license ##
@@ -32,7 +32,7 @@ from seecr.test import SeecrTestCase, CallTrace
 
 from weightless.core import compose
 from weightless.io import Suspend
-from meresco.owlim import HttpClient, InvalidRdfXmlException, Uri, Literal, BNode
+from meresco.triplestore import HttpClient, InvalidRdfXmlException, Uri, Literal, BNode
 
 
 class HttpClientTest(SeecrTestCase):
@@ -188,10 +188,10 @@ class HttpClientTest(SeecrTestCase):
         list(compose(client.importTrig(data=trigData)))
         self.assertEquals([("/import", trigData)], toSend)
 
-    def testExecuteQueryWithOwlimHostPortFromObserver(self):
-        owlimClient = HttpClient()
-        observer = CallTrace(returnValues={'owlimServer': ('localhost', 1234)})
-        owlimClient.addObserver(observer)
+    def testExecuteQueryWithtriplestoreHostPortFromObserver(self):
+        triplestoreClient = HttpClient()
+        observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
+        triplestoreClient.addObserver(observer)
         kwargs = []
         def httpget(**_kwargs):
             kwargs.append(_kwargs)
@@ -199,19 +199,19 @@ class HttpClientTest(SeecrTestCase):
             response = yield s
             result = s.getResult()
             raise StopIteration(result)
-        owlimClient._httpget = httpget
+        triplestoreClient._httpget = httpget
 
-        g = compose(owlimClient.executeQuery("select ?x where {}"))
+        g = compose(triplestoreClient.executeQuery("select ?x where {}"))
         self._resultFromServerResponse(g, RESULT_JSON)
-        self.assertEquals(['owlimServer'], observer.calledMethodNames())
+        self.assertEquals(['triplestoreServer'], observer.calledMethodNames())
         self.assertEquals("/query?" + urlencode(dict(query='select ?x where {}')), kwargs[0]['request'])
         self.assertEquals('localhost', kwargs[0]['host'])
         self.assertEquals(1234, kwargs[0]['port'])
 
-    def testUpdateWithOwlimHostPortFromObserver(self):
-        owlimClient = HttpClient()
-        observer = CallTrace(returnValues={'owlimServer': ('localhost', 1234)})
-        owlimClient.addObserver(observer)
+    def testUpdateWithtriplestoreHostPortFromObserver(self):
+        triplestoreClient = HttpClient()
+        observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
+        triplestoreClient.addObserver(observer)
         kwargs = []
         def httppost(**_kwargs):
             kwargs.append(_kwargs)
@@ -219,37 +219,37 @@ class HttpClientTest(SeecrTestCase):
             response = yield s
             result = s.getResult()
             raise StopIteration(result)
-        owlimClient._httppost = httppost
+        triplestoreClient._httppost = httppost
 
-        g = compose(owlimClient.addTriple("uri:subject", "uri:predicate", "value"))
+        g = compose(triplestoreClient.addTriple("uri:subject", "uri:predicate", "value"))
         self._resultFromServerResponse(g, "")
-        self.assertEquals(['owlimServer'], observer.calledMethodNames())
+        self.assertEquals(['triplestoreServer'], observer.calledMethodNames())
         self.assertEquals("/addTriple", kwargs[0]['request'])
         self.assertEquals('localhost', kwargs[0]['host'])
         self.assertEquals(1234, kwargs[0]['port'])
 
     def testErrorInHttpGet(self):
-        owlimClient = HttpClient()
-        observer = CallTrace(returnValues={'owlimServer': ('localhost', 1234)})
-        owlimClient.addObserver(observer)
+        triplestoreClient = HttpClient()
+        observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
+        triplestoreClient.addObserver(observer)
         def httpget(**_kwargs):
             raise ValueError("error")
             yield
-        owlimClient._httpget = httpget
+        triplestoreClient._httpget = httpget
 
-        g = compose(owlimClient.executeQuery("select ?x where {}"))
+        g = compose(triplestoreClient.executeQuery("select ?x where {}"))
         self.assertRaises(ValueError, lambda: self._resultFromServerResponse(g, RESULT_JSON))
 
     def testErrorInAdd(self):
-        owlimClient = HttpClient()
-        observer = CallTrace(returnValues={'owlimServer': ('localhost', 1234)})
-        owlimClient.addObserver(observer)
+        triplestoreClient = HttpClient()
+        observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
+        triplestoreClient.addObserver(observer)
         def httppost(**_kwargs):
             raise ValueError("error")
             yield
-        owlimClient._httppost = httppost
+        triplestoreClient._httppost = httppost
 
-        g = compose(owlimClient.addTriple("uri:subject", "uri:predicate", "value"))
+        g = compose(triplestoreClient.addTriple("uri:subject", "uri:predicate", "value"))
         self.assertRaises(ValueError, lambda: self._resultFromServerResponse(g, ""))
 
     def _resultFromServerResponse(self, g, data, responseStatus='200'):
