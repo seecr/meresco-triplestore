@@ -2,5 +2,3 @@
 #wheezy:openjdk-6-jdk
 #centos5:java-1.6.0-openjdk-devel
 #centos6:java-1.6.0-openjdk-devel
-owlim-lite-java (>= 4.2)
-owlim-lite-java (<< 4.3)
