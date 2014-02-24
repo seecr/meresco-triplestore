@@ -46,8 +46,8 @@ class MalformedQueryException(Exception):
 
 
 class HttpClient(Observable):
-    def __init__(self, host=None, port=None, synchronous=False):
-        Observable.__init__(self)
+    def __init__(self, name=None, host=None, port=None, synchronous=False):
+        Observable.__init__(self, name=name)
         self.host = host
         self.port = port
         self.synchronous = synchronous
