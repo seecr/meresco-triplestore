@@ -36,6 +36,7 @@ from meresco.core import Observable
 from literal import Literal
 from uri import Uri
 from bnode import BNode
+from decimal import Decimal
 
 
 class InvalidRdfXmlException(Exception):
@@ -73,14 +74,16 @@ class HttpClient(Observable):
             raise InvalidRdfXmlException(body)
 
     def executeQuery(self, query, queryResultFormat=None):
-        queryResult = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
+        header, queryResult = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
         if queryResultFormat is None:
             queryResult = self._parseJson2Dict(queryResult)
+        self._handleQueryTimes(header)
         raise StopIteration(queryResult)
 
     def getStatements(self, subject=None, predicate=None, object=None):
         query = ''.join(self._getStatementsSparQL(subject=subject, predicate=predicate, object=object))
-        jsonString = yield self._sparqlQuery(query)
+        header, jsonString = yield self._sparqlQuery(query)
+        self._handleQueryTimes(header)
         raise StopIteration(self._getStatementsResults(jsonString, subject=subject, predicate=predicate, object=object))
 
     def export(self, identifier):
@@ -101,7 +104,7 @@ class HttpClient(Observable):
         body = None
         try:
             if self.synchronous:
-                body = self._urlopen("http://%s:%s%s" % (host, port, path))
+                header, body = self._urlopen("http://%s:%s%s" % (host, port, path))
             else:
                 response = yield self._httpget(host=host, port=port, request=path, headers=headers)
                 header, body = response.split("\r\n\r\n", 1)
@@ -111,7 +114,7 @@ class HttpClient(Observable):
             if 'MalformedQueryException' in errorStr or 'QueryEvaluationException' in errorStr:
                 raise MalformedQueryException(errorStr)
             raise e
-        raise StopIteration(body)
+        raise StopIteration((header, body))
 
     def _send(self, path, body):
         headers = None
@@ -121,7 +124,7 @@ class HttpClient(Observable):
         responseBody = None
         try:
             if self.synchronous:
-                header, responseBody = "", self._urlopen("http://%s:%s%s" % (host, port, path), data=body)
+                header, responseBody = self._urlopen("http://%s:%s%s" % (host, port, path), data=body)
             else:
                 response = yield self._httppost(host=host, port=port, request=path, body=body, headers=headers)
                 header, responseBody = response.split("\r\n\r\n", 1)
@@ -192,8 +195,16 @@ class HttpClient(Observable):
             return (self.host, self.port)
         return self.call.triplestoreServer()
 
+    def _handleQueryTimes(self, header):
+        times = [line.split(':',1)[-1].strip() for line in header.split('\r\n') if X_MERESCO_TRIPLESTORE_QUERYTIME in line]
+        if times:
+            queryTime = (Decimal(times[0]) * millis).quantize(millis)
+            self.do.handleQueryTimes(index=queryTime)
+
     def _urlopen(self, *args, **kwargs):
-        return urlopen(*args, **kwargs).read()
+        u = urlopen(*args, **kwargs)
+        header = "HTTP/1.0 %s %s\r\n" % (u.code, u.msg) + str(u.headers).strip()
+        return header, u.read()
 
     def _httpget(self, **kwargs):
         return httpget(**kwargs)
@@ -201,6 +212,8 @@ class HttpClient(Observable):
     def _httppost(self, **kwargs):
         return httppost(**kwargs)
 
+X_MERESCO_TRIPLESTORE_QUERYTIME = 'X-Meresco-Triplestore-QueryTime'
+millis = Decimal('0.001')
 
 _typeMapping = {
     'literal': Literal,

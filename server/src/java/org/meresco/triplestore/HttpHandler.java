@@ -127,7 +127,10 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                     }
                 }
                 try {
+                    long start = System.currentTimeMillis();
                     response = executeQuery(queryParameters, resultFormat);
+                    long indexQueryTime = System.currentTimeMillis() - start;
+                    exchange.getResponseHeaders().set("X-Meresco-Triplestore-QueryTime", String.valueOf(indexQueryTime));
                     if (queryParameters.containsKey("outputContentType")) {
                         exchange.getResponseHeaders().set("Content-Type", queryParameters.singleValue("outputContentType"));
                     }

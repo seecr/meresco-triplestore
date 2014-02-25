@@ -33,6 +33,8 @@ from seecr.test import SeecrTestCase, CallTrace
 from weightless.core import compose
 from weightless.io import Suspend
 from meresco.triplestore import HttpClient, InvalidRdfXmlException, Uri, Literal, BNode
+from meresco.triplestore.httpclient import X_MERESCO_TRIPLESTORE_QUERYTIME
+from decimal import Decimal
 
 
 class HttpClientTest(SeecrTestCase):
@@ -149,7 +151,7 @@ class HttpClientTest(SeecrTestCase):
 
     def testExecuteQuerySynchronous(self):
         client = HttpClient(host="localhost", port=9999, synchronous=True)
-        client._urlopen = lambda *args, **kwargs: RESULT_JSON
+        client._urlopen = lambda *args, **kwargs: (RESULT_HEADER, RESULT_JSON)
         gen = compose(client.executeQuery('SPARQL'))
         try:
             gen.next()
@@ -159,11 +161,11 @@ class HttpClientTest(SeecrTestCase):
 
     def testAddSynchronous(self):
         client = HttpClient(host="localhost", port=9999, synchronous=True)
-        client._urlopen = lambda *args, **kwargs: "SOME RESPONSE"
+        client._urlopen = lambda *args, **kwargs: (RESULT_HEADER, "SOME RESPONSE")
         list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
 
         toSend = []
-        client._urlopen = lambda url, data: toSend.append((url, data))
+        client._urlopen = lambda url, data: (RESULT_HEADER, toSend.append((url, data)))
         list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
         self.assertEquals([("http://localhost:9999/update?identifier=id", RDFDATA)], toSend)
 
@@ -203,10 +205,11 @@ class HttpClientTest(SeecrTestCase):
 
         g = compose(triplestoreClient.executeQuery("select ?x where {}"))
         self._resultFromServerResponse(g, RESULT_JSON)
-        self.assertEquals(['triplestoreServer'], observer.calledMethodNames())
+        self.assertEquals(['triplestoreServer', 'handleQueryTimes'], observer.calledMethodNames())
         self.assertEquals("/query?" + urlencode(dict(query='select ?x where {}')), kwargs[0]['request'])
         self.assertEquals('localhost', kwargs[0]['host'])
         self.assertEquals(1234, kwargs[0]['port'])
+        self.assertEquals({'index': Decimal('0.042')}, observer.calledMethods[1].kwargs)
 
     def testUpdateWithtriplestoreHostPortFromObserver(self):
         triplestoreClient = HttpClient()
@@ -256,7 +259,7 @@ class HttpClientTest(SeecrTestCase):
         s = g.next()
         self.assertEquals(Suspend, type(s))
         s(CallTrace('reactor'), lambda: None)
-        s.resume('HTTP/1.1 %s\r\n\r\n%s' % (responseStatus, data))
+        s.resume(_RESULT_HEADER % responseStatus + '\r\n\r\n' + data)
         try:
             g.next()
             self.fail("expected StopIteration")
@@ -315,5 +318,11 @@ RESULT_JSON = """{
                 ]
         }
 }"""
+
+_RESULT_HEADER = '\r\n'.join([
+    'HTTP/1.1 %s Ok',
+    '%s: 42' % X_MERESCO_TRIPLESTORE_QUERYTIME
+    ])
+RESULT_HEADER = _RESULT_HEADER % 200
 
 RDFDATA = "<rdf>should be RDF</rdf>"

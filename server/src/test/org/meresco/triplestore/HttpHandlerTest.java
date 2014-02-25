@@ -364,6 +364,18 @@ public class HttpHandlerTest {
         assertEquals("application/sparql-results+xml", exchange.getResponseHeaders().getFirst("Content-Type"));
     }
 
+    @Test
+    public void testXMerescoTriplestoreQueryTime() throws Exception {
+        TSMock tsmock = new TSMock();
+        HttpHandler h = new HttpHandler(tsmock);
+
+        Headers inputHeaders = new Headers();
+        HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+        h.handle(exchange);
+        assertEquals(200, exchange.responseCode);
+        assertEquals("0", exchange.getResponseHeaders().getFirst("X-Meresco-Triplestore-QueryTime"));
+    }
+
     @Test public void testExportDispatch() throws Exception {
         HttpHandlerMock h = new HttpHandlerMock();
 
