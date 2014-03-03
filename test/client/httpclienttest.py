@@ -35,6 +35,7 @@ from weightless.io import Suspend
 from meresco.triplestore import HttpClient, InvalidRdfXmlException, Uri, Literal, BNode
 from meresco.triplestore.httpclient import X_MERESCO_TRIPLESTORE_QUERYTIME
 from decimal import Decimal
+from time import sleep
 
 
 class HttpClientTest(SeecrTestCase):
@@ -197,6 +198,7 @@ class HttpClientTest(SeecrTestCase):
         kwargs = []
         def httpget(**_kwargs):
             kwargs.append(_kwargs)
+            sleep(0.1)
             s = Suspend()
             response = yield s
             result = s.getResult()
@@ -209,7 +211,9 @@ class HttpClientTest(SeecrTestCase):
         self.assertEquals("/query?" + urlencode(dict(query='select ?x where {}')), kwargs[0]['request'])
         self.assertEquals('localhost', kwargs[0]['host'])
         self.assertEquals(1234, kwargs[0]['port'])
-        self.assertEquals({'index': Decimal('0.042')}, observer.calledMethods[1].kwargs)
+        self.assertEquals(['index', 'queryTime'], observer.calledMethods[1].kwargs.keys())
+        self.assertEquals(Decimal('0.042'), observer.calledMethods[1].kwargs['index'])
+        self.assertTrue(0.1 < float(observer.calledMethods[1].kwargs['queryTime']) < 0.11)
 
     def testUpdateWithtriplestoreHostPortFromObserver(self):
         triplestoreClient = HttpClient()

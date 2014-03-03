@@ -37,6 +37,7 @@ from literal import Literal
 from uri import Uri
 from bnode import BNode
 from decimal import Decimal
+from time import time
 
 
 class InvalidRdfXmlException(Exception):
@@ -74,16 +75,18 @@ class HttpClient(Observable):
             raise InvalidRdfXmlException(body)
 
     def executeQuery(self, query, queryResultFormat=None):
+        t0 = time()
         header, queryResult = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
         if queryResultFormat is None:
             queryResult = self._parseJson2Dict(queryResult)
-        self._handleQueryTimes(header)
+        self._handleQueryTimes(header=header, queryTime=time() - t0)
         raise StopIteration(queryResult)
 
     def getStatements(self, subject=None, predicate=None, object=None):
+        t0 = time()
         query = ''.join(self._getStatementsSparQL(subject=subject, predicate=predicate, object=object))
         header, jsonString = yield self._sparqlQuery(query)
-        self._handleQueryTimes(header)
+        self._handleQueryTimes(header=header, queryTime=time() - t0)
         raise StopIteration(self._getStatementsResults(jsonString, subject=subject, predicate=predicate, object=object))
 
     def export(self, identifier):
@@ -195,11 +198,12 @@ class HttpClient(Observable):
             return (self.host, self.port)
         return self.call.triplestoreServer()
 
-    def _handleQueryTimes(self, header):
+    def _handleQueryTimes(self, header, queryTime):
+        queryTime = Decimal(str(queryTime)).quantize(millis)
         times = [line.split(':',1)[-1].strip() for line in header.split('\r\n') if X_MERESCO_TRIPLESTORE_QUERYTIME in line]
         if times:
-            queryTime = (Decimal(times[0]) * millis).quantize(millis)
-            self.do.handleQueryTimes(index=queryTime)
+            index = (Decimal(times[0]) * millis).quantize(millis)
+            self.do.handleQueryTimes(index=index, queryTime=queryTime)
 
     def _urlopen(self, *args, **kwargs):
         u = urlopen(*args, **kwargs)
