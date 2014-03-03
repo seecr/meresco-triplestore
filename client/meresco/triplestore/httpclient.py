@@ -200,7 +200,7 @@ class HttpClient(Observable):
 
     def _handleQueryTimes(self, header, queryTime):
         queryTime = Decimal(str(queryTime)).quantize(millis)
-        times = [line.split(':',1)[-1].strip() for line in header.split('\r\n') if X_MERESCO_TRIPLESTORE_QUERYTIME in line]
+        times = [line.split(':',1)[-1].strip() for line in header.split('\r\n') if X_MERESCO_TRIPLESTORE_QUERYTIME.lower() in line.lower()]
         if times:
             index = (Decimal(times[0]) * millis).quantize(millis)
             self.do.handleQueryTimes(index=index, queryTime=queryTime)
