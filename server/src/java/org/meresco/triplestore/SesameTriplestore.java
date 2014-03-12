@@ -70,6 +70,7 @@ import org.openrdf.rio.RDFParseException;
 public class SesameTriplestore implements Triplestore {
     File directory;
     Repository repository;
+    RepositoryConnection writeConnection = null;
 
     public SesameTriplestore() {}
 
@@ -80,6 +81,7 @@ public class SesameTriplestore implements Triplestore {
     public void startup() {
         try {
             repository.initialize();
+            this.writeConnection = repository.getConnection();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         }
@@ -88,22 +90,17 @@ public class SesameTriplestore implements Triplestore {
     public void add(String identifier, String rdfData) throws RDFParseException {
         URI context = new URIImpl(identifier);
         StringReader reader = new StringReader(rdfData);
-        RepositoryConnection conn = null;
         try {
-            conn = repository.getConnection();
-            conn.add(reader, "", RDFFormat.RDFXML, context);
-            conn.commit();
+            this.writeConnection.add(reader, "", RDFFormat.RDFXML, context);
+            this.writeConnection.commit();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
             throw new RuntimeException(e);
-        } finally {
-            close(conn);
         }
     }
 
     public void addTriple(String tripleData) {
-        RepositoryConnection conn = null;
         String[] values = tripleData.split("\\|");
         if (values.length != 3) {
             throw new IllegalArgumentException("Not a triple: \"" + tripleData + "\"");
@@ -115,32 +112,24 @@ public class SesameTriplestore implements Triplestore {
             object = new LiteralImpl(values[2]);
         }
         try {
-            conn = repository.getConnection();
-            conn.add(new URIImpl(values[0]), new URIImpl(values[1]), object);
-            conn.commit();
+            this.writeConnection.add(new URIImpl(values[0]), new URIImpl(values[1]), object);
+            this.writeConnection.commit();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
-        } finally {
-            close(conn);
         }
     }
 
     public void delete(String identifier) {
         URI context = new URIImpl(identifier);
-        RepositoryConnection conn = null;
         try {
-            conn = repository.getConnection();
-            conn.clear(context);
-            conn.commit();
+            this.writeConnection.clear(context);
+            this.writeConnection.commit();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
-        } finally {
-            close(conn);
         }
     }
 
     public void removeTriple(String tripleData) {
-        RepositoryConnection conn = null;
         String[] values = tripleData.split("\\|");
         Value object = null;
         try {
@@ -149,13 +138,10 @@ public class SesameTriplestore implements Triplestore {
             object = new LiteralImpl(values[2]);
         }
         try {
-            conn = repository.getConnection();
-            conn.remove(new URIImpl(values[0]), new URIImpl(values[1]), object);
-            conn.commit();
+            this.writeConnection.remove(new URIImpl(values[0]), new URIImpl(values[1]), object);
+            this.writeConnection.commit();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
-        } finally {
-            close(conn);
         }
     }
 
@@ -224,6 +210,7 @@ public class SesameTriplestore implements Triplestore {
 
     public void shutdown() throws Exception {
     	try {
+            this.writeConnection.close();
             repository.shutDown();
         } catch (RepositoryException e) {
             e.printStackTrace();
@@ -260,18 +247,14 @@ public class SesameTriplestore implements Triplestore {
 
     public void importTrig(String trigData) {
         StringReader reader = new StringReader(trigData);
-        RepositoryConnection conn = null;
         try {
-            conn = repository.getConnection();
-            conn.add(reader, "", RDFFormat.TRIG);
+            this.writeConnection.add(reader, "", RDFFormat.TRIG);
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } catch (RDFParseException e) {
             throw new RuntimeException(e);
-        } finally {
-            close(conn);
         }
     }
 
