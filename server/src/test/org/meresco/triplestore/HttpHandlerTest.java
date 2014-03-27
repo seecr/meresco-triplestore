@@ -347,7 +347,7 @@ public class HttpHandlerTest {
         HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
         h.handle(exchange);
         assertEquals(406, exchange.responseCode);
-        assertEquals("Supported formats:\n- SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)\n- BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)\n- SPARQL/JSON (mimeTypes=application/sparql-results+json; ext=srj)\n", exchange.getResponseBody().toString());
+        assertEquals("Supported formats:\n- SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)\n- BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)\n- SPARQL/JSON (mimeTypes=application/sparql-results+json, application/json; ext=srj, json)\n- SPARQL/CSV (mimeTypes=text/csv; ext=csv)\n- SPARQL/TSV (mimeTypes=text/tab-separated-values; ext=tsv)\n", exchange.getResponseBody().toString());
         assertEquals("text/plain", exchange.getResponseHeaders().getFirst("Content-Type"));
     }
 
