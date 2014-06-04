@@ -1,27 +1,27 @@
 /* begin license *
- * 
- * The Meresco Owlim package consists out of a HTTP server written in Java that
- * provides access to an Owlim Triple store, as well as python bindings to
- * communicate as a client with the server. 
- * 
- * Copyright (C) 2012-2013 Seecr (Seek You Too B.V.) http://seecr.nl
- * 
- * This file is part of "Meresco Owlim"
- * 
- * "Meresco Owlim" is free software; you can redistribute it and/or modify
+ *
+ * The Meresco Triplestore package consists out of a HTTP server written in Java that
+ * provides access to an Triplestore with a Sesame Interface, as well as python bindings to
+ * communicate as a client with the server.
+ *
+ * Copyright (C) 2012-2014 Seecr (Seek You Too B.V.) http://seecr.nl
+ *
+ * This file is part of "Meresco Triplestore"
+ *
+ * "Meresco Triplestore" is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
- * "Meresco Owlim" is distributed in the hope that it will be useful,
+ *
+ * "Meresco Triplestore" is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
- * along with "Meresco Owlim"; if not, write to the Free Software
+ * along with "Meresco Triplestore"; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- * 
+ *
  * end license */
 
 package org.meresco.triplestore;
@@ -38,10 +38,10 @@ public class RdfValidatorTest {
     public void testValidateCorrect () throws Exception {
         String rdf = "<?xml version='1.0'?>" +
             "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'" +
-            "             xmlns:exterms='http://www.example.org/terms/'>" + 
+            "             xmlns:exterms='http://www.example.org/terms/'>" +
             "  <rdf:Description rdf:about='http://www.example.org/index.html'>" +
             "      <exterms:creation-date>August 16, 1999</exterms:creation-date>" +
-            "      <rdf:value>Some Name</rdf:value>" + 
+            "      <rdf:value>Some Name</rdf:value>" +
             "  </rdf:Description>" +
             "</rdf:RDF>";
         RdfValidator validator = new RdfValidator();
@@ -52,11 +52,11 @@ public class RdfValidatorTest {
     public void testValidateBad () throws Exception {
         String rdf = "<?xml version='1.0'?>" +
             "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'" +
-            "             xmlns:dc='http://purl.org/dc/elements/1.1/'" + 
-            "             xmlns:exterms='http://www.example.org/terms/'>" + 
+            "             xmlns:dc='http://purl.org/dc/elements/1.1/'" +
+            "             xmlns:exterms='http://www.example.org/terms/'>" +
             "  <rdf:Description rdf:about='http://www.example.org/index.html'>" +
             "<dc:language xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:type='dcterms:ISO639-2'>dut</dc:language>" +
-            "      <rdf:value>Some Name</rdf:value>" + 
+            "      <rdf:value>Some Name</rdf:value>" +
             "  </rdf:Description>" +
             "</rdf:RDF>";
         RdfValidator validator = new RdfValidator();
@@ -66,4 +66,26 @@ public class RdfValidatorTest {
         } catch(RDFParseException e) {
         }
     }
+
+    @Test
+    public void testValidateBadUri () throws Exception {
+        String[] uris = new String[]{ "http://example.org/sp a c es", "http://example.org/p|pes" };
+        for (String uri: uris){
+            String rdf = "<?xml version='1.0'?>" +
+                "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'" +
+                "             xmlns:exterms='http://www.example.org/terms/'>" +
+                "  <rdf:Description rdf:about='"+ uri + "'>" +
+                "      <exterms:creation-date>August 16, 1999</exterms:creation-date>" +
+                "      <rdf:value>Space in uri</rdf:value>" +
+                "  </rdf:Description>" +
+                "</rdf:RDF>";
+            RdfValidator validator = new RdfValidator();
+            try {
+                validator.validate(rdf);
+                fail("Expected RDFParseException for uri: " + uri);
+            } catch(RDFParseException e) {
+            }
+        }
+    }
+
 }
