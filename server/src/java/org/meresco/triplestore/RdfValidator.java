@@ -33,8 +33,6 @@ import org.openrdf.rio.RDFParseException;
 import org.openrdf.rio.RDFHandlerException;
 import org.openrdf.rio.RDFHandler;
 import org.openrdf.model.Statement;
-import org.openrdf.model.Value;
-import org.openrdf.model.URI;
 
 import java.io.StringReader;
 import java.io.IOException;
@@ -44,7 +42,13 @@ public class RdfValidator {
 
     public RdfValidator() {
         this.parser = Rio.createParser(RDFFormat.RDFXML);
-        this.parser.setRDFHandler(new RdfValidator.ValidatingRDFHandler());
+        this.parser.setRDFHandler(new RDFHandler(){
+             public void endRDF() {}
+             public void handleComment(String comment) {}
+             public void handleNamespace(String prefix, String uri) {}
+             public void handleStatement(Statement st) {}
+             public void startRDF() {}
+        });
         this.parser.setVerifyData(true);
     }
 
@@ -54,29 +58,7 @@ public class RdfValidator {
         } catch(IOException e) {
             throw new RuntimeException(e);
         } catch (RDFHandlerException e) {
-            throw new RDFParseException(e);
-        }
-    }
-
-    class ValidatingRDFHandler implements RDFHandler {
-        public void endRDF() {}
-        public void handleComment(String comment) {}
-        public void handleNamespace(String prefix, String uri) {}
-        public void startRDF() {}
-        public void handleStatement(Statement st) throws RDFHandlerException{
-            this.validate(st.getSubject());
-            this.validate(st.getObject());
-        }
-        private void validate(Value value) throws RDFHandlerException{
-            if (value instanceof URI) {
-                String stringValue = value.stringValue();
-                if (stringValue.contains(" ")){
-                    throw new RDFHandlerException("Spaces not allowed in uri.");
-                }
-                else if (stringValue.contains("|")){
-                    throw new RDFHandlerException("Pipes not allowed in uri.");
-                }
-            }
+            throw new RuntimeException(e);
         }
     }
 }
