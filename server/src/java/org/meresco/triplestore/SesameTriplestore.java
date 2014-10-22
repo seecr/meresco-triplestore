@@ -47,6 +47,8 @@ import org.openrdf.query.QueryLanguage;
 import org.openrdf.query.TupleQuery;
 import org.openrdf.query.TupleQueryResult;
 import org.openrdf.query.TupleQueryResultHandlerException;
+import org.openrdf.query.GraphQuery;
+import org.openrdf.query.GraphQueryResult;
 
 import org.openrdf.model.impl.URIImpl;
 import org.openrdf.model.impl.LiteralImpl;
@@ -66,6 +68,7 @@ import org.openrdf.rio.Rio;
 import org.openrdf.rio.RDFWriter;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParseException;
+import org.openrdf.rio.RDFHandlerException;
 
 public class SesameTriplestore implements Triplestore {
     File directory;
@@ -157,16 +160,41 @@ public class SesameTriplestore implements Triplestore {
         }
     }
 
-    public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
+    public String executeGraphQuery(String sparQL, RDFFormat resultFormat) throws MalformedQueryException {
         RepositoryConnection conn = null;
-        TupleQuery tupleQuery = null;
-        TupleQueryResult tupleQueryResult = null;
         String result = null;
         try {
             try {
                 conn = repository.getConnection();
-                tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, sparQL);
-                tupleQueryResult = tupleQuery.evaluate();
+                GraphQuery graphQuery = conn.prepareGraphQuery(QueryLanguage.SPARQL, sparQL);
+                GraphQueryResult graphQueryResult = graphQuery.evaluate();
+                ByteArrayOutputStream o = new ByteArrayOutputStream();
+                QueryResultIO.write(graphQueryResult, resultFormat, o);
+                result = o.toString("UTF-8");
+                graphQueryResult.close();
+            } catch (QueryEvaluationException e) {
+                throw new RuntimeException(e);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (RDFHandlerException e) {
+                throw new RuntimeException(e);
+            } finally {
+                close(conn);
+            }
+            return result;
+        } catch (RepositoryException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public String executeTupleQuery(String sparQL, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
+        RepositoryConnection conn = null;
+        String result = null;
+        try {
+            try {
+                conn = repository.getConnection();
+                TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, sparQL);
+                TupleQueryResult tupleQueryResult = tupleQuery.evaluate();
                 ByteArrayOutputStream o = new ByteArrayOutputStream();
                 QueryResultIO.write(tupleQueryResult, resultFormat, o);
                 result = o.toString("UTF-8");

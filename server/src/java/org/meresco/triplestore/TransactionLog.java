@@ -46,6 +46,7 @@ import org.openrdf.query.MalformedQueryException;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
 import org.openrdf.rio.RDFParseException;
+import org.openrdf.rio.RDFFormat;
 
 
 public class TransactionLog implements Triplestore {
@@ -89,45 +90,45 @@ public class TransactionLog implements Triplestore {
     }
 
     @Override
-	public void add(String identifier, String filedata) throws RDFParseException {
+    public void add(String identifier, String filedata) throws RDFParseException {
         this.tripleStore.add(identifier, filedata);
         writeTransactionItem("add", identifier, filedata);
     }
 
     @Override
-	public void addTriple(String filedata) {
+    public void addTriple(String filedata) {
         this.tripleStore.addTriple(filedata);
         writeTransactionItem("addTriple", "", filedata);
     }
 
     @Override
-	public void removeTriple(String filedata) {
+    public void removeTriple(String filedata) {
         this.tripleStore.removeTriple(filedata);
         writeTransactionItem("removeTriple", "", filedata);
     }
 
     @Override
-	public void delete(String identifier) {
+    public void delete(String identifier) {
         this.tripleStore.delete(identifier);
         writeTransactionItem("delete", identifier, "");
     }
 
     @Override
-	public void importTrig(String trig) {
-		this.tripleStore.importTrig(trig);
-		restartTripleStore();
-	}
+    public void importTrig(String trig) {
+        this.tripleStore.importTrig(trig);
+        restartTripleStore();
+    }
 
     public long size() {
-    	return this.tripleStore.size();
+        return this.tripleStore.size();
     }
 
     void writeTransactionItem(String action, String identifier, String filedata) {
-    	TransactionItem tsItem = new TransactionItem(action, identifier, filedata);
+        TransactionItem tsItem = new TransactionItem(action, identifier, filedata);
         try {
             commit(tsItem);
         } catch (Exception e) {
-        	System.err.println(e);
+            System.err.println(e);
             throw new Error("Commit on transactionLog failed.", e);
         }
         maybeRotate();
@@ -163,21 +164,21 @@ public class TransactionLog implements Triplestore {
     }
 
     void commit_do(TransactionItem tsItem) throws IOException {
-    	this.transactionLog.write(tsItem.toString());
-    	this.transactionLog.flush();
+        this.transactionLog.write(tsItem.toString());
+        this.transactionLog.flush();
     }
 
     private void deleteFile(File filepath) throws IOException {
-		if (!filepath.delete()) {
-			throw new IOException("File could not be deleted.");
-		}
-	}
+        if (!filepath.delete()) {
+            throw new IOException("File could not be deleted.");
+        }
+    }
 
     private void renameFileTo(File from, File to) throws IOException {
-		if (!from.renameTo(to)) {
-			throw new IOException("File " + from.getAbsolutePath() + " could not be moved to " + to.getAbsolutePath());
-		}
-	}
+        if (!from.renameTo(to)) {
+            throw new IOException("File " + from.getAbsolutePath() + " could not be moved to " + to.getAbsolutePath());
+        }
+    }
 
     File getTransactionLogDir() {
         return this.transactionLogDir;
@@ -188,16 +189,16 @@ public class TransactionLog implements Triplestore {
         ArrayList<Long> transactionItemsWithoutCurrent = new ArrayList<Long>();
         ArrayList<String> result = new ArrayList<String>();
         for (String t : transactionItems) {
-        	if (!t.equals(CURRENT_TRANSACTIONLOG_NAME)) {
-        		transactionItemsWithoutCurrent.add(Long.valueOf(t));
-        	}
+            if (!t.equals(CURRENT_TRANSACTIONLOG_NAME)) {
+                transactionItemsWithoutCurrent.add(Long.valueOf(t));
+            }
         }
         Collections.sort(transactionItemsWithoutCurrent);
         for (Long t : transactionItemsWithoutCurrent) {
             result.add(String.valueOf(t));
         }
         if (Arrays.binarySearch(transactionItems, CURRENT_TRANSACTIONLOG_NAME) != -1) {
-        	result.add(CURRENT_TRANSACTIONLOG_NAME);
+            result.add(CURRENT_TRANSACTIONLOG_NAME);
         }
         return result;
     }
@@ -223,7 +224,7 @@ public class TransactionLog implements Triplestore {
     }
 
     void recoverTripleStore() throws Exception {
-    	ArrayList<String> transactionItemFiles = getTransactionItemFiles();
+        ArrayList<String> transactionItemFiles = getTransactionItemFiles();
         if (transactionItemFiles.size() == 0) {
             return;
         }
@@ -249,13 +250,13 @@ public class TransactionLog implements Triplestore {
             StringBuilder tsItem = new StringBuilder();
             while ((line = blr.readLine()) != null) {
                 lineNo += 1;
-            	tsItem.append(line);
-            	if (!line.contains("</transaction_item>")) {
+                tsItem.append(line);
+                if (!line.contains("</transaction_item>")) {
                     continue;
                 }
                 itemCount += 1;
                 try {
-                	TransactionItem item = TransactionItem.read(tsItem.toString());
+                    TransactionItem item = TransactionItem.read(tsItem.toString());
                     processTransactionItem(item);
                     timeSpent += new Date().getTime() - lastTime;
                     lastTime = new Date().getTime();
@@ -310,26 +311,26 @@ public class TransactionLog implements Triplestore {
     }
 
     private void printProgress(long newItemSize, long totalSize, long timeSpent) {
-    	long sizeInMb = totalSize / 1024 / 1024;
-    	long newSizeInMb = (totalSize + newItemSize) / 1024 / 1024;
-    	if (sizeInMb != newSizeInMb) {
+        long sizeInMb = totalSize / 1024 / 1024;
+        long newSizeInMb = (totalSize + newItemSize) / 1024 / 1024;
+        if (sizeInMb != newSizeInMb) {
             // print '.', newline for (multi)logging, ANSI cursor movements 1-up and n-right
             int nrOfDots = (int) (newSizeInMb % 50);
             if ( nrOfDots == 0 ) {
                 nrOfDots = 50;
             }
-    		System.out.print(".\n\033[1A\033[" + nrOfDots + "C");
-    		if (newSizeInMb % 50 == 0) {
-    			System.out.println(" " + newSizeInMb + "Mb (" + timeSpent / newSizeInMb + "ms per Mb)");
-    		}
-    	}
-    	System.out.flush();
+            System.out.print(".\n\033[1A\033[" + nrOfDots + "C");
+            if (newSizeInMb % 50 == 0) {
+                System.out.println(" " + newSizeInMb + "Mb (" + timeSpent / newSizeInMb + "ms per Mb)");
+            }
+        }
+        System.out.flush();
     }
 
     private void restartTripleStore() {
         System.out.println("Restarting triplestore. Please wait...");
         try {
-        	this.tripleStore.shutdown();
+            this.tripleStore.shutdown();
             clear();
             this.tripleStore.startup();
             System.out.println("Restart completed.");
@@ -343,29 +344,34 @@ public class TransactionLog implements Triplestore {
         }
     }
 
-	@Override
-	public String executeQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException {
-		return this.tripleStore.executeQuery(sparQL, format);
-	}
+    @Override
+    public String executeTupleQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException {
+        return this.tripleStore.executeTupleQuery(sparQL, format);
+    }
 
-	@Override
-	public List<Namespace> getNamespaces() {
-		return this.tripleStore.getNamespaces();
-	}
+    @Override
+    public String executeGraphQuery(String sparQL, RDFFormat format) throws MalformedQueryException {
+        return this.tripleStore.executeGraphQuery(sparQL, format);
+    }
 
-	@Override
-	public void shutdown() throws Exception {
-		this.tripleStore.shutdown();
-		this.clear();
-	}
+    @Override
+    public List<Namespace> getNamespaces() {
+        return this.tripleStore.getNamespaces();
+    }
 
-	@Override
-	public void startup() {
-		throw new UnsupportedOperationException();
-	}
+    @Override
+    public void shutdown() throws Exception {
+        this.tripleStore.shutdown();
+        this.clear();
+    }
 
-	@Override
-	public void export(String identifier) {
-		this.tripleStore.export(identifier);
-	}
+    @Override
+    public void startup() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void export(String identifier) {
+        this.tripleStore.export(identifier);
+    }
 }

@@ -37,6 +37,7 @@ import org.openrdf.repository.RepositoryResult;
 import java.util.List;
 import org.openrdf.query.MalformedQueryException;
 import org.openrdf.rio.RDFParseException;
+import org.openrdf.rio.RDFFormat;
 
 
 public interface Triplestore {
@@ -46,7 +47,8 @@ public interface Triplestore {
     void delete(String identifier);
     void removeTriple(String tripleData);
 
-    String executeQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException;
+    String executeTupleQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException;
+    String executeGraphQuery(String sparQL, RDFFormat format) throws MalformedQueryException;
 
     List<Namespace> getNamespaces();
 

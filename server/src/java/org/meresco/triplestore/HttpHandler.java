@@ -53,6 +53,14 @@ import org.openrdf.model.impl.URIImpl;
 import org.openrdf.model.impl.LiteralImpl;
 import org.openrdf.repository.RepositoryException;
 import org.openrdf.query.MalformedQueryException;
+import org.openrdf.query.QueryLanguage;
+
+import org.openrdf.query.parser.ParsedQuery;
+import org.openrdf.query.parser.ParsedGraphQuery;
+import org.openrdf.query.parser.QueryParserUtil;
+
+import org.openrdf.rio.Rio;
+import org.openrdf.rio.RDFFormat;
 
 
 public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
@@ -72,11 +80,11 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         String rawQueryString = requestURI.getRawQuery();
 
         try {
-            QueryParameters queryParameters = Utils.parseQS(rawQueryString);
+            QueryParameters httpArguments = Utils.parseQS(rawQueryString);
             if ("/add".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
                 try {
-                    addRDF(queryParameters, body);
+                    addRDF(httpArguments, body);
                 } catch (RDFParseException e) {
                     exchange.sendResponseHeaders(400, 0);
                     _writeResponse(e.toString(), outputStream);
@@ -86,7 +94,7 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             else if ("/update".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
                 try {
-                    updateRDF(queryParameters, body);
+                    updateRDF(httpArguments, body);
                 } catch (RDFParseException e) {
                     exchange.sendResponseHeaders(400, 0);
                     _writeResponse(e.toString(), outputStream);
@@ -94,7 +102,7 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 }
             }
             else if ("/delete".equals(path)) {
-                deleteRDF(queryParameters);
+                deleteRDF(httpArguments);
             }
             else if ("/addTriple".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
@@ -107,35 +115,31 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             else if ("/query".equals(path)) {
                 String response = "";
                 Headers requestHeaders = exchange.getRequestHeaders();
-                TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
-                if (queryParameters.containsKey("mimeType")) {
-                    resultFormat = TupleQueryResultFormat.forMIMEType(queryParameters.singleValue("mimeType"));
-                }
-                else if (requestHeaders.containsKey("Accept")) {
-                    resultFormat = TupleQueryResultFormat.forMIMEType(requestHeaders.getFirst("Accept"));
-                    if (resultFormat == null) {
+                Headers responseHeaders = exchange.getResponseHeaders();
+                try {
+                    long start = System.currentTimeMillis();
+                    String query = httpArguments.singleValue("query");
+                    ParsedQuery p = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
+                    if (p instanceof ParsedGraphQuery) {
+                        response = executeGraphQuery(query, httpArguments, requestHeaders, responseHeaders);
+                    } else {
+                        response = executeTupleQuery(query, httpArguments, requestHeaders, responseHeaders);
+                    }
+                    long indexQueryTime = System.currentTimeMillis() - start;
+                    if (response == null) {
                         String responseBody = "Supported formats:\n";
                         Iterator<TupleQueryResultFormat> i = TupleQueryResultFormat.values().iterator();
                         while (i.hasNext()) {
                             responseBody += "- " + i.next() + "\n";
                         }
-                        Headers responseHeaders = exchange.getResponseHeaders();
-                        responseHeaders.add("Content-Type", "text/plain");
+                        responseHeaders.set("Content-Type", "text/plain");
                         exchange.sendResponseHeaders(406, 0);
                         _writeResponse(responseBody, outputStream);
                         return;
                     }
-                }
-                try {
-                    long start = System.currentTimeMillis();
-                    response = executeQuery(queryParameters, resultFormat);
-                    long indexQueryTime = System.currentTimeMillis() - start;
-                    exchange.getResponseHeaders().set("X-Meresco-Triplestore-QueryTime", String.valueOf(indexQueryTime));
-                    if (queryParameters.containsKey("outputContentType")) {
-                        exchange.getResponseHeaders().set("Content-Type", queryParameters.singleValue("outputContentType"));
-                    }
-                    else {
-                        exchange.getResponseHeaders().set("Content-Type", resultFormat.getMIMETypes().get(0));
+                    responseHeaders.set("X-Meresco-Triplestore-QueryTime", String.valueOf(indexQueryTime));
+                    if (httpArguments.containsKey("outputContentType")) {
+                        responseHeaders.set("Content-Type", httpArguments.singleValue("outputContentType"));
                     }
                     exchange.sendResponseHeaders(200, 0);
                     _writeResponse(response, outputStream);
@@ -146,7 +150,7 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 return;
             }
             else if ("/sparql".equals(path)) {
-                String response = sparqlForm(queryParameters);
+                String response = sparqlForm(httpArguments);
                 Headers headers = exchange.getResponseHeaders();
                 headers.set("Content-Type", "text/html");
                 exchange.sendResponseHeaders(200, 0);
@@ -156,14 +160,14 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 String body = Utils.read(exchange.getRequestBody());
                 exchange.sendResponseHeaders(200, 0);
                 try {
-                    validateRDF(queryParameters, body);
+                    validateRDF(httpArguments, body);
                     _writeResponse("Ok", outputStream);
                 } catch (RDFParseException e) {
                     _writeResponse("Invalid\n" + e.toString(), outputStream);
                 }
             }
             else if ("/export".equals(path)) {
-                export(queryParameters);
+                export(httpArguments);
             }
             else if ("/import".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
@@ -206,14 +210,14 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         }
     }
 
-    public synchronized void updateRDF(QueryParameters params, String httpBody) throws RDFParseException {
-        String identifier = params.singleValue("identifier");
+    public synchronized void updateRDF(QueryParameters httpArguments, String httpBody) throws RDFParseException {
+        String identifier = httpArguments.singleValue("identifier");
         this.tripleStore.delete(identifier);
         this.tripleStore.add(identifier, httpBody);
     }
 
-    public synchronized void addRDF(QueryParameters params, String httpBody) throws RDFParseException {
-        String identifier = params.singleValue("identifier");
+    public synchronized void addRDF(QueryParameters httpArguments, String httpBody) throws RDFParseException {
+        String identifier = httpArguments.singleValue("identifier");
         this.tripleStore.add(identifier, httpBody);
     }
 
@@ -221,8 +225,8 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
     	this.tripleStore.addTriple(httpBody);
     }
 
-    public synchronized void deleteRDF(QueryParameters params) {
-        String identifier = params.singleValue("identifier");
+    public synchronized void deleteRDF(QueryParameters httpArguments) {
+        String identifier = httpArguments.singleValue("identifier");
         this.tripleStore.delete(identifier);
     }
 
@@ -230,20 +234,39 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
     	this.tripleStore.removeTriple(httpBody);
     }
 
-    public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
-        String query = params.singleValue("query");
-        if (query == null) {
-            return "";
+    public String executeTupleQuery(String query, QueryParameters httpArguments, Headers requestHeaders, Headers responseHeaders) throws MalformedQueryException {
+        TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
+        if (httpArguments.containsKey("mimeType")) {
+            resultFormat = TupleQueryResultFormat.forMIMEType(httpArguments.singleValue("mimeType"));
         }
-        return this.tripleStore.executeQuery(query, resultFormat);
+        else if (requestHeaders.containsKey("Accept")) {
+            resultFormat = TupleQueryResultFormat.forMIMEType(requestHeaders.getFirst("Accept"));
+            if (resultFormat == null) {
+                return null;
+            }
+        }
+        responseHeaders.set("Content-Type", resultFormat.getDefaultMIMEType());
+        return this.tripleStore.executeTupleQuery(query, resultFormat);
     }
 
-    public void validateRDF(QueryParameters params, String httpBody) throws RDFParseException {
+    public String executeGraphQuery(String query, QueryParameters httpArguments, Headers requestHeaders, Headers responseHeaders) throws MalformedQueryException {
+        RDFFormat resultFormat = RDFFormat.RDFXML;
+        if (requestHeaders.containsKey("Accept")) {
+            resultFormat = Rio.getParserFormatForMIMEType(requestHeaders.getFirst("Accept"));
+            if (resultFormat == null) {
+                return null;
+            }
+        }
+        responseHeaders.set("Content-Type", resultFormat.getDefaultMIMEType());
+        return this.tripleStore.executeGraphQuery(query, resultFormat);
+    }
+
+    public void validateRDF(QueryParameters httpArguments, String httpBody) throws RDFParseException {
         validator.validate(httpBody);
     }
 
-    public void export(QueryParameters params) {
-        String identifier = params.singleValue("identifier");
+    public void export(QueryParameters httpArguments) {
+        String identifier = httpArguments.singleValue("identifier");
         this.tripleStore.export(identifier);
     }
 
@@ -251,10 +274,10 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
     	this.tripleStore.importTrig(trig);
     }
 
-    public String sparqlForm(QueryParameters params) {
+    public String sparqlForm(QueryParameters httpArguments) {
         String query;
-        if (params.containsKey("query")) {
-            query = params.singleValue("query");
+        if (httpArguments.containsKey("query")) {
+            query = httpArguments.singleValue("query");
         } else {
             query = "";
             for (Namespace namespace : this.tripleStore.getNamespaces()) {
