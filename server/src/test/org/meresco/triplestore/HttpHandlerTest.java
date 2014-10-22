@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import static org.meresco.triplestore.Utils.parseQS;
 
 import org.openrdf.rio.RDFParseException;
+import org.openrdf.rio.RDFFormat;
 
 
 public class HttpHandlerTest {
@@ -119,13 +120,24 @@ public class HttpHandlerTest {
                      tsmock.actions);
     }
 
-    @Test public void testSparQL() throws TransactionLogException, MalformedQueryException {
+    @Test public void testSparQLTuple() throws TransactionLogException, MalformedQueryException {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String queryString = "query=SELECT+%3Fx+%3Fy+%3Fz+WHERE+%7B+%3Fx+%3Fy+%3Fz+%7D";
-        String result = h.executeQuery(parseQS(queryString), TupleQueryResultFormat.JSON);
+        QueryParameters queryParameters = Utils.parseQS("");
+        String result = h.executeTupleQuery("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", queryParameters, new Headers(), new Headers());
 
-        assertEquals(Arrays.asList("executeQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"),
+        assertEquals(Arrays.asList("executeTupleQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"),
+                     tsmock.actions);
+    }
+
+    @Test public void testSparQLGraph() throws TransactionLogException, MalformedQueryException {
+        TSMock tsmock = new TSMock();
+        HttpHandler h = new HttpHandler(tsmock);
+        String queryString = "DESCRIBE <uri:test>";
+        QueryParameters queryParameters = Utils.parseQS("");
+        String result = h.executeGraphQuery(queryString, queryParameters, new Headers(), new Headers());
+
+        assertEquals(Arrays.asList("executeGraphQuery:DESCRIBE <uri:test>"),
                      tsmock.actions);
     }
 
@@ -168,16 +180,26 @@ public class HttpHandlerTest {
         assertEquals(200, exchange.responseCode);
     }
 
-    @Test public void testQueryDispatch() throws Exception {
+    @Test public void testTupleQueryDispatch() throws Exception {
         HttpHandlerMock h = new HttpHandlerMock();
 
         HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
         h.handle(exchange);
-        assertEquals(3, h.actions.size());
-        assertEquals("executeQuery", h.actions.get(0));
-        assertEquals(TupleQueryResultFormat.JSON, h.actions.get(2));
-        QueryParameters qp = (QueryParameters) h.actions.get(1);
-        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
+        assertEquals(2, h.actions.size());
+        assertEquals("executeTupleQuery", h.actions.get(0));
+        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(1));
+        assertEquals(200, exchange.responseCode);
+        assertEquals("QUERYRESULT", exchange.getOutput());
+    }
+
+    @Test public void testGraphQueryDispatch() throws Exception {
+        HttpHandlerMock h = new HttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=DESCRIBE+%3Curi:test%3E", "");
+        h.handle(exchange);
+        assertEquals(2, h.actions.size());
+        assertEquals("executeGraphQuery", h.actions.get(0));
+        assertEquals("DESCRIBE <uri:test>", h.actions.get(1));
         assertEquals(200, exchange.responseCode);
         assertEquals("QUERYRESULT", exchange.getOutput());
     }
@@ -187,12 +209,9 @@ public class HttpHandlerTest {
 
         HttpExchangeMock exchange = new HttpExchangeMock("/query?format=SPARQL&query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
         h.handle(exchange);
-        assertEquals(3, h.actions.size());
-        assertEquals("executeQuery", h.actions.get(0));
-        assertEquals(TupleQueryResultFormat.JSON, h.actions.get(2));
-        QueryParameters qp = (QueryParameters) h.actions.get(1);
-        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", qp.singleValue("query"));
-        assertEquals("SPARQL", qp.singleValue("format"));
+        assertEquals(2, h.actions.size());
+        assertEquals("executeTupleQuery", h.actions.get(0));
+        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(1));
         assertEquals(200, exchange.responseCode);
         assertEquals("QUERYRESULT", exchange.getOutput());
     }
@@ -306,7 +325,7 @@ public class HttpHandlerTest {
 
     @Test public void test400ForMalformedQueryExceptions() throws IOException {
         HttpHandlerMock h = new HttpHandlerMock(new MalformedQueryException("dummy test exception"));
-        HttpExchangeMock exchange = new HttpExchangeMock("/query", "");
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT+%3Fx+WHERE+%7B%7D%0A", "");
         h.handle(exchange);
         assertEquals(0, h.actions.size());
         assertEquals(400, exchange.responseCode);
@@ -344,10 +363,28 @@ public class HttpHandlerTest {
 
         Headers inputHeaders = new Headers();
         inputHeaders.add("Accept", "image/jpg");
-        HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT+%3Fx+WHERE+%7B%7D%0A", "", inputHeaders);
         h.handle(exchange);
         assertEquals(406, exchange.responseCode);
-        assertEquals("Supported formats:\n- SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)\n- BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)\n- SPARQL/JSON (mimeTypes=application/sparql-results+json, application/json; ext=srj, json)\n- SPARQL/CSV (mimeTypes=text/csv; ext=csv)\n- SPARQL/TSV (mimeTypes=text/tab-separated-values; ext=tsv)\n", exchange.getResponseBody().toString());
+        assertEquals("Supported formats SELECT query:"
+            + "\n- SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)"
+            + "\n- BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)"
+            + "\n- SPARQL/JSON (mimeTypes=application/sparql-results+json, application/json; ext=srj, json)"
+            + "\n- SPARQL/CSV (mimeTypes=text/csv; ext=csv)"
+            + "\n- SPARQL/TSV (mimeTypes=text/tab-separated-values; ext=tsv)"
+            + "\n"
+            + "\nSupported formats DESCRIBE query:"
+            + "\n- RDF/XML (mimeTypes=application/rdf+xml, application/xml; ext=rdf, rdfs, owl, xml)"
+            + "\n- N-Triples (mimeTypes=text/plain; ext=nt)"
+            + "\n- Turtle (mimeTypes=text/turtle, application/x-turtle; ext=ttl)"
+            + "\n- N3 (mimeTypes=text/n3, text/rdf+n3; ext=n3)"
+            + "\n- TriX (mimeTypes=application/trix; ext=xml, trix)"
+            + "\n- TriG (mimeTypes=application/x-trig; ext=trig)"
+            + "\n- BinaryRDF (mimeTypes=application/x-binary-rdf; ext=brf)"
+            + "\n- N-Quads (mimeTypes=text/x-nquads; ext=nq)"
+            + "\n- JSON-LD (mimeTypes=application/ld+json; ext=jsonld)"
+            + "\n- RDF/JSON (mimeTypes=application/rdf+json; ext=rj)"
+            + "\n- RDFa (mimeTypes=application/xhtml+xml, application/html, text/html; ext=xhtml, html)\n", exchange.getResponseBody().toString());
         assertEquals("text/plain", exchange.getResponseHeaders().getFirst("Content-Type"));
     }
 
@@ -357,7 +394,7 @@ public class HttpHandlerTest {
 
         Headers inputHeaders = new Headers();
         inputHeaders.add("Accept", "application/xml");
-        HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT+%3Fx+WHERE+%7B%7D%0A", "", inputHeaders);
         h.handle(exchange);
         assertEquals(200, exchange.responseCode);
         assertEquals(1, exchange.getResponseHeaders().get("Content-Type").size());
@@ -370,10 +407,12 @@ public class HttpHandlerTest {
         HttpHandler h = new HttpHandler(tsmock);
 
         Headers inputHeaders = new Headers();
-        HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT+%3Fx+WHERE+%7B%7D%0A", "", inputHeaders);
         h.handle(exchange);
         assertEquals(200, exchange.responseCode);
-        assertEquals("0", exchange.getResponseHeaders().getFirst("X-Meresco-Triplestore-QueryTime"));
+        int time = Integer.parseInt(exchange.getResponseHeaders().getFirst("X-Meresco-Triplestore-QueryTime"));
+        assertTrue(time >= 0);
+        assertTrue(time <= 3);
     }
 
     @Test public void testExportDispatch() throws Exception {
@@ -450,16 +489,26 @@ public class HttpHandlerTest {
             actions.add(params);
         }
 
-        public String executeQuery(QueryParameters params, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
+        public String executeTupleQuery(String query, QueryParameters httpArguments, Headers requestHeaders, Headers responseHeaders) throws MalformedQueryException {
             if (_exception != null) {
                 if (_exception instanceof MalformedQueryException) {
                     throw (MalformedQueryException) _exception;
                 }
                 throw new RuntimeException(_exception);
             }
-            actions.add("executeQuery");
-            actions.add(params);
-            actions.add(resultFormat);
+            actions.add("executeTupleQuery");
+            actions.add(query);
+            return "QUERYRESULT";
+        }
+        public String executeGraphQuery(String query, QueryParameters httpArguments, Headers requestHeaders, Headers responseHeaders) throws MalformedQueryException {
+            if (_exception != null) {
+                if (_exception instanceof MalformedQueryException) {
+                    throw (MalformedQueryException) _exception;
+                }
+                throw new RuntimeException(_exception);
+            }
+            actions.add("executeGraphQuery");
+            actions.add(query);
             return "QUERYRESULT";
         }
         public void validateRDF(QueryParameters params, String httpBody) {

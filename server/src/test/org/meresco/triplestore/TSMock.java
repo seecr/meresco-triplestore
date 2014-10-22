@@ -37,6 +37,7 @@ import org.openrdf.model.Namespace;
 import org.openrdf.model.impl.NamespaceImpl;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
+import org.openrdf.rio.RDFFormat;
 
 
 public class TSMock implements Triplestore {
@@ -58,8 +59,13 @@ public class TSMock implements Triplestore {
         actions.add("removeTriple:" + tripleData);
     }
 
-    public String executeQuery(String sparQL, TupleQueryResultFormat resultFormat) {
-        actions.add("executeQuery:" + sparQL);
+    public String executeTupleQuery(String sparQL, TupleQueryResultFormat resultFormat) {
+        actions.add("executeTupleQuery:" + sparQL);
+        return "<result/>";
+    }
+
+    public String executeGraphQuery(String sparQL, RDFFormat resultFormat) {
+        actions.add("executeGraphQuery:" + sparQL);
         return "<result/>";
     }
 

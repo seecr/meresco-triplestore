@@ -119,19 +119,28 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 try {
                     long start = System.currentTimeMillis();
                     String query = httpArguments.singleValue("query");
-                    ParsedQuery p = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
-                    if (p instanceof ParsedGraphQuery) {
-                        response = executeGraphQuery(query, httpArguments, requestHeaders, responseHeaders);
-                    } else {
-                        response = executeTupleQuery(query, httpArguments, requestHeaders, responseHeaders);
+                    if (query != null) {
+                        ParsedQuery p = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
+                        if (p instanceof ParsedGraphQuery) {
+                            response = executeGraphQuery(query, httpArguments, requestHeaders, responseHeaders);
+                        } else {
+                            response = executeTupleQuery(query, httpArguments, requestHeaders, responseHeaders);
+                        }
                     }
                     long indexQueryTime = System.currentTimeMillis() - start;
-                    if (response == null) {
-                        String responseBody = "Supported formats:\n";
+                    if (response == null || response == "") {
+                        String responseBody = "Supported formats SELECT query:\n";
                         Iterator<TupleQueryResultFormat> i = TupleQueryResultFormat.values().iterator();
                         while (i.hasNext()) {
                             responseBody += "- " + i.next() + "\n";
                         }
+
+                        responseBody += "\nSupported formats DESCRIBE query:\n";
+                        Iterator<RDFFormat> j = RDFFormat.values().iterator();
+                        while (j.hasNext()) {
+                            responseBody += "- " + j.next() + "\n";
+                        }
+
                         responseHeaders.set("Content-Type", "text/plain");
                         exchange.sendResponseHeaders(406, 0);
                         _writeResponse(responseBody, outputStream);
@@ -241,9 +250,9 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         }
         else if (requestHeaders.containsKey("Accept")) {
             resultFormat = TupleQueryResultFormat.forMIMEType(requestHeaders.getFirst("Accept"));
-            if (resultFormat == null) {
-                return null;
-            }
+        }
+        if (resultFormat == null) {
+            return null;
         }
         responseHeaders.set("Content-Type", resultFormat.getDefaultMIMEType());
         return this.tripleStore.executeTupleQuery(query, resultFormat);
@@ -251,11 +260,14 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
 
     public String executeGraphQuery(String query, QueryParameters httpArguments, Headers requestHeaders, Headers responseHeaders) throws MalformedQueryException {
         RDFFormat resultFormat = RDFFormat.RDFXML;
-        if (requestHeaders.containsKey("Accept")) {
+        if (httpArguments.containsKey("mimeType")) {
+            resultFormat = Rio.getParserFormatForMIMEType(httpArguments.singleValue("mimeType"));
+        }
+        else if (requestHeaders.containsKey("Accept")) {
             resultFormat = Rio.getParserFormatForMIMEType(requestHeaders.getFirst("Accept"));
-            if (resultFormat == null) {
-                return null;
-            }
+        }
+        if (resultFormat == null) {
+            return null;
         }
         responseHeaders.set("Content-Type", resultFormat.getDefaultMIMEType());
         return this.tripleStore.executeGraphQuery(query, resultFormat);
@@ -293,6 +305,7 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             + "<input type=\"hidden\" name=\"outputContentType\" value=\"application/json\"/>\n"
             + "Format: <select name=\"mimeType\">\n"
             + "<option value=\"application/sparql-results+json\">json</option>\n"
+            + "<option value=\"application/xml\">xml</option>\n"
             + "</select><br />\n"
             + "<input type=\"submit\">\n"
             + "</form>\n</body></html>";
