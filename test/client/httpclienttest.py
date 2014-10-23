@@ -200,7 +200,7 @@ class HttpClientTest(SeecrTestCase):
             kwargs.append(_kwargs)
             sleep(0.1)
             s = Suspend()
-            response = yield s
+            yield s
             result = s.getResult()
             raise StopIteration(result)
         triplestoreClient._httpget = httpget
@@ -213,7 +213,7 @@ class HttpClientTest(SeecrTestCase):
         self.assertEquals(1234, kwargs[0]['port'])
         self.assertEquals(['index', 'queryTime'], observer.calledMethods[1].kwargs.keys())
         self.assertEquals(Decimal('0.042'), observer.calledMethods[1].kwargs['index'])
-        self.assertTrue(0.1 < float(observer.calledMethods[1].kwargs['queryTime']) < 0.11)
+        self.assertAlmostEqual(0.1, float(observer.calledMethods[1].kwargs['queryTime']), places=2)
 
     def testUpdateWithtriplestoreHostPortFromObserver(self):
         triplestoreClient = HttpClient()
@@ -223,7 +223,7 @@ class HttpClientTest(SeecrTestCase):
         def httppost(**_kwargs):
             kwargs.append(_kwargs)
             s = Suspend()
-            response = yield s
+            yield s
             result = s.getResult()
             raise StopIteration(result)
         triplestoreClient._httppost = httppost

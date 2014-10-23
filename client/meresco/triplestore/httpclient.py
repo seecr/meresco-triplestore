@@ -46,13 +46,19 @@ class InvalidRdfXmlException(Exception):
 class MalformedQueryException(Exception):
     pass
 
-
 class HttpClient(Observable):
-    def __init__(self, name=None, host=None, port=None, synchronous=False):
+    def __init__(self, name=None, host=None, port=None, synchronous=False, enableCollectLog=False):
         Observable.__init__(self, name=name)
         self.host = host
         self.port = port
         self.synchronous = synchronous
+        self._collectLogForScope = lambda **kwargs: None
+        if enableCollectLog:
+            try:
+                from meresco.components.log import collectLogForScope
+                self._collectLogForScope = collectLogForScope
+            except ImportError:
+                raise ValueError('The function collectLogForScope from meresco.components.log is not available.')
 
     def add(self, identifier, data, **kwargs):
         path = "/update?%s" % urlencode(dict(identifier=identifier))
@@ -75,19 +81,27 @@ class HttpClient(Observable):
             raise InvalidRdfXmlException(body)
 
     def executeQuery(self, query, queryResultFormat=None):
-        t0 = time()
-        header, queryResult = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
-        if queryResultFormat is None:
-            queryResult = self._parseJson2Dict(queryResult)
-        self._handleQueryTimes(header=header, queryTime=time() - t0)
-        raise StopIteration(queryResult)
+        localLogCollector = {}
+        try:
+            t0 = time()
+            header, queryResult = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
+            if queryResultFormat is None:
+                queryResult = self._parseJson2Dict(queryResult)
+            self._handleQueryTimes(header=header, queryTime=time() - t0, localLogCollector=localLogCollector)
+            raise StopIteration(queryResult)
+        finally:
+            self._collectLogForScope(triplestoreResponse=localLogCollector)
 
     def getStatements(self, subject=None, predicate=None, object=None):
-        t0 = time()
-        query = ''.join(self._getStatementsSparQL(subject=subject, predicate=predicate, object=object))
-        header, jsonString = yield self._sparqlQuery(query)
-        self._handleQueryTimes(header=header, queryTime=time() - t0)
-        raise StopIteration(self._getStatementsResults(jsonString, subject=subject, predicate=predicate, object=object))
+        localLogCollector = {}
+        try:
+            t0 = time()
+            query = ''.join(self._getStatementsSparQL(subject=subject, predicate=predicate, object=object))
+            header, jsonString = yield self._sparqlQuery(query)
+            self._handleQueryTimes(header=header, queryTime=time() - t0, localLogCollector=localLogCollector)
+            raise StopIteration(self._getStatementsResults(jsonString, subject=subject, predicate=predicate, object=object))
+        finally:
+            self._collectLogForScope(triplestoreResponse=localLogCollector)
 
     def export(self, identifier):
         if not identifier:
@@ -198,12 +212,14 @@ class HttpClient(Observable):
             return (self.host, self.port)
         return self.call.triplestoreServer()
 
-    def _handleQueryTimes(self, header, queryTime):
-        queryTime = Decimal(str(queryTime)).quantize(millis)
+    def _handleQueryTimes(self, header, queryTime, localLogCollector):
+        queryTime_ms = Decimal(str(queryTime)).quantize(MILLIS)
         times = [line.split(':',1)[-1].strip() for line in header.split('\r\n') if X_MERESCO_TRIPLESTORE_QUERYTIME.lower() in line.lower()]
         if times:
-            index = (Decimal(times[0]) * millis).quantize(millis)
-            self.do.handleQueryTimes(index=index, queryTime=queryTime)
+            index_ms = (Decimal(times[0]) * MILLIS).quantize(MILLIS)
+            self.do.handleQueryTimes(index=index_ms, queryTime=queryTime_ms)
+            localLogCollector['queryTime'] = queryTime_ms
+            localLogCollector['indexTime'] = index_ms
 
     def _urlopen(self, *args, **kwargs):
         u = urlopen(*args, **kwargs)
@@ -217,7 +233,7 @@ class HttpClient(Observable):
         return httppost(**kwargs)
 
 X_MERESCO_TRIPLESTORE_QUERYTIME = 'X-Meresco-Triplestore-QueryTime'
-millis = Decimal('0.001')
+MILLIS = Decimal('0.001')
 
 _typeMapping = {
     'literal': Literal,
