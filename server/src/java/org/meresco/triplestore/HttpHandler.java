@@ -119,12 +119,13 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 try {
                     long start = System.currentTimeMillis();
                     String query = httpArguments.singleValue("query");
+                    String responseType = getResponseType(requestHeaders, httpArguments);
                     if (query != null) {
                         ParsedQuery p = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
                         if (p instanceof ParsedGraphQuery) {
-                            response = executeGraphQuery(query, httpArguments, requestHeaders, responseHeaders);
+                            response = executeGraphQuery(query, responseType, responseHeaders);
                         } else {
-                            response = executeTupleQuery(query, httpArguments, requestHeaders, responseHeaders);
+                            response = executeTupleQuery(query, responseType, responseHeaders);
                         }
                     }
                     long indexQueryTime = System.currentTimeMillis() - start;
@@ -242,14 +243,20 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
     public synchronized void removeTriple(String httpBody) {
     	this.tripleStore.removeTriple(httpBody);
     }
-
-    public String executeTupleQuery(String query, QueryParameters httpArguments, Headers requestHeaders, Headers responseHeaders) throws MalformedQueryException {
-        TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
-        if (httpArguments.containsKey("mimeType")) {
-            resultFormat = TupleQueryResultFormat.forMIMEType(httpArguments.singleValue("mimeType"));
+    
+    public String getResponseType(Headers requestHeaders, QueryParameters httpArguments) {
+    	if (httpArguments.containsKey("mimeType")) {
+            return httpArguments.singleValue("mimeType");
+        } else if (requestHeaders.containsKey("Accept")) {
+            return requestHeaders.getFirst("Accept");
         }
-        else if (requestHeaders.containsKey("Accept")) {
-            resultFormat = TupleQueryResultFormat.forMIMEType(requestHeaders.getFirst("Accept"));
+    	return null;
+    }
+    
+    public String executeTupleQuery(String query, String responseType, Headers responseHeaders) throws MalformedQueryException {
+        TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
+        if (responseType != null) {
+        	resultFormat = TupleQueryResultFormat.forMIMEType(responseType);
         }
         if (resultFormat == null) {
             return null;
@@ -258,15 +265,12 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         return this.tripleStore.executeTupleQuery(query, resultFormat);
     }
 
-    public String executeGraphQuery(String query, QueryParameters httpArguments, Headers requestHeaders, Headers responseHeaders) throws MalformedQueryException {
-        RDFFormat resultFormat = RDFFormat.RDFXML;
-        if (httpArguments.containsKey("mimeType")) {
-            resultFormat = Rio.getParserFormatForMIMEType(httpArguments.singleValue("mimeType"));
-        }
-        else if (requestHeaders.containsKey("Accept")) {
-            resultFormat = Rio.getParserFormatForMIMEType(requestHeaders.getFirst("Accept"));
-        }
-        if (resultFormat == null) {
+    public String executeGraphQuery(String query, String responseType, Headers responseHeaders) throws MalformedQueryException {
+    	RDFFormat resultFormat = RDFFormat.RDFXML;
+    	if (responseType != null) {
+    		resultFormat = Rio.getParserFormatForMIMEType(responseType);
+    	}
+    	if (resultFormat == null) {
             return null;
         }
         responseHeaders.set("Content-Type", resultFormat.getDefaultMIMEType());

@@ -38,6 +38,8 @@ import java.io.BufferedOutputStream;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
+import org.openrdf.query.parser.ParsedGraphQuery;
+import org.openrdf.query.parser.QueryParserUtil;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.query.resultio.QueryResultIO;
 
@@ -63,6 +65,8 @@ import org.openrdf.repository.RepositoryConnection;
 import org.openrdf.repository.RepositoryException;
 import org.openrdf.repository.RepositoryResult;
 import org.openrdf.repository.Repository;
+import org.openrdf.repository.sail.SailGraphQuery;
+import org.openrdf.repository.sail.SailQuery;
 
 import org.openrdf.rio.Rio;
 import org.openrdf.rio.RDFWriter;

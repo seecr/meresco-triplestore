@@ -123,8 +123,7 @@ public class HttpHandlerTest {
     @Test public void testSparQLTuple() throws TransactionLogException, MalformedQueryException {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        QueryParameters queryParameters = Utils.parseQS("");
-        String result = h.executeTupleQuery("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", queryParameters, new Headers(), new Headers());
+        String result = h.executeTupleQuery("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", null, new Headers());
 
         assertEquals(Arrays.asList("executeTupleQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"),
                      tsmock.actions);
@@ -134,8 +133,7 @@ public class HttpHandlerTest {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
         String queryString = "DESCRIBE <uri:test>";
-        QueryParameters queryParameters = Utils.parseQS("");
-        String result = h.executeGraphQuery(queryString, queryParameters, new Headers(), new Headers());
+        String result = h.executeGraphQuery(queryString, null, new Headers());
 
         assertEquals(Arrays.asList("executeGraphQuery:DESCRIBE <uri:test>"),
                      tsmock.actions);
@@ -185,9 +183,10 @@ public class HttpHandlerTest {
 
         HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
         h.handle(exchange);
-        assertEquals(2, h.actions.size());
+        assertEquals(3, h.actions.size());
         assertEquals("executeTupleQuery", h.actions.get(0));
-        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(1));
+        assertEquals(null, h.actions.get(1));
+        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
         assertEquals(200, exchange.responseCode);
         assertEquals("QUERYRESULT", exchange.getOutput());
     }
@@ -197,9 +196,10 @@ public class HttpHandlerTest {
 
         HttpExchangeMock exchange = new HttpExchangeMock("/query?query=DESCRIBE+%3Curi:test%3E", "");
         h.handle(exchange);
-        assertEquals(2, h.actions.size());
+        assertEquals(3, h.actions.size());
         assertEquals("executeGraphQuery", h.actions.get(0));
-        assertEquals("DESCRIBE <uri:test>", h.actions.get(1));
+        assertEquals(null, h.actions.get(1));
+        assertEquals("DESCRIBE <uri:test>", h.actions.get(2));
         assertEquals(200, exchange.responseCode);
         assertEquals("QUERYRESULT", exchange.getOutput());
     }
@@ -209,9 +209,37 @@ public class HttpHandlerTest {
 
         HttpExchangeMock exchange = new HttpExchangeMock("/query?format=SPARQL&query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
         h.handle(exchange);
-        assertEquals(2, h.actions.size());
+        assertEquals(3, h.actions.size());
         assertEquals("executeTupleQuery", h.actions.get(0));
-        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(1));
+        assertEquals(null, h.actions.get(1));
+        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
+        assertEquals(200, exchange.responseCode);
+        assertEquals("QUERYRESULT", exchange.getOutput());
+    }
+    
+    @Test public void testQueryWithMimeType() throws Exception {
+        HttpHandlerMock h = new HttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D&mimeType=application/sparql-results+xml", "");
+        h.handle(exchange);
+        assertEquals(3, h.actions.size());
+        assertEquals("executeTupleQuery", h.actions.get(0));
+        assertEquals("application/sparql-results xml", h.actions.get(1));
+        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
+        assertEquals(200, exchange.responseCode);
+        assertEquals("QUERYRESULT", exchange.getOutput());
+    }
+    
+    @Test public void testQueryWithAcceptHeader() throws Exception {
+        HttpHandlerMock h = new HttpHandlerMock();
+        Headers headers = new Headers();
+        headers.set("Accept", "application/sparql-results+xml");
+        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D&mimeType=application/sparql-results+xml", "", headers);
+        h.handle(exchange);
+        assertEquals(3, h.actions.size());
+        assertEquals("executeTupleQuery", h.actions.get(0));
+        assertEquals("application/sparql-results xml", h.actions.get(1));
+        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
         assertEquals(200, exchange.responseCode);
         assertEquals("QUERYRESULT", exchange.getOutput());
     }
@@ -464,7 +492,7 @@ public class HttpHandlerTest {
             super(null);
             _exception = e;
         }
-
+        @Override
         public void updateRDF(QueryParameters params, String httpBody) throws RDFParseException {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
@@ -473,6 +501,7 @@ public class HttpHandlerTest {
             actions.add(params);
             actions.add(httpBody);
         }
+        @Override
         public void addRDF(QueryParameters params, String httpBody) throws RDFParseException {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
@@ -481,6 +510,7 @@ public class HttpHandlerTest {
             actions.add(params);
             actions.add(httpBody);
         }
+        @Override
         public void deleteRDF(QueryParameters params) {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
@@ -488,8 +518,8 @@ public class HttpHandlerTest {
             actions.add("deleteRDF");
             actions.add(params);
         }
-
-        public String executeTupleQuery(String query, QueryParameters httpArguments, Headers requestHeaders, Headers responseHeaders) throws MalformedQueryException {
+        @Override
+        public String executeTupleQuery(String query, String responseType, Headers responseHeaders) throws MalformedQueryException {
             if (_exception != null) {
                 if (_exception instanceof MalformedQueryException) {
                     throw (MalformedQueryException) _exception;
@@ -497,10 +527,12 @@ public class HttpHandlerTest {
                 throw new RuntimeException(_exception);
             }
             actions.add("executeTupleQuery");
+            actions.add(responseType);
             actions.add(query);
             return "QUERYRESULT";
         }
-        public String executeGraphQuery(String query, QueryParameters httpArguments, Headers requestHeaders, Headers responseHeaders) throws MalformedQueryException {
+        @Override
+        public String executeGraphQuery(String query, String responseType, Headers responseHeaders) throws MalformedQueryException {
             if (_exception != null) {
                 if (_exception instanceof MalformedQueryException) {
                     throw (MalformedQueryException) _exception;
@@ -508,19 +540,23 @@ public class HttpHandlerTest {
                 throw new RuntimeException(_exception);
             }
             actions.add("executeGraphQuery");
+            actions.add(responseType);
             actions.add(query);
             return "QUERYRESULT";
         }
+        @Override
         public void validateRDF(QueryParameters params, String httpBody) {
             actions.add("validateRDF");
             actions.add(params);
             actions.add(httpBody);
         }
+        @Override
         public String sparqlForm(QueryParameters params) {
             actions.add("sparqlForm");
             actions.add(params);
             return "SPARQLFORM";
         }
+        @Override
         public void export(QueryParameters params) {
             actions.add("export");
             actions.add(params);
