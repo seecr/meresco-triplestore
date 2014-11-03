@@ -88,6 +88,10 @@ public class SesameTriplestore implements Triplestore {
     public void startup() {
         try {
             repository.initialize();
+
+            // Note: the following is an optimization that assumes tight integration of this process with the actual triple store.
+            // If the triple store is its own process (think Virtuoso) this is problematic as the connection will become stale when that process
+            // gets restarted independently.
             this.writeConnection = repository.getConnection();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
