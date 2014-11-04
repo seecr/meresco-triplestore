@@ -40,6 +40,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.concurrent.ExecutorService;
+import java.util.ArrayList;
 
 import java.net.URI;
 
@@ -119,13 +120,13 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 try {
                     long start = System.currentTimeMillis();
                     String query = httpArguments.singleValue("query");
-                    String responseType = getResponseType(requestHeaders, httpArguments);
+                    List<String> responseTypes = getResponseTypes(requestHeaders, httpArguments);
                     if (query != null) {
                         ParsedQuery p = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
                         if (p instanceof ParsedGraphQuery) {
-                            response = executeGraphQuery(query, responseType, responseHeaders);
+                            response = executeGraphQuery(query, responseTypes, responseHeaders);
                         } else {
-                            response = executeTupleQuery(query, responseType, responseHeaders);
+                            response = executeTupleQuery(query, responseTypes, responseHeaders);
                         }
                     }
                     long indexQueryTime = System.currentTimeMillis() - start;
@@ -243,36 +244,38 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
     public synchronized void removeTriple(String httpBody) {
     	this.tripleStore.removeTriple(httpBody);
     }
-    
-    public String getResponseType(Headers requestHeaders, QueryParameters httpArguments) {
+
+    public List<String> getResponseTypes(Headers requestHeaders, QueryParameters httpArguments) {
     	if (httpArguments.containsKey("mimeType")) {
-            return httpArguments.singleValue("mimeType");
+            return httpArguments.get("mimeType");
         } else if (requestHeaders.containsKey("Accept")) {
-            return requestHeaders.getFirst("Accept");
+            return Arrays.asList(requestHeaders.getFirst("Accept").replace(", ", ",").split(","));
         }
-    	return null;
+    	return new ArrayList<String>(0);
     }
-    
-    public String executeTupleQuery(String query, String responseType, Headers responseHeaders) throws MalformedQueryException {
+
+    public String executeTupleQuery(String query, List<String> responseTypes, Headers responseHeaders) throws MalformedQueryException {
         TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
-        if (responseType != null) {
-        	resultFormat = TupleQueryResultFormat.forMIMEType(responseType);
-        }
-        if (resultFormat == null) {
-            return null;
+        for (String responseType : responseTypes) {
+        	TupleQueryResultFormat format = TupleQueryResultFormat.forMIMEType(responseType);
+            if (format != null) {
+                resultFormat = format;
+                break;
+            }
         }
         responseHeaders.set("Content-Type", resultFormat.getDefaultMIMEType());
         return this.tripleStore.executeTupleQuery(query, resultFormat);
     }
 
-    public String executeGraphQuery(String query, String responseType, Headers responseHeaders) throws MalformedQueryException {
+    public String executeGraphQuery(String query, List<String> responseTypes, Headers responseHeaders) throws MalformedQueryException {
     	RDFFormat resultFormat = RDFFormat.RDFXML;
-    	if (responseType != null) {
-    		resultFormat = Rio.getParserFormatForMIMEType(responseType);
+        for (String responseType : responseTypes) {
+    		RDFFormat format = Rio.getParserFormatForMIMEType(responseType);
+            if (format != null) {
+                resultFormat = format;
+                break;
+            }
     	}
-    	if (resultFormat == null) {
-            return null;
-        }
         responseHeaders.set("Content-Type", resultFormat.getDefaultMIMEType());
         return this.tripleStore.executeGraphQuery(query, resultFormat);
     }
