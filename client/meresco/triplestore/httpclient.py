@@ -26,9 +26,9 @@
 #
 ## end license ##
 
-from urllib2 import urlopen
+from urllib2 import build_opener, Request, HTTPHandler
 from urllib import urlencode
-from simplejson import loads
+from simplejson import loads, JSONDecodeError
 
 from weightless.http import httpget, httppost
 from meresco.core import Observable
@@ -47,11 +47,12 @@ class MalformedQueryException(Exception):
     pass
 
 class HttpClient(Observable):
-    def __init__(self, name=None, host=None, port=None, synchronous=False, enableCollectLog=False):
+    def __init__(self, name=None, host=None, port=None, synchronous=False, enableCollectLog=False, pathPrefix=''):
         Observable.__init__(self, name=name)
         self.host = host
         self.port = port
         self.synchronous = synchronous
+        self._pathPrefix = pathPrefix
         self._collectLogForScope = lambda **kwargs: None
         if enableCollectLog:
             try:
@@ -85,8 +86,10 @@ class HttpClient(Observable):
         try:
             t0 = time()
             header, queryResult = yield self._sparqlQuery(query, queryResultFormat=queryResultFormat)
-            if queryResultFormat is None:
+            try:
                 queryResult = self._parseJson2Dict(queryResult)
+            except JSONDecodeError:
+                pass
             self._handleQueryTimes(header=header, queryTime=time() - t0, localLogCollector=localLogCollector)
             raise StopIteration(queryResult)
         finally:
@@ -113,7 +116,7 @@ class HttpClient(Observable):
         yield self._send("/import", body=data)
 
     def _sparqlQuery(self, query, queryResultFormat=None):
-        path = "/query?%s" % urlencode(dict(query=query))
+        path = "{0}/query?{1}".format(self._pathPrefix, urlencode(dict(query=query)))
         headers = None
         if queryResultFormat is not None:
             headers = {'Accept': queryResultFormat}
@@ -121,14 +124,14 @@ class HttpClient(Observable):
         body = None
         try:
             if self.synchronous:
-                header, body = self._urlopen("http://%s:%s%s" % (host, port, path))
+                header, body = self._urlopen("http://%s:%s%s" % (host, port, path), headers=headers)
             else:
                 response = yield self._httpget(host=host, port=port, request=path, headers=headers)
                 header, body = response.split("\r\n\r\n", 1)
-                self._verify200(header, response)
+                self._verify20x(header, response)
         except Exception, e:
             errorStr = e.read() if hasattr(e, 'read') else (body or str(e))
-            if 'MalformedQueryException' in errorStr or 'QueryEvaluationException' in errorStr:
+            if 'MalformedQueryException' in errorStr or 'QueryEvaluationException' in errorStr or 'Parse error:' in errorStr:
                 raise MalformedQueryException(errorStr)
             raise e
         raise StopIteration((header, body))
@@ -141,11 +144,11 @@ class HttpClient(Observable):
         responseBody = None
         try:
             if self.synchronous:
-                header, responseBody = self._urlopen("http://%s:%s%s" % (host, port, path), data=body)
+                header, responseBody = self._urlopen("http://%s:%s%s" % (host, port, path), data=body, headers=headers)
             else:
                 response = yield self._httppost(host=host, port=port, request=path, body=body, headers=headers)
                 header, responseBody = response.split("\r\n\r\n", 1)
-                self._verify200(header, response)
+                self._verify20x(header, response)
         except Exception, e:
             errorStr = e.read() if hasattr(e, 'read') else (body or str(e))
             if 'RDFParseException' in errorStr:
@@ -203,9 +206,9 @@ class HttpClient(Observable):
         mappedType = _typeMapping.get(valueDict['type'])
         return mappedType.fromDict(valueDict) if mappedType else valueDict['value']
 
-    def _verify200(self, header, response):
-        if not header.startswith('HTTP/1.1 200'):
-            raise IOError("Expected status 'HTTP/1.1 200' from triplestore, but got: " + response)
+    def _verify20x(self, header, response):
+        if not header.startswith('HTTP/1.1 20'):
+            raise IOError("Expected status 'HTTP/1.1 20x' from triplestore, but got: " + response)
 
     def _triplestoreServer(self):
         if self.host:
@@ -221,8 +224,14 @@ class HttpClient(Observable):
             localLogCollector['queryTime'] = queryTime_ms
             localLogCollector['indexTime'] = index_ms
 
-    def _urlopen(self, *args, **kwargs):
-        u = urlopen(*args, **kwargs)
+    def _urlopen(self, request, data=None, method='GET', headers=None):
+        opener = build_opener(HTTPHandler)
+        req = Request('{0}'.format(request), data=data)
+        if headers:
+            for header, value in headers.items():
+                req.add_header(header, value)
+        req.get_method = lambda: method
+        u = opener.open(req)
         header = "HTTP/1.0 %s %s\r\n" % (u.code, u.msg) + str(u.headers).strip()
         return header, u.read()
 
