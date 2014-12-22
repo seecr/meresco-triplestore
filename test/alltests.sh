@@ -28,10 +28,21 @@
 export LANG=en_US.UTF-8
 export PYTHONPATH=.:$PYTHONPATH
 tests="client server"
-pyversions="python2.6"
-if [ -e /usr/bin/python2.7 ]; then
-    pyversions="$pyversions python2.7"
+if [ -f /etc/debian_version ]; then
+    pyversions="$(pyversions --installed)"
+else
+    pyversions="python2.6"
 fi
+option=$1
+if [ "${option:0:10}" == "--python2." ]; then
+    shift
+    pyversions="${option:2}"
+fi
+echo Found Python versions: $pyversions
+for pycmd in $pyversions; do
+    echo "================ $pycmd _alltests.py $@ ================"
+    $pycmd _alltests.py "$@"
+done
 for option in $1 $2; do
     if [ "$option" == "--client" ]; then
         tests="client"
@@ -45,7 +56,6 @@ for option in $1 $2; do
         pyversions="${option:2}"
     fi
 done
-
 
 for type in $tests; do
     if [ "$type" == "client" ]; then
