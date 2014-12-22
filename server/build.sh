@@ -26,12 +26,9 @@
 #
 ## end license ##
 
-VERSION=$1
+source /usr/share/seecr-tools/functions.d/distro
 
-if ! javac -version 2>&1 | grep 1.6 > /dev/null; then
-    echo "javac should be java 6"
-    exit 1
-fi
+VERSION=$1
 
 JARS=$(find jars -type f -name "*.jar")
 
@@ -46,9 +43,13 @@ mkdir $BUILDDIR
 
 CP="$(echo $JARS | tr ' ' ':')"
 
-javac=/usr/lib/jvm/java-1.7.0-openjdk.x86_64/bin/javac
+JAVA_VERSION=6
+if distro_is_debian_jessie; then
+    JAVA_VERSION=7
+fi
+javac=/usr/lib/jvm/java-1.${JAVA_VERSION}.0-openjdk.x86_64/bin/javac
 if [ -f /etc/debian_version ]; then
-    javac=/usr/lib/jvm/java-7-openjdk-amd64/bin/javac
+    javac=/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64/bin/javac
 fi
 
 javaFiles=$(find src/java -name "*.java")
