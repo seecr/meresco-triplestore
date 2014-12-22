@@ -46,8 +46,13 @@ mkdir $BUILDDIR
 
 CP="$(echo $JARS | tr ' ' ':')"
 
+javac=/usr/lib/jvm/java-1.7.0-openjdk.x86_64/bin/javac
+if [ -f /etc/debian_version ]; then
+    javac=/usr/lib/jvm/java-7-openjdk-amd64/bin/javac
+fi
+
 javaFiles=$(find src/java -name "*.java")
-javac -d $BUILDDIR -cp $CP $javaFiles
+${javac} -d $BUILDDIR -cp $CP $javaFiles
 if [ "$?" != "0" ]; then
     echo "Build failed"
     exit 1
