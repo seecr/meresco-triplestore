@@ -26,6 +26,8 @@
 
 from httpclient import HttpClient, InvalidRdfXmlException, MalformedQueryException
 
+from httpclient import RDFXML, NTRIPLES
+
 from literal import Literal
 from uri import Uri
 from bnode import BNode

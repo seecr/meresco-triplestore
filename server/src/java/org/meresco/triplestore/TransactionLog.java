@@ -91,6 +91,9 @@ public class TransactionLog implements Triplestore {
 
     @Override
     public void add(String identifier, String data, RDFFormat format) throws RDFParseException {
+        if (!format.equals(RDFFormat.RDFXML)) {
+            throw new UnsupportedOperationException("Only RDFXML supported with transactionLog");
+        }
         this.tripleStore.add(identifier, data, format);
         writeTransactionItem("add", identifier, data);
     }

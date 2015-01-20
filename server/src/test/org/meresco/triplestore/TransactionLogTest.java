@@ -116,6 +116,19 @@ public class TransactionLogTest {
     }
 
     @Test
+    public void testAddUnsupporedFormat() throws Exception {
+        try {
+            transactionLog.add("testRecord", "ignored", RDFFormat.NTRIPLES);
+            fail();
+        } catch (UnsupportedOperationException e) {
+            assertEquals("Only RDFXML supported with transactionLog", e.getMessage());
+        }
+        ArrayList<String> files = transactionLog.getTransactionItemFiles();
+        assertEquals(1, files.size());
+        assertEquals("", Utils.read(new File(transactionLog.getTransactionLogDir(), files.get(0))));
+    }
+
+    @Test
     public void testEscapeIdentifier() throws FileNotFoundException, Exception {
         String filedata = Base64.encodeBase64String("<x>ignored</x>".getBytes());
         transactionLog.add("<testRecord>", "<x>ignored</x>", RDFFormat.RDFXML);

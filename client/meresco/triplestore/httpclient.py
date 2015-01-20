@@ -61,9 +61,10 @@ class HttpClient(Observable):
             except ImportError:
                 raise ValueError('The function collectLogForScope from meresco.components.log is not available.')
 
-    def add(self, identifier, data, **kwargs):
+    def add(self, identifier, data, format=None, **kwargs):
         path = "/update?%s" % urlencode(dict(identifier=identifier))
-        yield self._send(path=path, body=data)
+        contentType = _formatMapping.get(format, _formatMapping[RDFXML])
+        yield self._send(path=path, body=data, additionalHeaders={'Content-Type': contentType})
 
     def addTriple(self, subject, predicate, object):
         yield self._send(path="/addTriple", body='|'.join([subject, predicate, object]))
@@ -136,10 +137,10 @@ class HttpClient(Observable):
             raise e
         raise StopIteration((header, body))
 
-    def _send(self, path, body):
-        headers = None
+    def _send(self, path, body, additionalHeaders=None):
+        headers = additionalHeaders or {}
         if body:
-            headers={'Content-Type': 'text/xml', 'Content-Length': len(body)}
+            headers['Content-Length'] = len(body)
         host, port = self._triplestoreServer()
         responseBody = None
         try:
@@ -249,5 +250,13 @@ _typeMapping = {
     'typed-literal': Literal,
     'uri': Uri,
     'bnode': BNode
+}
+
+RDFXML = 'RDF/XML'
+NTRIPLES = 'N-TRIPLES'
+
+_formatMapping = {
+    RDFXML: 'text/xml',
+    NTRIPLES: 'text/plain',
 }
 

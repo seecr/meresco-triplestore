@@ -6,7 +6,7 @@
 #
 # Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
 # Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
-# Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2011-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 #
 # This file is part of "Meresco Triplestore"
 #
@@ -32,7 +32,7 @@ from seecr.test import SeecrTestCase, CallTrace
 
 from weightless.core import compose
 from weightless.io import Suspend
-from meresco.triplestore import HttpClient, InvalidRdfXmlException, Uri, Literal, BNode
+from meresco.triplestore import HttpClient, InvalidRdfXmlException, Uri, Literal, BNode, NTRIPLES
 from meresco.triplestore.httpclient import X_MERESCO_TRIPLESTORE_QUERYTIME
 from decimal import Decimal
 from time import sleep
@@ -50,9 +50,13 @@ class HttpClientTest(SeecrTestCase):
             lambda: self._resultFromServerResponse(g, "Error description", responseStatus='500'))
 
         toSend = []
-        client._send = lambda path, body: toSend.append((path, body))
+        client._send = lambda path, body, additionalHeaders: toSend.append((path, body, additionalHeaders))
         list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
-        self.assertEquals([("/update?identifier=id", RDFDATA)], toSend)
+        self.assertEquals([("/update?identifier=id", RDFDATA, {'Content-Type': 'text/xml'})], toSend)
+
+        del toSend[:]
+        list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA, format=NTRIPLES)))
+        self.assertEquals([("/update?identifier=id", RDFDATA, {'Content-Type': 'text/plain'})], toSend)
 
     def testAddTriple(self):
         client = HttpClient(host="localhost", port=9999)
