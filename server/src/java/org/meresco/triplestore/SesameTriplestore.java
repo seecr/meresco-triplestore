@@ -98,11 +98,11 @@ public class SesameTriplestore implements Triplestore {
         }
     }
 
-    public void add(String identifier, String rdfData) throws RDFParseException {
+    public void add(String identifier, String data, RDFFormat format) throws RDFParseException {
         URI context = new URIImpl(identifier);
-        StringReader reader = new StringReader(rdfData);
+        StringReader reader = new StringReader(data);
         try {
-            this.writeConnection.add(reader, "", RDFFormat.RDFXML, context);
+            this.writeConnection.add(reader, "", format, context);
             this.writeConnection.commit();
         } catch (RepositoryException e) {
             throw new RuntimeException(e);

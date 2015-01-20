@@ -41,7 +41,7 @@ import org.openrdf.rio.RDFFormat;
 
 
 public interface Triplestore {
-    void add(String identifier, String body) throws RDFParseException;
+    void add(String identifier, String body, RDFFormat format) throws RDFParseException;
     void addTriple(String tripleData);
 
     void delete(String identifier);

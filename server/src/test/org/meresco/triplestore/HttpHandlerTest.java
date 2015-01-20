@@ -58,13 +58,13 @@ import org.openrdf.rio.RDFFormat;
 
 
 public class HttpHandlerTest {
-    @Test public void testAddRDF() throws Exception {
+    @Test public void testAddData() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
         String queryString = "identifier=identifier";
         String httpBody = "<rdf/>";
-        h.addRDF(parseQS(queryString), httpBody);
-        assertEquals(Arrays.asList("add:identifier" + "|" + httpBody), tsmock.actions);
+        h.addData(parseQS(queryString), httpBody);
+        assertEquals(Arrays.asList("add:identifier" + "|" + httpBody + "|RDF/XML"), tsmock.actions);
     }
 
     @Test public void testAddTriple() throws Exception {
@@ -91,32 +91,32 @@ public class HttpHandlerTest {
         assertEquals(Arrays.asList("removeTriple:uri:subj|uri:pred|string"), tsmock.actions);
     }
 
-    @Test public void testDeleteRDF() throws Exception {
+    @Test public void testDeleteData() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
         String queryString = "identifier=identifier";
-        h.deleteRDF(parseQS(queryString));
+        h.deleteData(parseQS(queryString));
         assertEquals(Arrays.asList("delete:identifier"), tsmock.actions);
     }
 
-    @Test public void testUpdateRDF() throws Exception {
+    @Test public void testUpdateData() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
         String httpBody = "<rdf/>";
-        h.updateRDF(parseQS("identifier=id0"), httpBody);
+        h.updateData(parseQS("identifier=id0"), httpBody);
         assertEquals(Arrays.asList(
                         "delete:id0",
-                        "add:id0|<rdf/>"),
+                        "add:id0|<rdf/>|RDF/XML"),
                      tsmock.actions);
-        h.updateRDF(parseQS("identifier=id1"), httpBody);
-        h.updateRDF(parseQS("identifier=id0"), httpBody);
+        h.updateData(parseQS("identifier=id1"), httpBody);
+        h.updateData(parseQS("identifier=id0"), httpBody);
         assertEquals(Arrays.asList(
                         "delete:id0",
-                        "add:id0|<rdf/>",
+                        "add:id0|<rdf/>|RDF/XML",
                         "delete:id1",
-                        "add:id1|<rdf/>",
+                        "add:id1|<rdf/>|RDF/XML",
                         "delete:id0",
-                        "add:id0|<rdf/>"),
+                        "add:id0|<rdf/>|RDF/XML"),
                      tsmock.actions);
     }
 
@@ -145,7 +145,7 @@ public class HttpHandlerTest {
         HttpExchangeMock exchange = new HttpExchangeMock("/add?id=IDENTIFIER", "<rdf/>");
         h.handle(exchange);
         assertEquals(3, h.actions.size());
-        assertEquals("addRDF", h.actions.get(0));
+        assertEquals("addData", h.actions.get(0));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("IDENTIFIER", qp.singleValue("id"));
         assertEquals("<rdf/>", h.actions.get(2));
@@ -159,7 +159,7 @@ public class HttpHandlerTest {
         HttpExchangeMock exchange = new HttpExchangeMock("/update?id=IDENTIFIER", "<rdf/>");
         h.handle(exchange);
         assertEquals(3, h.actions.size());
-        assertEquals("updateRDF", h.actions.get(0));
+        assertEquals("updateData", h.actions.get(0));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("IDENTIFIER", qp.singleValue("id"));
         assertEquals("<rdf/>", h.actions.get(2));
@@ -172,7 +172,7 @@ public class HttpHandlerTest {
         HttpExchangeMock exchange = new HttpExchangeMock("/delete?id=IDENTIFIER", "");
         h.handle(exchange);
         assertEquals(2, h.actions.size());
-        assertEquals("deleteRDF", h.actions.get(0));
+        assertEquals("deleteData", h.actions.get(0));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("IDENTIFIER", qp.singleValue("id"));
         assertEquals(200, exchange.responseCode);
@@ -516,29 +516,29 @@ public class HttpHandlerTest {
             _exception = e;
         }
         @Override
-        public void updateRDF(QueryParameters params, String httpBody) throws RDFParseException {
+        public void updateData(QueryParameters params, String httpBody) throws RDFParseException {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
             }
-            actions.add("updateRDF");
+            actions.add("updateData");
             actions.add(params);
             actions.add(httpBody);
         }
         @Override
-        public void addRDF(QueryParameters params, String httpBody) throws RDFParseException {
+        public void addData(QueryParameters params, String httpBody) throws RDFParseException {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
             }
-            actions.add("addRDF");
+            actions.add("addData");
             actions.add(params);
             actions.add(httpBody);
         }
         @Override
-        public void deleteRDF(QueryParameters params) {
+        public void deleteData(QueryParameters params) {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
             }
-            actions.add("deleteRDF");
+            actions.add("deleteData");
             actions.add(params);
         }
         @Override

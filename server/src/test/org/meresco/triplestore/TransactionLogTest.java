@@ -41,6 +41,7 @@ import java.lang.RuntimeException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.codec.binary.Base64;
+import org.openrdf.rio.RDFFormat;
 
 import org.junit.Test;
 import org.junit.Before;
@@ -91,7 +92,7 @@ public class TransactionLogTest {
     public void testCommitToTransactionLog() throws Exception {
         String xml = "<x>ignoréd</x>";
         String filedata = Base64.encodeBase64String(xml.getBytes());
-        transactionLog.add("testRecord", xml);
+        transactionLog.add("testRecord", xml, RDFFormat.RDFXML);
         ArrayList<String> files = transactionLog.getTransactionItemFiles();
         assertEquals(1, files.size());
         assertEquals("current", files.get(0));
@@ -105,9 +106,9 @@ public class TransactionLogTest {
 
     @Test
     public void testAddMultipleSameIdentifiers() throws Exception {
-        transactionLog.add("testRecord", "<x>ignored</x>");
-        transactionLog.add("testRecord", "<x>ignored</x>");
-        transactionLog.add("testRecord", "<x>ignored</x>");
+        transactionLog.add("testRecord", "<x>ignored</x>", RDFFormat.RDFXML);
+        transactionLog.add("testRecord", "<x>ignored</x>", RDFFormat.RDFXML);
+        transactionLog.add("testRecord", "<x>ignored</x>", RDFFormat.RDFXML);
         ArrayList<String> files = transactionLog.getTransactionItemFiles();
         assertEquals(1, files.size());
         assertEquals("current", files.get(0));
@@ -117,7 +118,7 @@ public class TransactionLogTest {
     @Test
     public void testEscapeIdentifier() throws FileNotFoundException, Exception {
         String filedata = Base64.encodeBase64String("<x>ignored</x>".getBytes());
-        transactionLog.add("<testRecord>", "<x>ignored</x>");
+        transactionLog.add("<testRecord>", "<x>ignored</x>", RDFFormat.RDFXML);
         String expectedXml = "<transaction_item>" +
                 "<action>add</action>" +
                 "<identifier>&lt;testRecord&gt;</identifier>" +
@@ -130,7 +131,7 @@ public class TransactionLogTest {
     public void testAddSuccesfullRecord() throws Exception {
     	assertTrue(transactionLog.committedFilePath.isFile());
     	assertFalse(transactionLog.committingFilePath.isFile());
-    	transactionLog.add("record", "<x>ignored</x>");
+    	transactionLog.add("record", "<x>ignored</x>", RDFFormat.RDFXML);
     	ArrayList<String> files = transactionLog.getTransactionItemFiles();
         assertEquals(1, files.size());
         String filedata = Base64.encodeBase64String("<x>ignored</x>".getBytes());
@@ -222,7 +223,7 @@ public class TransactionLogTest {
         }
         TransactionLog transactionLog = new TransactionLog(new MyTripleStore(), tempdir);
         try {
-            transactionLog.add("record", "<x>ignored</x>");
+            transactionLog.add("record", "<x>ignored</x>", RDFFormat.RDFXML);
             fail("Should raise an TransactionLogException");
         } catch (RuntimeException e) {}
         ArrayList<String> files = transactionLog.getTransactionItemFiles();
@@ -244,7 +245,7 @@ public class TransactionLogTest {
         }
         TransactionLog transactionLog = new MyTransactionLog(new MyTripleStore(), tempdir);
         try {
-            transactionLog.add("record", "data");
+            transactionLog.add("record", "data", RDFFormat.RDFXML);
             fail("Should raise an Exception");
         } catch (RuntimeException e) {}
         assertEquals("", Utils.read(transactionLog.transactionLogFilePath));
@@ -313,7 +314,7 @@ public class TransactionLogTest {
 
     @Test
     public void testClearTransactionLog() throws Exception {
-        transactionLog.add("record", "data");
+        transactionLog.add("record", "data", RDFFormat.RDFXML);
         assertEquals(1, transactionLog.getTransactionItemFiles().size());
         transactionLog.clear();
         assertEquals(0, transactionLog.getTransactionItemFiles().size());
@@ -352,11 +353,11 @@ public class TransactionLogTest {
     public void testClearOnlyOneFile() throws Exception {
     	transactionLog = new TransactionLog(this.tsMock, this.tempdir, 1.0/1024/1024*5);
     	transactionLog.init();
-    	transactionLog.add("testRecord", "<x>ignored</x>");
+    	transactionLog.add("testRecord", "<x>ignored</x>", RDFFormat.RDFXML);
         Thread.sleep(1);
-    	transactionLog.add("testRecord2", "<x>ignored</x>");
+    	transactionLog.add("testRecord2", "<x>ignored</x>", RDFFormat.RDFXML);
         Thread.sleep(1);
-    	transactionLog.add("testRecord3", "<x>ignored</x>");
+    	transactionLog.add("testRecord3", "<x>ignored</x>", RDFFormat.RDFXML);
     	ArrayList<String> files = transactionLog.getTransactionItemFiles();
     	assertEquals(4, files.size());
     	assertEquals(1, countTransactionItems(files.get(0)));
@@ -375,7 +376,7 @@ public class TransactionLogTest {
     public void testStrangeCharacter() throws Exception {
         transactionLog = new TransactionLog(this.tsMock, this.tempdir, 1024);
         transactionLog.init();
-        transactionLog.add("testRecord", "redrum:md5:43494d3c3ab83ba652004d940127738e|http://data.linkedmdb.org/resource/movie/plots|Symphony in Blood Red is an Italian &apos;giallo&apos;, a horror film inspired by the work of Dario Argento. It is the first feature movie directed by Luigi Pastore, and in collaboration with Antonio Tentori (Cat In The Brain), who co-wrote the screenplay.");
+        transactionLog.add("testRecord", "redrum:md5:43494d3c3ab83ba652004d940127738e|http://data.linkedmdb.org/resource/movie/plots|Symphony in Blood Red is an Italian &apos;giallo&apos;, a horror film inspired by the wor, RDFFormat.RDFXMLk of Dario Argento. It is the first feature movie directed by Luigi Pastore, and in collaboration with Antonio Tentori (Cat In The Brain), who co-wrote the screenplay.", RDFFormat.RDFXML);
         ArrayList<String> files = transactionLog.getTransactionItemFiles();
         assertEquals(1, files.size());
         tsMock = new TSMock();
@@ -392,7 +393,7 @@ public class TransactionLogTest {
         transactionLog = new TransactionLog(this.tsMock, this.tempdir);
         transactionLog.persistTripleStore(transactionLog.transactionLogDir.listFiles()[0]);
         assertEquals(6, this.tsMock.actions.size());
-        assertEquals("add:testRecord.rdf|<x>ignored</x>", this.tsMock.actions.get(0));
+        assertEquals("add:testRecord.rdf|<x>ignored</x>|RDF/XML", this.tsMock.actions.get(0));
         assertEquals("delete:testRecord.rdf", tsMock.actions.get(1));
         assertEquals("shutdown", this.tsMock.actions.get(2));
         assertEquals("startup", this.tsMock.actions.get(3));
@@ -407,7 +408,7 @@ public class TransactionLogTest {
         transactionLog = new TransactionLog(tsMock, tempdir);
         transactionLog.recoverTripleStore();
         assertEquals(4, tsMock.actions.size());
-        assertEquals("add:testRecord.rdf|<x>ignored</x>", tsMock.actions.get(0));
+        assertEquals("add:testRecord.rdf|<x>ignored</x>|RDF/XML", tsMock.actions.get(0));
         assertEquals("delete:testRecord.rdf", tsMock.actions.get(1));
         assertEquals("shutdown", tsMock.actions.get(2));
         assertEquals("startup", tsMock.actions.get(3));
@@ -471,7 +472,7 @@ public class TransactionLogTest {
     		assertEquals("Last TransactionLog item in " + nonCurrentFile.getAbsolutePath() + " is corrupted. This should never occur.", e.getMessage());
     	}
     	assertEquals(1, tsMock.actions.size());
-    	assertEquals("add:test1.rdf|ignored", tsMock.actions.get(0));
+    	assertEquals("add:test1.rdf|ignored|RDF/XML", tsMock.actions.get(0));
     }
 
     @Test
@@ -547,11 +548,11 @@ public class TransactionLogTest {
     public void testSplitInMultipleTransactionFiles() throws Exception {
         String filedata = Base64.encodeBase64String("ignored".getBytes());
     	setTransactionLog(1.0/1024/1024*5);
-    	transactionLog.add("test1.rdf", "ignored");
+    	transactionLog.add("test1.rdf", "ignored", RDFFormat.RDFXML);
         Thread.sleep(1);
-    	transactionLog.add("test2.rdf", "ignored");
+    	transactionLog.add("test2.rdf", "ignored", RDFFormat.RDFXML);
         Thread.sleep(1);
-    	transactionLog.add("test3.rdf", "ignored");
+    	transactionLog.add("test3.rdf", "ignored", RDFFormat.RDFXML);
     	ArrayList<String> tsFiles = transactionLog.getTransactionItemFiles();
     	assertEquals(4, tsFiles.size());
     	assertEquals("<transaction_item>" +
@@ -585,7 +586,7 @@ public class TransactionLogTest {
     	Utils.write(transactionLog.transactionLogFilePath, currentData);
     	transactionLog.committedFilePath.renameTo(transactionLog.committingFilePath);
     	setTransactionLog(1.0/1024/1024*5);
-    	String[] expected = {"add:test1.rdf|ignored", "shutdown", "startup"};
+    	String[] expected = {"add:test1.rdf|ignored|RDF/XML", "shutdown", "startup"};
     	assertArrayEquals(expected, tsMock.actions.toArray());
     }
 
@@ -606,7 +607,7 @@ public class TransactionLogTest {
     	} catch (Exception e) {
     		assertEquals("Last TransactionLog item is incomplete while not in the committing state. This should never occur.", e.getMessage());
     	}
-    	String[] expected = {"add:test1.rdf|ignored"};
+    	String[] expected = {"add:test1.rdf|ignored|RDF/XML"};
     	assertArrayEquals(expected, tsMock.actions.toArray());
     	assertTrue(transactionLog.committedFilePath.isFile());
     }
@@ -614,14 +615,14 @@ public class TransactionLogTest {
     @Test
     public void testRecoverMultipleFiles() throws Exception {
     	setTransactionLog(1.0/1024/1024*5);
-    	transactionLog.add("test1.rdf", "ignored");
+    	transactionLog.add("test1.rdf", "ignored", RDFFormat.RDFXML);
         Thread.sleep(1);
-    	transactionLog.add("test2.rdf", "ignored");
+    	transactionLog.add("test2.rdf", "ignored", RDFFormat.RDFXML);
         Thread.sleep(1);
-    	transactionLog.add("test3.rdf", "ignored");
+    	transactionLog.add("test3.rdf", "ignored", RDFFormat.RDFXML);
 
         setTransactionLog(1.0/1024/1024*5);
-    	String[] expected = {"add:test1.rdf|ignored", "shutdown", "startup", "add:test2.rdf|ignored", "shutdown", "startup", "add:test3.rdf|ignored", "shutdown", "startup"};
+    	String[] expected = {"add:test1.rdf|ignored|RDF/XML", "shutdown", "startup", "add:test2.rdf|ignored|RDF/XML", "shutdown", "startup", "add:test3.rdf|ignored|RDF/XML", "shutdown", "startup"};
         assertArrayEquals(expected, tsMock.actions.toArray());
     }
 
@@ -661,7 +662,7 @@ public class TransactionLogTest {
     }
 
     private void addFilesToTransactionLog() throws Exception {
-        transactionLog.add("testRecord.rdf", "<x>ignored</x>");
+        transactionLog.add("testRecord.rdf", "<x>ignored</x>", RDFFormat.RDFXML);
         transactionLog.delete("testRecord.rdf");
     }
 

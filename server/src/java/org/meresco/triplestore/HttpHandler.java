@@ -85,7 +85,7 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             if ("/add".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
                 try {
-                    addRDF(httpArguments, body);
+                    addData(httpArguments, body);
                 } catch (RDFParseException e) {
                     exchange.sendResponseHeaders(400, 0);
                     _writeResponse(e.toString(), outputStream);
@@ -95,7 +95,7 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             else if ("/update".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
                 try {
-                    updateRDF(httpArguments, body);
+                    updateData(httpArguments, body);
                 } catch (RDFParseException e) {
                     exchange.sendResponseHeaders(400, 0);
                     _writeResponse(e.toString(), outputStream);
@@ -103,7 +103,7 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 }
             }
             else if ("/delete".equals(path)) {
-                deleteRDF(httpArguments);
+                deleteData(httpArguments);
             }
             else if ("/addTriple".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
@@ -221,22 +221,24 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         }
     }
 
-    public synchronized void updateRDF(QueryParameters httpArguments, String httpBody) throws RDFParseException {
+    public synchronized void updateData(QueryParameters httpArguments, String httpBody) throws RDFParseException {
         String identifier = httpArguments.singleValue("identifier");
+        RDFFormat format = RDFFormat.RDFXML;
         this.tripleStore.delete(identifier);
-        this.tripleStore.add(identifier, httpBody);
+        this.tripleStore.add(identifier, httpBody, format);
     }
 
-    public synchronized void addRDF(QueryParameters httpArguments, String httpBody) throws RDFParseException {
+    public synchronized void addData(QueryParameters httpArguments, String httpBody) throws RDFParseException {
         String identifier = httpArguments.singleValue("identifier");
-        this.tripleStore.add(identifier, httpBody);
+        RDFFormat format = RDFFormat.RDFXML;
+        this.tripleStore.add(identifier, httpBody, format);
     }
 
     public synchronized void addTriple(String httpBody) {
     	this.tripleStore.addTriple(httpBody);
     }
 
-    public synchronized void deleteRDF(QueryParameters httpArguments) {
+    public synchronized void deleteData(QueryParameters httpArguments) {
         String identifier = httpArguments.singleValue("identifier");
         this.tripleStore.delete(identifier);
     }

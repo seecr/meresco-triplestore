@@ -90,21 +90,21 @@ public class TransactionLog implements Triplestore {
     }
 
     @Override
-    public void add(String identifier, String filedata) throws RDFParseException {
-        this.tripleStore.add(identifier, filedata);
-        writeTransactionItem("add", identifier, filedata);
+    public void add(String identifier, String data, RDFFormat format) throws RDFParseException {
+        this.tripleStore.add(identifier, data, format);
+        writeTransactionItem("add", identifier, data);
     }
 
     @Override
-    public void addTriple(String filedata) {
-        this.tripleStore.addTriple(filedata);
-        writeTransactionItem("addTriple", "", filedata);
+    public void addTriple(String tripleData) {
+        this.tripleStore.addTriple(tripleData);
+        writeTransactionItem("addTriple", "", tripleData);
     }
 
     @Override
-    public void removeTriple(String filedata) {
-        this.tripleStore.removeTriple(filedata);
-        writeTransactionItem("removeTriple", "", filedata);
+    public void removeTriple(String tripleData) {
+        this.tripleStore.removeTriple(tripleData);
+        writeTransactionItem("removeTriple", "", tripleData);
     }
 
     @Override
@@ -295,7 +295,7 @@ public class TransactionLog implements Triplestore {
         String data = item.getFiledata();
         try {
             if (action.equals("add")) {
-                this.tripleStore.add(identifier, data);
+                this.tripleStore.add(identifier, data, RDFFormat.RDFXML); //TODO: Only RDFXML in TransactionLog
             } else if (action.equals("delete")) {
                 this.tripleStore.delete(identifier);
             } else if (action.equals("addTriple")) {

@@ -43,8 +43,8 @@ import org.openrdf.rio.RDFFormat;
 public class TSMock implements Triplestore {
     public List<String> actions = new ArrayList<String>();
 
-    public void add(String identifier, String data) {
-        actions.add("add:" + identifier + "|" + data);
+    public void add(String identifier, String data, RDFFormat format) {
+        actions.add("add:" + identifier + "|" + data + "|" + format.getName());
     }
 
     public void addTriple(String tripleData) {
