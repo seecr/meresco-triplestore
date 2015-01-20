@@ -79,13 +79,14 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         URI requestURI = exchange.getRequestURI();
         String path = requestURI.getPath();
         String rawQueryString = requestURI.getRawQuery();
+        Headers requestHeaders = exchange.getRequestHeaders();
 
         try {
             QueryParameters httpArguments = Utils.parseQS(rawQueryString);
             if ("/add".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
                 try {
-                    addData(httpArguments, body);
+                    addData(httpArguments, requestHeaders, body);
                 } catch (RDFParseException e) {
                     exchange.sendResponseHeaders(400, 0);
                     _writeResponse(e.toString(), outputStream);
@@ -95,7 +96,7 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             else if ("/update".equals(path)) {
                 String body = Utils.read(exchange.getRequestBody());
                 try {
-                    updateData(httpArguments, body);
+                    updateData(httpArguments, requestHeaders, body);
                 } catch (RDFParseException e) {
                     exchange.sendResponseHeaders(400, 0);
                     _writeResponse(e.toString(), outputStream);
@@ -115,7 +116,6 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
             }
             else if ("/query".equals(path)) {
                 String response = "";
-                Headers requestHeaders = exchange.getRequestHeaders();
                 Headers responseHeaders = exchange.getResponseHeaders();
                 try {
                     long start = System.currentTimeMillis();
@@ -221,17 +221,20 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         }
     }
 
-    public synchronized void updateData(QueryParameters httpArguments, String httpBody) throws RDFParseException {
-        String identifier = httpArguments.singleValue("identifier");
-        RDFFormat format = RDFFormat.RDFXML;
-        this.tripleStore.delete(identifier);
-        this.tripleStore.add(identifier, httpBody, format);
+    private RDFFormat getRdfFormat(Headers requestHeaders) {
+        String accept = requestHeaders.getFirst("Content-Type");
+        return RDFFormat.forMIMEType(accept, RDFFormat.RDFXML);
     }
 
-    public synchronized void addData(QueryParameters httpArguments, String httpBody) throws RDFParseException {
+    public synchronized void updateData(QueryParameters httpArguments, Headers requestHeaders, String httpBody) throws RDFParseException {
         String identifier = httpArguments.singleValue("identifier");
-        RDFFormat format = RDFFormat.RDFXML;
-        this.tripleStore.add(identifier, httpBody, format);
+        this.tripleStore.delete(identifier);
+        this.tripleStore.add(identifier, httpBody, getRdfFormat(requestHeaders));
+    }
+
+    public synchronized void addData(QueryParameters httpArguments, Headers requestHeaders, String httpBody) throws RDFParseException {
+        String identifier = httpArguments.singleValue("identifier");
+        this.tripleStore.add(identifier, httpBody, getRdfFormat(requestHeaders));
     }
 
     public synchronized void addTriple(String httpBody) {

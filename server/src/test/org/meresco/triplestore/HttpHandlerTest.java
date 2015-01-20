@@ -61,10 +61,21 @@ public class HttpHandlerTest {
     @Test public void testAddData() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String queryString = "identifier=identifier";
+        String arguments = "identifier=identifier";
         String httpBody = "<rdf/>";
-        h.addData(parseQS(queryString), httpBody);
+        h.addData(parseQS(arguments), new Headers(), httpBody);
         assertEquals(Arrays.asList("add:identifier" + "|" + httpBody + "|RDF/XML"), tsmock.actions);
+    }
+
+    @Test public void testAddDataAsNTriples() throws Exception {
+        TSMock tsmock = new TSMock();
+        HttpHandler h = new HttpHandler(tsmock);
+        String arguments = "identifier=identifier";
+        String httpBody = "<uri:subject> <uri:predicate> <uri:object>";
+        Headers headers = new Headers();
+        headers.add("Content-Type", "text/plain");
+        h.addData(parseQS(arguments), headers, httpBody);
+        assertEquals(Arrays.asList("add:identifier" + "|" + httpBody + "|N-Triples"), tsmock.actions);
     }
 
     @Test public void testAddTriple() throws Exception {
@@ -103,13 +114,13 @@ public class HttpHandlerTest {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
         String httpBody = "<rdf/>";
-        h.updateData(parseQS("identifier=id0"), httpBody);
+        h.updateData(parseQS("identifier=id0"), new Headers(), httpBody);
         assertEquals(Arrays.asList(
                         "delete:id0",
                         "add:id0|<rdf/>|RDF/XML"),
                      tsmock.actions);
-        h.updateData(parseQS("identifier=id1"), httpBody);
-        h.updateData(parseQS("identifier=id0"), httpBody);
+        h.updateData(parseQS("identifier=id1"), new Headers(), httpBody);
+        h.updateData(parseQS("identifier=id0"), new Headers(), httpBody);
         assertEquals(Arrays.asList(
                         "delete:id0",
                         "add:id0|<rdf/>|RDF/XML",
@@ -144,11 +155,11 @@ public class HttpHandlerTest {
 
         HttpExchangeMock exchange = new HttpExchangeMock("/add?id=IDENTIFIER", "<rdf/>");
         h.handle(exchange);
-        assertEquals(3, h.actions.size());
+        assertEquals(4, h.actions.size());
         assertEquals("addData", h.actions.get(0));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("IDENTIFIER", qp.singleValue("id"));
-        assertEquals("<rdf/>", h.actions.get(2));
+        assertEquals("<rdf/>", h.actions.get(3));
 
         assertEquals(200, exchange.responseCode);
     }
@@ -158,11 +169,11 @@ public class HttpHandlerTest {
 
         HttpExchangeMock exchange = new HttpExchangeMock("/update?id=IDENTIFIER", "<rdf/>");
         h.handle(exchange);
-        assertEquals(3, h.actions.size());
+        assertEquals(4, h.actions.size());
         assertEquals("updateData", h.actions.get(0));
         QueryParameters qp = (QueryParameters) h.actions.get(1);
         assertEquals("IDENTIFIER", qp.singleValue("id"));
-        assertEquals("<rdf/>", h.actions.get(2));
+        assertEquals("<rdf/>", h.actions.get(3));
         assertEquals(200, exchange.responseCode);
     }
 
@@ -516,21 +527,23 @@ public class HttpHandlerTest {
             _exception = e;
         }
         @Override
-        public void updateData(QueryParameters params, String httpBody) throws RDFParseException {
+        public void updateData(QueryParameters params, Headers headers, String httpBody) throws RDFParseException {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
             }
             actions.add("updateData");
             actions.add(params);
+            actions.add(headers);
             actions.add(httpBody);
         }
         @Override
-        public void addData(QueryParameters params, String httpBody) throws RDFParseException {
+        public void addData(QueryParameters params, Headers headers, String httpBody) throws RDFParseException {
             if (_exception != null) {
                 throw new RuntimeException(_exception);
             }
             actions.add("addData");
             actions.add(params);
+            actions.add(headers);
             actions.add(httpBody);
         }
         @Override
