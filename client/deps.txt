@@ -1,6 +1,6 @@
 python-meresco-core (>= 4.0)
 python-meresco-core (<< 4.1)
-python-weightless-core (>= 0.7.8)
+python-weightless-core (>= 0.9.29.1)
 python-weightless-core (<< 0.10)
 python-simplejson (>= 2.5.2)
 python-simplejson (<< 3.7)

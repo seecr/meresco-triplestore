@@ -7,6 +7,7 @@
 # Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
 # Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
 # Copyright (C) 2011-2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2015 Koninklijke Bibliotheek (KB) http://www.kb.nl
 #
 # This file is part of "Meresco Triplestore"
 #
@@ -30,100 +31,144 @@ from urllib import urlencode
 
 from seecr.test import SeecrTestCase, CallTrace
 
-from weightless.core import compose
+from weightless.core import compose, consume, retval
 from weightless.io import Suspend
-from meresco.triplestore import HttpClient, InvalidRdfXmlException, Uri, Literal, BNode, NTRIPLES
-from meresco.triplestore.httpclient import X_MERESCO_TRIPLESTORE_QUERYTIME
+from meresco.components.http.utils import CRLF
+from meresco.triplestore import InvalidRdfXmlException, Uri, Literal, BNode, NTRIPLES, TriplestoreRequest
+from meresco.triplestore.triplestorerequest import X_MERESCO_TRIPLESTORE_QUERYTIME
 from decimal import Decimal
 from time import sleep
+from urlparse import urlparse, parse_qs
 
 
-class HttpClientTest(SeecrTestCase):
+class TriplestoreRequestTest(SeecrTestCase):
+    def setUp(self):
+        super(TriplestoreRequestTest, self).setUp()
+        self.responseStatus = '200'
+        self.responseData = 'SOME RESPONSE'
+        def httprequest(**kwargs):
+            raise StopIteration(''.join([
+                    _RESULT_HEADER % self.responseStatus,
+                    CRLF*2,
+                    self.responseData,
+                ]))
+            yield
+        self.observer = CallTrace(methods={'httprequest':httprequest})
+        self.request = TriplestoreRequest(host='example.org', port=9999)
+        self.request.addObserver(self.observer)
+
     def testAdd(self):
-        client = HttpClient(host="localhost", port=9999)
-        g = compose(client.add(identifier="id", partname="ignored", data=RDFDATA))
-        self._resultFromServerResponse(g, "SOME RESPONSE")
+        consume(self.request.add(identifier="id", partname="ignored", data=RDFDATA))
+        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[-1].kwargs
+        self.assertEquals({
+                'body': RDFDATA,
+                'headers': {
+                    'Content-Type': 'text/xml'
+                },
+                'method': 'POST',
+                'host': 'example.org',
+                'port': 9999,
+                'request': '/update?identifier=id',
+            }, httprequestKwargs)
 
-        g = compose(client.add(identifier="id", partname="ignored", data=RDFDATA))
-        self.assertRaises(
-            IOError,
-            lambda: self._resultFromServerResponse(g, "Error description", responseStatus='500'))
+    def testAddIOError(self):
+        self.responseStatus = '500'
+        self.responseData = 'Error Description'
 
-        toSend = []
-        client._send = lambda path, body, additionalHeaders: toSend.append((path, body, additionalHeaders))
-        list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
-        self.assertEquals([("/update?identifier=id", RDFDATA, {'Content-Type': 'text/xml'})], toSend)
+        self.assertRaises(IOError, lambda: consume(self.request.add(identifier="id", partname="ignored", data=RDFDATA)))
 
-        del toSend[:]
-        list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA, format=NTRIPLES)))
-        self.assertEquals([("/update?identifier=id", RDFDATA, {'Content-Type': 'text/plain'})], toSend)
+    def testAddAsNTRIPLES(self):
+        consume(self.request.add(identifier="id", partname="ignored", data=RDFDATA, format=NTRIPLES))
+        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[-1].kwargs
+        self.assertEquals({'Content-Type': 'text/plain'}, httprequestKwargs['headers'])
 
     def testAddTriple(self):
-        client = HttpClient(host="localhost", port=9999)
-        toSend = []
-        client._send = lambda path, body: toSend.append((path, body))
-        list(compose(client.addTriple(subject="uri:subj", predicate="uri:pred", object="uri:obj")))
-        self.assertEquals([("/addTriple", 'uri:subj|uri:pred|uri:obj')], toSend)
+        consume(self.request.addTriple(subject="uri:subj", predicate="uri:pred", object="uri:obj"))
+        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[-1].kwargs
+        self.assertEquals({
+                'body': 'uri:subj|uri:pred|uri:obj',
+                'headers': {},
+                'method': 'POST',
+                'host': 'example.org',
+                'port': 9999,
+                'request': '/addTriple',
+            }, httprequestKwargs)
 
     def testRemoveTriple(self):
-        client = HttpClient(host="localhost", port=9999)
-        toSend = []
-        client._send = lambda path, body: toSend.append((path, body))
-        list(compose(client.removeTriple(subject="uri:subj", predicate="uri:pred", object="uri:obj")))
-        self.assertEquals([("/removeTriple", 'uri:subj|uri:pred|uri:obj')], toSend)
+        consume(self.request.removeTriple(subject="uri:subj", predicate="uri:pred", object="uri:obj"))
+        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[-1].kwargs
+        self.assertEquals({
+                'body': 'uri:subj|uri:pred|uri:obj',
+                'headers': {},
+                'method': 'POST',
+                'host': 'example.org',
+                'port': 9999,
+                'request': '/removeTriple',
+            }, httprequestKwargs)
 
     def testDelete(self):
-        client = HttpClient(host="localhost", port=9999)
-        g = compose(client.delete(identifier="id"))
-        self._resultFromServerResponse(g, "SOME RESPONSE")
+        consume(self.request.delete(identifier="id"))
+        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[-1].kwargs
+        self.assertEquals({
+                'body': None,
+                'headers': {},
+                'method': 'POST',
+                'host': 'example.org',
+                'port': 9999,
+                'request': '/delete?identifier=id',
+            }, httprequestKwargs)
 
-        g = compose(client.delete(identifier="id"))
-        self.assertRaises(
-            IOError,
-            lambda: self._resultFromServerResponse(g, "Error description", responseStatus="500"))
-
-        toSend = []
-        client._send = lambda path, body: toSend.append((path, body))
-        list(compose(client.delete(identifier="id")))
-        self.assertEquals([("/delete?identifier=id", None)], toSend)
+    def testDeleteError(self):
+        self.responseStatus = '500'
+        self.assertRaises(IOError, lambda: consume(self.request.delete(identifier="id")))
 
     def testValidate(self):
-        client = HttpClient(host="localhost", port=9999)
-        g = compose(client.validate(data=RDFDATA))
-        self._resultFromServerResponse(g, "Ok")
+        self.responseData = 'Ok'
+        consume(self.request.validate(data=RDFDATA))
+        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[-1].kwargs
+        self.assertEquals({
+                'body': RDFDATA,
+                'headers': {},
+                'method': 'POST',
+                'host': 'example.org',
+                'port': 9999,
+                'request': '/validate',
+            }, httprequestKwargs)
 
-        g = compose(client.validate(data=RDFDATA))
-        try:
-            self._resultFromServerResponse(g, "Invalid\nError description")
-            self.fail("should not get here.")
-        except InvalidRdfXmlException, e:
-            self.assertEquals("Invalid\nError description", str(e))
-
-        toSend = []
-        def mockSend(path, body):
-            toSend.append((path, body))
-            raise StopIteration('header', 'body')
-        client._send = mockSend
-        list(compose(client.validate(data=RDFDATA)))
-        self.assertEquals([("/validate", RDFDATA)], toSend)
+    def testValidateError(self):
+        self.responseData = 'Invalid\nError Description'
+        self.assertRaises(InvalidRdfXmlException, lambda: consume(self.request.validate(data=RDFDATA)))
 
     def testGetStatementsSparQL(self):
-        client = HttpClient(host="localhost", port=9999)
-        self.assertEquals("SELECT DISTINCT ?s ?p ?o WHERE { ?s ?p ?o }", ''.join(client._getStatementsSparQL(subject=None, predicate=None, object=None)))
+        self.assertEquals("SELECT DISTINCT ?s ?p ?o WHERE { ?s ?p ?o }", ''.join(self.request._getStatementsSparQL(subject=None, predicate=None, object=None)))
 
-        self.assertEquals("SELECT DISTINCT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001")))
+        self.assertEquals("SELECT DISTINCT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001")))
 
-        self.assertEquals("SELECT DISTINCT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name")))
+        self.assertEquals("SELECT DISTINCT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name")))
 
-        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> <uri:obj> }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="uri:obj")))
+        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> <uri:obj> }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="uri:obj")))
 
-        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> \"object\" }", ''.join(client._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="object")))
+        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> \"object\" }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="object")))
 
     def testExecuteQuery(self):
-        client = HttpClient(host="localhost", port=9999)
-        gen = compose(client.executeQuery('SPARQL'))
-        result = self._resultFromServerResponse(gen, RESULT_JSON)
+        self.responseData = RESULT_JSON
+        result = retval(self.request.executeQuery('SPARQL'))
         self.assertEquals(PARSED_RESULT_JSON, result)
+        self.assertEquals(['httprequest', 'handleQueryTimes'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[0].kwargs
+        self.assertEquals({
+                'headers': None,
+                'method': 'GET',
+                'host': 'example.org',
+                'port': 9999,
+                'request': '/query?query=SPARQL',
+            }, httprequestKwargs)
 
     def testDontParseIfNotJSON(self):
         SPARQL_XML = """<sparql xmlns='http://www.w3.org/2005/sparql-results#'>
@@ -138,24 +183,33 @@ class HttpClientTest(SeecrTestCase):
         </result>
     </results>
 </sparql>"""
-        client = HttpClient(host="localhost", port=9999)
-        gen = compose(client.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
-        result = self._resultFromServerResponse(gen, SPARQL_XML)
+        self.responseData = SPARQL_XML
+        result = retval(self.request.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
         self.assertEquals(SPARQL_XML, result)
 
     def testGetStatements(self):
-        client = HttpClient(host="localhost", port=9999)
-        gen = compose(client.getStatements(subject='uri:subject'))
-        result = self._resultFromServerResponse(gen, RESULT_JSON)
+        self.responseData = RESULT_JSON
+        result = retval(self.request.getStatements(subject='uri:subject'))
         self.assertEquals(RESULT_SPO, list(result))
+        self.assertEquals(['httprequest', 'handleQueryTimes'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[0].kwargs
+        request = httprequestKwargs.pop('request')
+        self.assertEquals({
+                'headers': None,
+                'method': 'GET',
+                'host': 'example.org',
+                'port': 9999,
+            }, httprequestKwargs)
+        parsed = urlparse(request)
+        self.assertEquals('/query', parsed.path)
+        self.assertEquals({'query': ['''SELECT DISTINCT ?p ?o WHERE { <uri:subject> ?p ?o }''']}, parse_qs(parsed.query))
 
     def testGetStatementsGuards(self):
-        client = HttpClient(host="localhost", port=9999)
-        self.assertRaises(ValueError, lambda: list(compose(client.getStatements(subject='literal'))))
-        self.assertRaises(ValueError, lambda: list(compose(client.getStatements(predicate='literal'))))
+        self.assertRaises(ValueError, lambda: consume(self.request.getStatements(subject='literal')))
+        self.assertRaises(ValueError, lambda: consume(self.request.getStatements(predicate='literal')))
 
     def testExecuteQuerySynchronous(self):
-        client = HttpClient(host="localhost", port=9999, synchronous=True)
+        request = TriplestoreRequest(host="localhost", port=9999, synchronous=True)
         client._urlopen = lambda *args, **kwargs: (RESULT_HEADER, RESULT_JSON)
         gen = compose(client.executeQuery('SPARQL'))
         try:
@@ -165,7 +219,7 @@ class HttpClientTest(SeecrTestCase):
         self.assertEquals(PARSED_RESULT_JSON, result)
 
     def testAddSynchronous(self):
-        client = HttpClient(host="localhost", port=9999, synchronous=True)
+        request = TriplestoreRequest(host="localhost", port=9999, synchronous=True)
         client._urlopen = lambda *args, **kwargs: (RESULT_HEADER, "SOME RESPONSE")
         list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
 
@@ -175,14 +229,14 @@ class HttpClientTest(SeecrTestCase):
         self.assertEquals([("http://localhost:9999/update?identifier=id", RDFDATA, {'Content-Length': 24, 'Content-Type': "text/xml"})], toSend)
 
     def testExport(self):
-        client = HttpClient(host="localhost", port=9999)
+        request = TriplestoreRequest(host="localhost", port=9999)
         toSend = []
         client._send = lambda path, body: toSend.append((path, body))
         list(compose(client.export(identifier="id")))
         self.assertEquals([("/export?identifier=id", None)], toSend)
 
     def testImport(self):
-        client = HttpClient(host="localhost", port=9999)
+        request = TriplestoreRequest(host="localhost", port=9999)
         toSend = []
         client._send = lambda path, body: toSend.append((path, body))
         trigData = """@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -196,7 +250,7 @@ class HttpClientTest(SeecrTestCase):
         self.assertEquals([("/import", trigData)], toSend)
 
     def testExecuteQueryWithtriplestoreHostPortFromObserver(self):
-        triplestoreClient = HttpClient()
+        triplestorerequest = TriplestoreRequest()
         observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
         triplestoreClient.addObserver(observer)
         kwargs = []
@@ -220,7 +274,7 @@ class HttpClientTest(SeecrTestCase):
         self.assertAlmostEqual(0.1, float(observer.calledMethods[1].kwargs['queryTime']), places=2)
 
     def testUpdateWithtriplestoreHostPortFromObserver(self):
-        triplestoreClient = HttpClient()
+        triplestorerequest = TriplestoreRequest()
         observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
         triplestoreClient.addObserver(observer)
         kwargs = []
@@ -240,7 +294,7 @@ class HttpClientTest(SeecrTestCase):
         self.assertEquals(1234, kwargs[0]['port'])
 
     def testErrorInHttpGet(self):
-        triplestoreClient = HttpClient()
+        triplestorerequest = TriplestoreRequest()
         observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
         triplestoreClient.addObserver(observer)
         def httpget(**_kwargs):
@@ -252,7 +306,7 @@ class HttpClientTest(SeecrTestCase):
         self.assertRaises(ValueError, lambda: self._resultFromServerResponse(g, RESULT_JSON))
 
     def testErrorInAdd(self):
-        triplestoreClient = HttpClient()
+        triplestorerequest = TriplestoreRequest()
         observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
         triplestoreClient.addObserver(observer)
         def httppost(**_kwargs):

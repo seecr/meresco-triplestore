@@ -4,7 +4,7 @@
 # provides access to an Triplestore with a Sesame Interface, as well as python bindings to
 # communicate as a client with the server.
 #
-# Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2011-2015 Seecr (Seek You Too B.V.) http://seecr.nl
 #
 # This file is part of "Meresco Triplestore"
 #
@@ -35,7 +35,7 @@ path.insert(0, '../client')
 
 import unittest
 
-from client.httpclienttest import HttpClientTest
+from client.triplestorerequesttest import TriplestoreRequestTest
 from client.literaltest import LiteralTest
 from client.uritest import UriTest
 from client.bnodetest import BNodeTest
