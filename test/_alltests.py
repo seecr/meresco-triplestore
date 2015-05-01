@@ -37,6 +37,7 @@ import unittest
 
 from client.triplestorerequesttest import TriplestoreRequestTest
 from client.literaltest import LiteralTest
+from client.httpclienttest import HttpClientTest
 from client.uritest import UriTest
 from client.bnodetest import BNodeTest
 

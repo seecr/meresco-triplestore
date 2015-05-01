@@ -40,7 +40,7 @@ class HttpClient(object):
         observer = SyncHttpRequest() if synchronous else HttpRequest()
         self._triplestoreRequest.addObserver(observer)
 
-    def __getatt__(self, attr):
+    def __getattr__(self, attr):
         return getattr(self._triplestoreRequest, attr)
 
 class SyncHttpRequest(object):
