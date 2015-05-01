@@ -28,9 +28,11 @@
 from .triplestorerequest import TriplestoreRequest
 from weightless.io.utils import asProcess
 from weightless.http import HttpRequest
+import warnings
 
 class HttpClient(object):
     def __init__(self, name=None, host=None, port=None, synchronous=False, enableCollectLog=False, pathPrefix=''):
+        warnings.warn("Please use TriplestoreRequest and a weightless.http.HttpRequest as observer.", DeprecationWarning)
         self._triplestoreRequest = TriplestoreRequest(name=name, host=host, port=port, enableCollectLog=enableCollectLog, pathPrefix=pathPrefix)
         self.addStrand = self._triplestoreRequest.addStrand
         self.addObserver = self._triplestoreRequest.addObserver
