@@ -208,37 +208,20 @@ class TriplestoreRequestTest(SeecrTestCase):
         self.assertRaises(ValueError, lambda: consume(self.request.getStatements(subject='literal')))
         self.assertRaises(ValueError, lambda: consume(self.request.getStatements(predicate='literal')))
 
-    def testExecuteQuerySynchronous(self):
-        request = TriplestoreRequest(host="localhost", port=9999, synchronous=True)
-        client._urlopen = lambda *args, **kwargs: (RESULT_HEADER, RESULT_JSON)
-        gen = compose(client.executeQuery('SPARQL'))
-        try:
-            gen.next()
-        except StopIteration, e:
-            result = e.args[0]
-        self.assertEquals(PARSED_RESULT_JSON, result)
-
-    def testAddSynchronous(self):
-        request = TriplestoreRequest(host="localhost", port=9999, synchronous=True)
-        client._urlopen = lambda *args, **kwargs: (RESULT_HEADER, "SOME RESPONSE")
-        list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
-
-        toSend = []
-        client._urlopen = lambda url, data, headers: (RESULT_HEADER, toSend.append((url, data, headers)))
-        list(compose(client.add(identifier="id", partname="ignored", data=RDFDATA)))
-        self.assertEquals([("http://localhost:9999/update?identifier=id", RDFDATA, {'Content-Length': 24, 'Content-Type': "text/xml"})], toSend)
-
     def testExport(self):
-        request = TriplestoreRequest(host="localhost", port=9999)
-        toSend = []
-        client._send = lambda path, body: toSend.append((path, body))
-        list(compose(client.export(identifier="id")))
-        self.assertEquals([("/export?identifier=id", None)], toSend)
+        consume(self.request.export(identifier="id"))
+        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[0].kwargs
+        self.assertEquals({
+                'body': None,
+                'headers': {},
+                'method': 'POST',
+                'host': 'example.org',
+                'port': 9999,
+                'request': '/export?identifier=id',
+            }, httprequestKwargs)
 
     def testImport(self):
-        request = TriplestoreRequest(host="localhost", port=9999)
-        toSend = []
-        client._send = lambda path, body: toSend.append((path, body))
         trigData = """@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -246,89 +229,64 @@ class TriplestoreRequestTest(SeecrTestCase):
 <uri:aContext> {
         <uri:aSubject> <uri:aPredicate> "a literal  value" .
 }"""
-        list(compose(client.importTrig(data=trigData)))
-        self.assertEquals([("/import", trigData)], toSend)
+        consume(self.request.importTrig(data=trigData))
+        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[0].kwargs
+        self.assertEquals({
+                'body': trigData,
+                'headers': {},
+                'method': 'POST',
+                'host': 'example.org',
+                'port': 9999,
+                'request': '/import',
+            }, httprequestKwargs)
 
     def testExecuteQueryWithtriplestoreHostPortFromObserver(self):
-        triplestorerequest = TriplestoreRequest()
-        observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
-        triplestoreClient.addObserver(observer)
-        kwargs = []
-        def httpget(**_kwargs):
-            kwargs.append(_kwargs)
-            sleep(0.1)
-            s = Suspend()
-            yield s
-            result = s.getResult()
-            raise StopIteration(result)
-        triplestoreClient._httpget = httpget
+        self.request = TriplestoreRequest()
+        self.request.addObserver(self.observer)
+        self.observer.returnValues['triplestoreServer'] = ('this.server.nl', 1234)
+        self.responseData = RESULT_JSON
+        consume(self.request.executeQuery("select ?x where {}"))
+        self.assertEquals(['triplestoreServer', 'httprequest', 'handleQueryTimes'], self.observer.calledMethodNames())
 
-        g = compose(triplestoreClient.executeQuery("select ?x where {}"))
-        self._resultFromServerResponse(g, RESULT_JSON)
-        self.assertEquals(['triplestoreServer', 'handleQueryTimes'], observer.calledMethodNames())
-        self.assertEquals("/query?" + urlencode(dict(query='select ?x where {}')), kwargs[0]['request'])
-        self.assertEquals('localhost', kwargs[0]['host'])
-        self.assertEquals(1234, kwargs[0]['port'])
-        self.assertEquals(['index', 'queryTime'], observer.calledMethods[1].kwargs.keys())
-        self.assertEquals(Decimal('0.042'), observer.calledMethods[1].kwargs['index'])
-        self.assertAlmostEqual(0.1, float(observer.calledMethods[1].kwargs['queryTime']), places=2)
+        httprequestKwargs = self.observer.calledMethods[1].kwargs
+        request = httprequestKwargs.pop('request')
+        self.assertEquals({
+                'headers': None,
+                'method': 'GET',
+                'host': 'this.server.nl',
+                'port': 1234,
+            }, httprequestKwargs)
+        parsed = urlparse(request)
+        self.assertEquals('/query', parsed.path)
+        self.assertEquals({'query': ['''select ?x where {}''']}, parse_qs(parsed.query))
+
+        handleQueryTimesKwargs = self.observer.calledMethods[2].kwargs
+        self.assertEquals(['index', 'queryTime'], handleQueryTimesKwargs.keys())
+        self.assertEquals(Decimal('0.042'), handleQueryTimesKwargs['index'])
+        qt = float(handleQueryTimesKwargs['queryTime'])
+        self.assertTrue(0.0 <= qt <0.1, qt)
 
     def testUpdateWithtriplestoreHostPortFromObserver(self):
-        triplestorerequest = TriplestoreRequest()
-        observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
-        triplestoreClient.addObserver(observer)
-        kwargs = []
-        def httppost(**_kwargs):
-            kwargs.append(_kwargs)
-            s = Suspend()
-            yield s
-            result = s.getResult()
-            raise StopIteration(result)
-        triplestoreClient._httppost = httppost
+        self.request = TriplestoreRequest()
+        self.request.addObserver(self.observer)
+        self.observer.returnValues['triplestoreServer'] = ('this.server.nl', 1234)
+        consume(self.request.addTriple("uri:subject", "uri:predicate", "value"))
+        self.assertEquals(['triplestoreServer', 'httprequest'], self.observer.calledMethodNames())
 
-        g = compose(triplestoreClient.addTriple("uri:subject", "uri:predicate", "value"))
-        self._resultFromServerResponse(g, "")
-        self.assertEquals(['triplestoreServer'], observer.calledMethodNames())
-        self.assertEquals("/addTriple", kwargs[0]['request'])
-        self.assertEquals('localhost', kwargs[0]['host'])
-        self.assertEquals(1234, kwargs[0]['port'])
+        httprequestKwargs = self.observer.calledMethods[1].kwargs
+        self.assertEquals({
+                'body': 'uri:subject|uri:predicate|value',
+                'headers': {},
+                'method': 'POST',
+                'host': 'this.server.nl',
+                'port': 1234,
+                'request': '/addTriple',
+            }, httprequestKwargs)
 
     def testErrorInHttpGet(self):
-        triplestorerequest = TriplestoreRequest()
-        observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
-        triplestoreClient.addObserver(observer)
-        def httpget(**_kwargs):
-            raise ValueError("error")
-            yield
-        triplestoreClient._httpget = httpget
-
-        g = compose(triplestoreClient.executeQuery("select ?x where {}"))
-        self.assertRaises(ValueError, lambda: self._resultFromServerResponse(g, RESULT_JSON))
-
-    def testErrorInAdd(self):
-        triplestorerequest = TriplestoreRequest()
-        observer = CallTrace(returnValues={'triplestoreServer': ('localhost', 1234)})
-        triplestoreClient.addObserver(observer)
-        def httppost(**_kwargs):
-            raise ValueError("error")
-            yield
-        triplestoreClient._httppost = httppost
-
-        g = compose(triplestoreClient.addTriple("uri:subject", "uri:predicate", "value"))
-        self.assertRaises(ValueError, lambda: self._resultFromServerResponse(g, ""))
-
-    def _resultFromServerResponse(self, g, data, responseStatus='200'):
-        s = g.next()
-        self.assertEquals(Suspend, type(s))
-        s(CallTrace('reactor'), lambda: None)
-        s.resume(_RESULT_HEADER % responseStatus + '\r\n\r\n' + data)
-        try:
-            g.next()
-            self.fail("expected StopIteration")
-        except StopIteration, e:
-            if len(e.args) > 0:
-                return e.args[0]
-
+        self.observer.exceptions['httprequest'] = ValueError('error')
+        self.assertRaises(ValueError, lambda: consume(self.request.executeQuery("select ?x where {}")))
 
 PARSED_RESULT_JSON = [
     {
