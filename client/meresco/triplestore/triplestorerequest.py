@@ -141,7 +141,7 @@ class TriplestoreRequest(Observable):
             header, responseBody = response.split("\r\n\r\n", 1)
             self._verify20x(header, response)
         except Exception, e:
-            errorStr = body or str(e)
+            errorStr = responseBody or str(e)
             if 'RDFParseException' in errorStr:
                 raise InvalidRdfXmlException(errorStr)
             elif 'IllegalArgumentException' in errorStr:
