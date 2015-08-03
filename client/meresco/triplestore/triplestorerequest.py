@@ -32,9 +32,8 @@ from simplejson import loads, JSONDecodeError
 
 from meresco.core import Observable
 
-from literal import Literal
-from uri import Uri
-from bnode import BNode
+from meresco.rdf import BNode, Literal, Uri
+
 from decimal import Decimal
 from time import time
 

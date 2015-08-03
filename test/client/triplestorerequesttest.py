@@ -27,15 +27,14 @@
 #
 ## end license ##
 
-from urllib import urlencode
 
 from seecr.test import SeecrTestCase, CallTrace
 
-from weightless.core import compose, consume, retval
-from weightless.io import Suspend
+from weightless.core import consume, retval
 from meresco.components.http.utils import CRLF
-from meresco.triplestore import InvalidRdfXmlException, Uri, Literal, BNode, NTRIPLES, TriplestoreRequest
+from meresco.triplestore import InvalidRdfXmlException, NTRIPLES, TriplestoreRequest
 from meresco.triplestore.triplestorerequest import X_MERESCO_TRIPLESTORE_QUERYTIME
+from meresco.rdf import BNode, Literal, Uri
 from decimal import Decimal
 from time import sleep
 from urlparse import urlparse, parse_qs

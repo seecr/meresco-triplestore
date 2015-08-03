@@ -25,9 +25,8 @@
 #
 ## end license ##
 
+from meresco.rdf import BNode, Literal, Uri
+
 from .httpclient import HttpClient
 from .triplestorerequest import InvalidRdfXmlException, MalformedQueryException, RDFXML, NTRIPLES, TriplestoreRequest
 
-from literal import Literal
-from uri import Uri
-from bnode import BNode
