@@ -79,7 +79,9 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         URI requestURI = exchange.getRequestURI();
         String path = requestURI.getPath();
         String rawQueryString = requestURI.getRawQuery();
-        Headers requestHeaders = exchange.getRequestHeaders();
+    	if(exchange.getRequestMethod().equals("POST"))
+    		rawQueryString = Utils.read(exchange.getRequestBody());
+    	Headers requestHeaders = exchange.getRequestHeaders();
 
         try {
             QueryParameters httpArguments = Utils.parseQS(rawQueryString);

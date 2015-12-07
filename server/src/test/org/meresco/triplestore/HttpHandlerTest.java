@@ -202,6 +202,21 @@ public class HttpHandlerTest {
         assertEquals("QUERYRESULT", exchange.getOutput());
     }
 
+    @Test
+    public void testQueryInPost() throws Exception {
+    	HttpHandlerMock h = new HttpHandlerMock();
+
+        HttpExchangeMock exchange = new HttpExchangeMock("/query", "query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D");
+        exchange.setRequestMethod("POST");
+        h.handle(exchange);
+        assertEquals(3, h.actions.size());
+        assertEquals("executeTupleQuery", h.actions.get(0));
+        assertEquals(Arrays.asList(), h.actions.get(1));
+        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
+        assertEquals(200, exchange.responseCode);
+        assertEquals("QUERYRESULT", exchange.getOutput());
+    }
+    
     @Test public void testGraphQueryDispatch() throws Exception {
         HttpHandlerMock h = new HttpHandlerMock();
 
@@ -608,6 +623,7 @@ public class HttpHandlerTest {
         private Headers _responseHeaders;
         public int responseCode;
         public String responseBody;
+		private String _requestMethod;
 
         public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) {
             super();
@@ -617,11 +633,15 @@ public class HttpHandlerTest {
                 _responseStream = new ByteArrayOutputStream();
                 _requestHeaders = requestHeaders;
                 _responseHeaders = new Headers();
+                _requestMethod = "GET";
             } catch (java.net.URISyntaxException e) {
                 throw new RuntimeException(e);
             }
         }
-        public HttpExchangeMock(String requestURI, String requestBody) {
+        public void setRequestMethod(String requestMethod) {
+			this._requestMethod = requestMethod;
+		}
+		public HttpExchangeMock(String requestURI, String requestBody) {
             this(requestURI, requestBody, new Headers());
         }
 
@@ -643,7 +663,7 @@ public class HttpHandlerTest {
         public InputStream getRequestBody() { return new ByteArrayInputStream(_requestBody.getBytes()); }
         public void close() {};
         public HttpContext getHttpContext() { return null; }
-        public String getRequestMethod() { return ""; }
+        public String getRequestMethod() { return this._requestMethod; }
         public Headers getResponseHeaders() { return this._responseHeaders; }
         public Headers getRequestHeaders() { return this._requestHeaders; }
     }
