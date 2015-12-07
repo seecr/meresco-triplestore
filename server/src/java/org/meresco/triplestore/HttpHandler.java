@@ -79,14 +79,12 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
         URI requestURI = exchange.getRequestURI();
         String path = requestURI.getPath();
         String rawQueryString = requestURI.getRawQuery();
-    	if(exchange.getRequestMethod().equals("POST"))
-    		rawQueryString = Utils.read(exchange.getRequestBody());
+        String body = Utils.read(exchange.getRequestBody());
     	Headers requestHeaders = exchange.getRequestHeaders();
 
         try {
             QueryParameters httpArguments = Utils.parseQS(rawQueryString);
             if ("/add".equals(path)) {
-                String body = Utils.read(exchange.getRequestBody());
                 try {
                     addData(httpArguments, requestHeaders, body);
                 } catch (RDFParseException e) {
@@ -96,7 +94,6 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 }
             }
             else if ("/update".equals(path)) {
-                String body = Utils.read(exchange.getRequestBody());
                 try {
                     updateData(httpArguments, requestHeaders, body);
                 } catch (RDFParseException e) {
@@ -109,15 +106,15 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 deleteData(httpArguments);
             }
             else if ("/addTriple".equals(path)) {
-                String body = Utils.read(exchange.getRequestBody());
                 addTriple(body);
             }
             else if ("/removeTriple".equals(path)) {
-                String body = Utils.read(exchange.getRequestBody());
                 removeTriple(body);
             }
             else if ("/query".equals(path)) {
                 String response = "";
+                if(exchange.getRequestMethod().equals("POST"))
+                	httpArguments.putAll(Utils.parseQS(body));
                 Headers responseHeaders = exchange.getResponseHeaders();
                 try {
                     long start = System.currentTimeMillis();
@@ -170,7 +167,6 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 _writeResponse(response, outputStream);
             }
             else if ("/validate".equals(path)) {
-                String body = Utils.read(exchange.getRequestBody());
                 exchange.sendResponseHeaders(200, 0);
                 try {
                     validateRDF(httpArguments, body);
@@ -183,7 +179,6 @@ public class HttpHandler implements com.sun.net.httpserver.HttpHandler {
                 export(httpArguments);
             }
             else if ("/import".equals(path)) {
-                String body = Utils.read(exchange.getRequestBody());
                 importTrig(body);
             }
             else {
