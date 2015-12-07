@@ -1,4 +1,4 @@
-#squeeze:openjdk-6-jdk
 #wheezy:openjdk-6-jdk
-#centos5:java-1.6.0-openjdk-devel
+#jessie:openjdk-7-jdk
 #centos6:java-1.6.0-openjdk-devel
+#centos7:java-1.7.0-openjdk-devel
