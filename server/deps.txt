@@ -4,3 +4,4 @@
 #jessie:openjdk-7-jre-headless
 #centos5:java-1.6.0-openjdk
 #centos6:java-1.6.0-openjdk
+#centos7:java-1.7.0-openjdk
