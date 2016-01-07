@@ -27,47 +27,30 @@
 
 package org.meresco.triplestore;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.Headers;
-
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-
-import java.io.IOException;
 import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.concurrent.ExecutorService;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import java.util.ArrayList;
-
-import java.net.URI;
-
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
-import org.openrdf.query.resultio.TupleQueryResultFormat;
-import org.openrdf.rio.RDFParseException;
 import org.openrdf.model.Namespace;
-import org.openrdf.model.Value;
-import org.openrdf.model.impl.URIImpl;
-import org.openrdf.model.impl.LiteralImpl;
-import org.openrdf.repository.RepositoryException;
 import org.openrdf.query.MalformedQueryException;
-import org.openrdf.query.QueryLanguage;
-
-import org.openrdf.query.parser.ParsedQuery;
-import org.openrdf.query.parser.ParsedGraphQuery;
-import org.openrdf.query.parser.QueryParserUtil;
-
-import org.openrdf.rio.Rio;
+import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.rio.RDFFormat;
+import org.openrdf.rio.RDFParseException;
+import org.openrdf.rio.Rio;
+
+import com.sun.net.httpserver.Headers;
 
 
 public class HttpHandler extends AbstractHandler {
@@ -211,9 +194,9 @@ public class HttpHandler extends AbstractHandler {
 //            exchange.getHttpContext().getServer().stop(0);
 //            ((ExecutorService) exchange.getHttpContext().getServer().getExecutor()).shutdownNow();
 //            return;
-//        } finally {
+        } finally {
 //            exchange.close();
-//        }
+        }
     }
 
     private void _writeResponse(String response, OutputStream stream) {
@@ -234,7 +217,7 @@ public class HttpHandler extends AbstractHandler {
     public synchronized void updateData(QueryParameters httpArguments, Headers requestHeaders, String httpBody) throws RDFParseException {
         String identifier = httpArguments.singleValue("identifier");
         this.tripleStore.delete(identifier);
-        this.tripleStore.add(identifier, httpBody, getRdfFormat(requestHeaders));
+//        this.tripleStore.add(identifier, httpBody, getRdfFormat(requestHeaders));
     }
 
     public synchronized void addData(HttpServletRequest request) throws RDFParseException, IOException {
