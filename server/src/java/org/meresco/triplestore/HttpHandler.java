@@ -65,7 +65,6 @@ public class HttpHandler extends AbstractHandler {
 
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
-        System.out.println(target);
 //        OutputStream outputStream = exchange.getResponseBody();
 //        URI requestURI = exchange.getRequestURI();
         String path = request.getRequestURI();
@@ -74,7 +73,6 @@ public class HttpHandler extends AbstractHandler {
 //    	Headers requestHeaders = exchange.getRequestHeaders();
 //
         try {
-//            QueryParameters httpArguments = Utils.parseQS(rawQueryString);
             if ("/add".equals(path)) {
                 try {
                     addData(request);
@@ -84,25 +82,25 @@ public class HttpHandler extends AbstractHandler {
                     return;
                 }
             }
-//            else if ("/update".equals(path)) {
-//                try {
-//                    updateData(httpArguments, requestHeaders, body);
-//                } catch (RDFParseException e) {
-//                    exchange.sendResponseHeaders(400, 0);
-//                    _writeResponse(e.toString(), outputStream);
-//                    return;
-//                }
-//            }
-//            else if ("/delete".equals(path)) {
-//                deleteData(httpArguments);
-//            }
-//            else if ("/addTriple".equals(path)) {
-//                addTriple(body);
-//            }
-//            else if ("/removeTriple".equals(path)) {
-//                removeTriple(body);
-//            }
-//            else if ("/query".equals(path)) {
+            else if ("/update".equals(path)) {
+                try {
+                    updateData(request);
+                } catch (RDFParseException e) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    response.getWriter().write(e.toString());
+                    return;
+                }
+            }
+            else if ("/delete".equals(path)) {
+                deleteData(request);
+            }
+            else if ("/addTriple".equals(path)) {
+                addTriple(request);
+            }
+            else if ("/removeTriple".equals(path)) {
+                removeTriple(request);
+            }
+            else if ("/query".equals(path)) {
 //                String response = "";
 //                if(exchange.getRequestMethod().equals("POST"))
 //                	httpArguments.putAll(Utils.parseQS(body));
@@ -214,28 +212,28 @@ public class HttpHandler extends AbstractHandler {
         return RDFFormat.forMIMEType(accept, RDFFormat.RDFXML);
     }
 
-    public synchronized void updateData(QueryParameters httpArguments, Headers requestHeaders, String httpBody) throws RDFParseException {
-        String identifier = httpArguments.singleValue("identifier");
+    public synchronized void updateData(HttpServletRequest request) throws RDFParseException, IOException {
+        String identifier = request.getParameter("identifier");
         this.tripleStore.delete(identifier);
-//        this.tripleStore.add(identifier, httpBody, getRdfFormat(requestHeaders));
+        this.tripleStore.add(identifier, Utils.read(request.getReader()), getRdfFormat(request));
     }
 
     public synchronized void addData(HttpServletRequest request) throws RDFParseException, IOException {
         String identifier = request.getParameter("identifier");
-        this.tripleStore.add(identifier, request.getReader().readLine(), getRdfFormat(request));
+        this.tripleStore.add(identifier, Utils.read(request.getReader()), getRdfFormat(request));
     }
 
-    public synchronized void addTriple(String httpBody) {
-    	this.tripleStore.addTriple(httpBody);
+    public synchronized void addTriple(HttpServletRequest request) throws IOException {
+    	this.tripleStore.addTriple(Utils.read(request.getReader()));
     }
 
-    public synchronized void deleteData(QueryParameters httpArguments) {
-        String identifier = httpArguments.singleValue("identifier");
+    public synchronized void deleteData(HttpServletRequest request) {
+        String identifier = request.getParameter("identifier");
         this.tripleStore.delete(identifier);
     }
 
-    public synchronized void removeTriple(String httpBody) {
-    	this.tripleStore.removeTriple(httpBody);
+    public synchronized void removeTriple(HttpServletRequest request) throws IOException {
+    	this.tripleStore.removeTriple(request.getReader().readLine());
     }
 
     public List<String> getResponseTypes(Headers requestHeaders, QueryParameters httpArguments) {

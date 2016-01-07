@@ -113,24 +113,7 @@ class Utils {
     }
 
     public static String read(InputStream in) {
-    	StringBuilder contents = new StringBuilder();
-    	BufferedReader input = null;
-        try {
-            try {
-                input =  new BufferedReader(new InputStreamReader(in));
-                char[] buffer = new char[1024];
-                int length = 0;
-                while (( length = input.read(buffer)) != -1) {
-                	contents.append(String.valueOf(buffer, 0, length));
-                }
-            }
-            finally {
-                input.close();
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return contents.toString();
+        return read(new BufferedReader(new InputStreamReader(in)));
     }
 
     public static void write(File f, String data) throws IOException {
@@ -148,6 +131,26 @@ class Utils {
         final PrintWriter printWriter = new PrintWriter(result);
         aThrowable.printStackTrace(printWriter);
         return result.toString();
+    }
+
+
+    public static String read(BufferedReader reader) {
+        StringBuilder contents = new StringBuilder();
+        try {
+            try {
+                char[] buffer = new char[1024];
+                int length = 0;
+                while (( length = reader.read(buffer)) != -1) {
+                    contents.append(String.valueOf(buffer, 0, length));
+                }
+            }
+            finally {
+                reader.close();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return contents.toString();
     }
 
 }
