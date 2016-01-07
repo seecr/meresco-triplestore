@@ -1,126 +1,159 @@
 /* begin license *
  *
- * The Meresco Owlim package consists out of a HTTP server written in Java that
- * provides access to an Owlim Triple store, as well as python bindings to
+ * The Meresco Triplestore package consists out of a HTTP server written in Java that
+ * provides access to an Triplestore with a Sesame Interface, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014, 2016 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
- * This file is part of "Meresco Owlim"
+ * This file is part of "Meresco Triplestore"
  *
- * "Meresco Owlim" is free software; you can redistribute it and/or modify
+ * "Meresco Triplestore" is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * "Meresco Owlim" is distributed in the hope that it will be useful,
+ * "Meresco Triplestore" is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with "Meresco Owlim"; if not, write to the Free Software
+ * along with "Meresco Triplestore"; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  * end license */
 
 package org.meresco.triplestore;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpPrincipal;
-import com.sun.net.httpserver.HttpContext;
-import com.sun.net.httpserver.Headers;
-
-import org.openrdf.query.resultio.TupleQueryResultFormat;
-import org.openrdf.query.MalformedQueryException;
-
-import java.net.InetSocketAddress;
-
-import java.io.InputStream;
-import java.io.PrintStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
-
-import java.util.Arrays;
-import java.util.List;
+import java.io.PrintWriter;
+import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
+import java.security.Principal;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
-import static org.meresco.triplestore.Utils.parseQS;
+import javax.servlet.AsyncContext;
+import javax.servlet.DispatcherType;
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.ServletInputStream;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import javax.servlet.http.HttpUpgradeHandler;
+import javax.servlet.http.Part;
 
+import org.apache.commons.io.output.StringBuilderWriter;
+import org.eclipse.jetty.server.HttpChannel;
+import org.eclipse.jetty.server.HttpInput;
+import org.eclipse.jetty.server.Request;
+import org.junit.Before;
+import org.junit.Test;
+import org.openrdf.query.MalformedQueryException;
 import org.openrdf.rio.RDFParseException;
-import org.openrdf.rio.RDFFormat;
-
 
 public class HttpHandlerTest {
-    @Test public void testAddData() throws Exception {
-        TSMock tsmock = new TSMock();
-        HttpHandler h = new HttpHandler(tsmock);
-        String arguments = "identifier=identifier";
-        String httpBody = "<rdf/>";
-        h.addData(parseQS(arguments), new Headers(), httpBody);
-        assertEquals(Arrays.asList("add:identifier" + "|" + httpBody + "|RDF/XML"), tsmock.actions);
+    private RequestMock requestMock;
+    private ResponseMock responseMock;
+    private Request baseRequest;
+
+    @Before
+    public void setUp() {
+        requestMock = new RequestMock();
+        responseMock = new ResponseMock();
+        baseRequest = new BaseRequestMock(null, null);
     }
 
-    @Test public void testAddDataAsNTriples() throws Exception {
+    @Test
+    public void testAddData() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String arguments = "identifier=identifier";
-        String httpBody = "<uri:subject> <uri:predicate> <uri:object>";
-        Headers headers = new Headers();
-        headers.add("Content-Type", "text/plain");
-        h.addData(parseQS(arguments), headers, httpBody);
-        assertEquals(Arrays.asList("add:identifier" + "|" + httpBody + "|N-Triples"), tsmock.actions);
+        requestMock.parameters.put("identifier", "identifier");
+        requestMock.body = "<rdf/>";
+        h.addData(requestMock);
+        assertEquals(Arrays.asList("add:identifier" + "|" + requestMock.body + "|RDF/XML"), tsmock.actions);
     }
 
-    @Test public void testAddTriple() throws Exception {
+    @Test
+    public void testAddDataAsNTriples() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String httpBody = "uri:subj|uri:pred|uri:obj";
-        h.addTriple(httpBody);
+        requestMock.parameters.put("identifier", "identifier");
+        requestMock.body = "<uri:subject> <uri:predicate> <uri:object>";
+        requestMock.headers.put("Content-Type", "text/plain");
+        h.addData(requestMock);
+        assertEquals(Arrays.asList("add:identifier" + "|" + requestMock.body + "|N-Triples"), tsmock.actions);
+    }
+
+    @Test
+    public void testAddTriple() throws Exception {
+        TSMock tsmock = new TSMock();
+        HttpHandler h = new HttpHandler(tsmock);
+        requestMock.body = "uri:subj|uri:pred|uri:obj";
+        h.addTriple(requestMock);
         assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|uri:obj"), tsmock.actions);
     }
 
-    @Test public void testAddTripleWithStringAsObject() throws Exception {
+    @Test
+    public void testAddTripleWithStringAsObject() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String httpBody = "uri:subj|uri:pred|string";
-        h.addTriple(httpBody);
+        requestMock.body = "uri:subj|uri:pred|string";
+        h.addTriple(requestMock);
         assertEquals(Arrays.asList("addTriple:uri:subj|uri:pred|string"), tsmock.actions);
     }
 
-    @Test public void testRemoveTriple() throws Exception {
+    @Test
+    public void testRemoveTriple() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String httpBody = "uri:subj|uri:pred|string";
-        h.removeTriple(httpBody);
+        requestMock.body = "uri:subj|uri:pred|string";
+        h.removeTriple(requestMock);
         assertEquals(Arrays.asList("removeTriple:uri:subj|uri:pred|string"), tsmock.actions);
     }
 
-    @Test public void testDeleteData() throws Exception {
+    @Test
+    public void testDeleteData() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String queryString = "identifier=identifier";
-        h.deleteData(parseQS(queryString));
+        requestMock.parameters.put("identifier", "identifier");
+        h.deleteData(requestMock);
         assertEquals(Arrays.asList("delete:identifier"), tsmock.actions);
     }
 
-    @Test public void testUpdateData() throws Exception {
+    @Test
+    public void testUpdateData() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String httpBody = "<rdf/>";
-        h.updateData(parseQS("identifier=id0"), new Headers(), httpBody);
+        requestMock.parameters.put("identifier", "id0");
+        requestMock.body = "<rdf/>";
+        h.updateData(requestMock);
         assertEquals(Arrays.asList(
                         "delete:id0",
                         "add:id0|<rdf/>|RDF/XML"),
                      tsmock.actions);
-        h.updateData(parseQS("identifier=id1"), new Headers(), httpBody);
-        h.updateData(parseQS("identifier=id0"), new Headers(), httpBody);
+        requestMock.parameters.put("identifier", "id1");
+        h.updateData(requestMock);
+        requestMock.parameters.put("identifier", "id0");
+        h.updateData(requestMock);
         assertEquals(Arrays.asList(
                         "delete:id0",
                         "add:id0|<rdf/>|RDF/XML",
@@ -131,160 +164,42 @@ public class HttpHandlerTest {
                      tsmock.actions);
     }
 
-    @Test public void testSparQLTuple() throws TransactionLogException, MalformedQueryException {
+    @Test
+    public void testSparQLTuple() throws TransactionLogException, MalformedQueryException {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String result = h.executeTupleQuery("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", new ArrayList<String>(), new Headers());
-
-        assertEquals(Arrays.asList("executeTupleQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"),
-                     tsmock.actions);
-    }
-
-    @Test public void testSparQLGraph() throws TransactionLogException, MalformedQueryException {
-        TSMock tsmock = new TSMock();
-        HttpHandler h = new HttpHandler(tsmock);
-        String queryString = "DESCRIBE <uri:test>";
-        String result = h.executeGraphQuery(queryString, new ArrayList<String>(), new Headers());
-
-        assertEquals(Arrays.asList("executeGraphQuery:DESCRIBE <uri:test>"),
-                     tsmock.actions);
-    }
-
-    @Test public void testAddDispatch() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/add?id=IDENTIFIER", "<rdf/>");
-        h.handle(exchange);
-        assertEquals(4, h.actions.size());
-        assertEquals("addData", h.actions.get(0));
-        QueryParameters qp = (QueryParameters) h.actions.get(1);
-        assertEquals("IDENTIFIER", qp.singleValue("id"));
-        assertEquals("<rdf/>", h.actions.get(3));
-
-        assertEquals(200, exchange.responseCode);
-    }
-
-    @Test public void testUpdateDispatch() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/update?id=IDENTIFIER", "<rdf/>");
-        h.handle(exchange);
-        assertEquals(4, h.actions.size());
-        assertEquals("updateData", h.actions.get(0));
-        QueryParameters qp = (QueryParameters) h.actions.get(1);
-        assertEquals("IDENTIFIER", qp.singleValue("id"));
-        assertEquals("<rdf/>", h.actions.get(3));
-        assertEquals(200, exchange.responseCode);
-    }
-
-    @Test public void testDeleteDispatch() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/delete?id=IDENTIFIER", "");
-        h.handle(exchange);
-        assertEquals(2, h.actions.size());
-        assertEquals("deleteData", h.actions.get(0));
-        QueryParameters qp = (QueryParameters) h.actions.get(1);
-        assertEquals("IDENTIFIER", qp.singleValue("id"));
-        assertEquals(200, exchange.responseCode);
-    }
-
-    @Test public void testTupleQueryDispatch() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
-        h.handle(exchange);
-        assertEquals(3, h.actions.size());
-        assertEquals("executeTupleQuery", h.actions.get(0));
-        assertEquals(Arrays.asList(), h.actions.get(1));
-        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
-        assertEquals(200, exchange.responseCode);
-        assertEquals("QUERYRESULT", exchange.getOutput());
+        Map<String, String> headers = new HashMap<>();
+        h.executeTupleQuery("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", new ArrayList<String>(), headers);
+        assertEquals(Arrays.asList("executeTupleQuery:SELECT ?x ?y ?z WHERE { ?x ?y ?z }"), tsmock.actions);
     }
 
     @Test
-    public void testQueryInPost() throws Exception {
-    	HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/query", "query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D");
-        exchange.setRequestMethod("POST");
-        h.handle(exchange);
-        assertEquals(3, h.actions.size());
-        assertEquals("executeTupleQuery", h.actions.get(0));
-        assertEquals(Arrays.asList(), h.actions.get(1));
-        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
-        assertEquals(200, exchange.responseCode);
-        assertEquals("QUERYRESULT", exchange.getOutput());
-    }
-    
-    @Test public void testGraphQueryDispatch() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=DESCRIBE+%3Curi:test%3E", "");
-        h.handle(exchange);
-        assertEquals(3, h.actions.size());
-        assertEquals("executeGraphQuery", h.actions.get(0));
-        assertEquals(Arrays.asList(), h.actions.get(1));
-        assertEquals("DESCRIBE <uri:test>", h.actions.get(2));
-        assertEquals(200, exchange.responseCode);
-        assertEquals("QUERYRESULT", exchange.getOutput());
-    }
-
-    @Test public void testQueryWithResultFormatDispatch() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?format=SPARQL&query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "");
-        h.handle(exchange);
-        assertEquals(3, h.actions.size());
-        assertEquals("executeTupleQuery", h.actions.get(0));
-        assertEquals(Arrays.asList(), h.actions.get(1));
-        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
-        assertEquals(200, exchange.responseCode);
-        assertEquals("QUERYRESULT", exchange.getOutput());
-    }
-
-    @Test public void testQueryWithMimeType() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D&mimeType=application/sparql-results+xml", "");
-        h.handle(exchange);
-        assertEquals(3, h.actions.size());
-        assertEquals("executeTupleQuery", h.actions.get(0));
-        assertEquals(Arrays.asList("application/sparql-results xml"), h.actions.get(1));
-        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
-        assertEquals(200, exchange.responseCode);
-        assertEquals("QUERYRESULT", exchange.getOutput());
-    }
-
-    @Test public void testQueryWithAcceptHeader() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-        Headers headers = new Headers();
-        headers.set("Accept", "application/sparql-results+xml");
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "", headers);
-        h.handle(exchange);
-        assertEquals(3, h.actions.size());
-        assertEquals("executeTupleQuery", h.actions.get(0));
-        assertEquals(Arrays.asList("application/sparql-results+xml"), h.actions.get(1));
-        assertEquals("SELECT ?x ?y ?z WHERE { ?x ?y ?z }", h.actions.get(2));
-        assertEquals(200, exchange.responseCode);
-        assertEquals("QUERYRESULT", exchange.getOutput());
-    }
-
-    @Test public void testValidate() throws Exception {
+    public void testSparQLGraph() throws TransactionLogException, MalformedQueryException {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-        String queryString = "identifier=identifier";
+        String queryString = "DESCRIBE <uri:test>";
+        Map<String, String> headers = new HashMap<>();
+        h.executeGraphQuery(queryString, new ArrayList<String>(), headers);
+        assertEquals(Arrays.asList("executeGraphQuery:DESCRIBE <uri:test>"), tsmock.actions);
+    }
+
+    @Test 
+    public void testValidate() throws Exception {
+        TSMock tsmock = new TSMock();
+        HttpHandler h = new HttpHandler(tsmock);
         String notRDF = "<notrdf/>";
+        requestMock.body = notRDF;
         try {
-            h.validateRDF(parseQS(queryString), notRDF);
+            h.validateRDF(requestMock);
             fail("should not get here.");
         } catch (RDFParseException e) {
             // SUCCESS
         }
 
         String emptyRdfTag = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"/>";
+        requestMock.body = emptyRdfTag;
         try {
-            h.validateRDF(parseQS(queryString), emptyRdfTag);  // valid !
+            h.validateRDF(requestMock);  // valid !
         } catch (RDFParseException e) {
             fail("should not get here.");
         }
@@ -293,8 +208,9 @@ public class HttpHandlerTest {
                 + "<rdf:Description rdf:about=\"urn:123\">\n"
                 + "</rdf:Description>\n"
                 + "</rdf:RDF>";
+        requestMock.body = emptyRdfDescription;
         try {
-            h.validateRDF(parseQS(queryString), emptyRdfDescription);  // valid !
+            h.validateRDF(requestMock);  // valid !
         } catch (RDFParseException e) {
             fail("should not get here.");
         }
@@ -304,94 +220,46 @@ public class HttpHandlerTest {
                 + "   <somevoc:relation xmlns:somevoc=\"uri:someuri\">Xyz</somevoc:relation>\n"
                 + "</rdf:Description>\n"
                 + "</rdf:RDF>";
+        requestMock.body = oneTriple;
         try {
-            h.validateRDF(parseQS(queryString), oneTriple);  // valid !
+            h.validateRDF(requestMock);  // valid !
         } catch (RDFParseException e) {
             fail("should not get here.");
         }
     }
 
-    @Test public void testSparqlDispatch() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/sparql", "");
-        h.handle(exchange);
-        assertEquals(2, h.actions.size());
-        assertEquals("sparqlForm", h.actions.get(0));
-        QueryParameters qp = (QueryParameters) h.actions.get(1);
-        assertEquals(0, qp.size());
-    }
-
-    @Test public void testSparqlWithQueryParametersDispatch() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/sparql?query=x", "");
-        h.handle(exchange);
-        assertEquals(2, h.actions.size());
-        assertEquals("sparqlForm", h.actions.get(0));
-        QueryParameters qp = (QueryParameters) h.actions.get(1);
-        assertEquals(1, qp.size());
-        assertEquals("x", qp.singleValue("query"));
-    }
-
-    @Test public void testValidateDispatch() throws Exception {
+    @Test 
+    public void testValidateDispatch() throws Exception {
         HttpHandler h = new HttpHandler(null);
-        HttpExchangeMock exchange = new HttpExchangeMock("/validate?identifier=IDENTIFIER", "<rdf:Description xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf\" about=\"notanuri\"/>");
-        h.handle(exchange);
-        assertEquals(200, exchange.responseCode);
-        assertEquals("Invalid\norg.openrdf.rio.RDFParseException: Not a valid (absolute) URI: /notanuri [line 1, column 81]", exchange.getResponseBody().toString());
+        requestMock.requestUri = "/validate";
+        requestMock.parameters.put("identifier", "IDENTIFIER");
+        requestMock.body = "<rdf:Description xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf\" about=\"notanuri\"/>";
+        h.handle(null, baseRequest, requestMock, responseMock);
+        assertEquals(200, responseMock.statusCode);
+        assertEquals("Invalid\norg.openrdf.rio.RDFParseException: Not a valid (absolute) URI: /notanuri [line 1, column 81]", responseMock.response.toString());
 
-        exchange = new HttpExchangeMock("/validate?identifier=urn:IDENTIFIER", "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"/>");
-        h.handle(exchange);
-        assertEquals(200, exchange.responseCode);
-        assertEquals("Ok", exchange.getResponseBody().toString());
+        responseMock = new ResponseMock();
+        requestMock.requestUri = "/validate";
+        requestMock.parameters.put("identifier", "urn:IDENTIFIER");
+        requestMock.body = "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"/>";
+        h.handle(null, baseRequest, requestMock, responseMock);
+        assertEquals(200, responseMock.statusCode);
+        assertEquals("Ok", responseMock.response.toString());
     }
 
-    @Test public void test404ForOtherRequests() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/", "");
-        h.handle(exchange);
-        assertEquals(0, h.actions.size());
-        assertEquals(404, exchange.responseCode);
+    @Test 
+    public void test404() throws Exception {
+        HttpHandler h = new HttpHandler(null);
+        requestMock.requestUri = "/not_existing";
+        h.handle(null, baseRequest, requestMock, responseMock);
+        assertEquals(404, responseMock.statusCode);
     }
 
-    @Test public void test500ForExceptions() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock(new Exception("dummy test exception"));
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/add", "");
-
-        PrintStream originalErrStream = System.err;
-        OutputStream os = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(os);
-        System.setErr(ps);
-        try {
-            h.handle(exchange);
-        }
-        finally {
-            System.setErr(originalErrStream);
-        }
-        assertTrue(os.toString().contains("dummy test exception"));
-        assertEquals(0, h.actions.size());
-        assertEquals(500, exchange.responseCode);
-        assertTrue(exchange.getOutput().startsWith("java.lang.RuntimeException: java.lang.Exception: dummy test exception"));
-    }
-
-    @Test public void test400ForMalformedQueryExceptions() throws IOException {
-        HttpHandlerMock h = new HttpHandlerMock(new MalformedQueryException("dummy test exception"));
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT+%3Fx+WHERE+%7B%7D%0A", "");
-        h.handle(exchange);
-        assertEquals(0, h.actions.size());
-        assertEquals(400, exchange.responseCode);
-        assertTrue(exchange.getOutput(), exchange.getOutput().startsWith("org.openrdf.query.MalformedQueryException: dummy test exception"));
-    }
-
-    @Test public void testDefaultSparqlForm() throws Exception {
+    @Test
+    public void testDefaultSparqlForm() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
-
-        QueryParameters queryParameters = Utils.parseQS("");
-        String sparqlForm = h.sparqlForm(queryParameters);
+        String sparqlForm = h.sparqlForm(requestMock);
         String expectedQuery = "PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;\n" +
             "PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;\n" +
             "\n" +
@@ -401,48 +269,51 @@ public class HttpHandlerTest {
         assertTrue(sparqlForm, sparqlForm.contains(expectedQuery));
     }
 
-    @Test public void testSparqlFormWithQueryArgument() throws Exception {
+    @Test
+    public void testSparqlFormWithQueryArgument() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
 
-        QueryParameters queryParameters = Utils.parseQS("query=SELECT+%3Fx+WHERE+%7B%7D%0A");
-        String sparqlForm = h.sparqlForm(queryParameters);
+        requestMock.parameters.put("query", "SELECT ?x WHERE {}\n");
+        String sparqlForm = h.sparqlForm(requestMock);
         String expectedQuery = "SELECT ?x WHERE {}\n";
         assertTrue(sparqlForm, sparqlForm.contains(expectedQuery));
     }
 
-     @Test public void testAllAcceptHeaderReturnsJson() throws Exception {
+     @Test 
+     public void testAllAcceptHeaderReturnsJson() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
 
-        Headers inputHeaders = new Headers();
-        inputHeaders.add("Accept", "*/*");
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "", inputHeaders);
-        h.handle(exchange);
-        assertEquals(200, exchange.responseCode);
-        assertEquals("application/sparql-results+json", exchange.getResponseHeaders().getFirst("Content-Type"));
+        requestMock.requestUri = "/query";
+        requestMock.parameters.put("query", "SELECT ?x WHERE {}");
+        requestMock.headers.put("Accept", "*/*");
+        h.handle(null, baseRequest, requestMock, responseMock);
+        assertEquals(200, responseMock.statusCode);
+        assertEquals("application/sparql-results+json", responseMock.headers.get("Content-Type"));
     }
 
-    @Test public void testMultipleAcceptHeaderReturnsKnown() throws Exception {
+    @Test 
+    public void testMultipleAcceptHeaderReturnsKnown() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
 
-        Headers inputHeaders = new Headers();
-        inputHeaders.add("Accept", "text/html, application/xml");
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT%20?x%20?y%20?z%20WHERE%20%7B%20?x%20?y%20?z%20%7D", "", inputHeaders);
-        h.handle(exchange);
-        assertEquals(200, exchange.responseCode);
-        assertEquals("application/sparql-results+xml", exchange.getResponseHeaders().getFirst("Content-Type"));
+        requestMock.requestUri = "/query";
+        requestMock.parameters.put("query", "SELECT ?x WHERE {}");
+        requestMock.headers.put("Accept", "text/html, application/xml");
+        h.handle(null, baseRequest, requestMock, responseMock);
+        assertEquals(200, responseMock.statusCode);
+        assertEquals("application/sparql-results+xml", responseMock.headers.get("Content-Type"));
     }
 
-    @Test public void testShowContentTypes() throws Exception {
+    @Test
+    public void testShowContentTypes() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
 
-        Headers inputHeaders = new Headers();
-        HttpExchangeMock exchange = new HttpExchangeMock("/query", "", inputHeaders);
-        h.handle(exchange);
-        assertEquals(406, exchange.responseCode);
+        requestMock.requestUri = "/query";
+        h.handle(null, baseRequest, requestMock, responseMock);
+        assertEquals(406, responseMock.statusCode);
         assertEquals("Supported formats SELECT query:"
             + "\n- SPARQL/XML (mimeTypes=application/sparql-results+xml, application/xml; ext=srx, xml)"
             + "\n- BINARY (mimeTypes=application/x-binary-rdf-results-table; ext=brt)"
@@ -461,21 +332,21 @@ public class HttpHandlerTest {
             + "\n- N-Quads (mimeTypes=text/x-nquads; ext=nq)"
             + "\n- JSON-LD (mimeTypes=application/ld+json; ext=jsonld)"
             + "\n- RDF/JSON (mimeTypes=application/rdf+json; ext=rj)"
-            + "\n- RDFa (mimeTypes=application/xhtml+xml, application/html, text/html; ext=xhtml, html)\n", exchange.getResponseBody().toString());
-        assertEquals("text/plain", exchange.getResponseHeaders().getFirst("Content-Type"));
+            + "\n- RDFa (mimeTypes=application/xhtml+xml, application/html, text/html; ext=xhtml, html)\n", responseMock.response.toString());
+        assertEquals("text/plain", responseMock.getHeader("Content-Type"));
     }
 
-    @Test public void testContentType() throws Exception {
+    @Test 
+    public void testContentType() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
 
-        Headers inputHeaders = new Headers();
-        inputHeaders.add("Accept", "application/xml");
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT+%3Fx+WHERE+%7B%7D%0A", "", inputHeaders);
-        h.handle(exchange);
-        assertEquals(200, exchange.responseCode);
-        assertEquals(1, exchange.getResponseHeaders().get("Content-Type").size());
-        assertEquals("application/sparql-results+xml", exchange.getResponseHeaders().getFirst("Content-Type"));
+        requestMock.requestUri = "/query";
+        requestMock.parameters.put("query", "SELECT ?x WHERE {}");
+        requestMock.headers.put("Accept", "application/xml");
+        h.handle(null, baseRequest, requestMock, responseMock);
+        assertEquals(200, responseMock.statusCode);
+        assertEquals("application/sparql-results+xml", responseMock.getHeader("Content-Type"));
     }
 
     @Test
@@ -483,38 +354,29 @@ public class HttpHandlerTest {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
 
-        Headers inputHeaders = new Headers();
-        HttpExchangeMock exchange = new HttpExchangeMock("/query?query=SELECT+%3Fx+WHERE+%7B%7D%0A", "", inputHeaders);
-        h.handle(exchange);
-        assertEquals(200, exchange.responseCode);
-        int time = Integer.parseInt(exchange.getResponseHeaders().getFirst("X-Meresco-Triplestore-QueryTime"));
-        assertTrue(time >= 0);
-        assertTrue(time <= 3);
+        requestMock.requestUri = "/query";
+        requestMock.parameters.put("query", "SELECT ?x WHERE {}");
+        h.handle(null, baseRequest, requestMock, responseMock);
+        assertEquals(200, responseMock.statusCode);
+        int time = Integer.parseInt(responseMock.getHeader("X-Meresco-Triplestore-QueryTime"));
+        assertTrue(time + "", time >= 0);
+        assertTrue(time + "", time <= 1000);
     }
 
-    @Test public void testExportDispatch() throws Exception {
-        HttpHandlerMock h = new HttpHandlerMock();
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/export?identifier=identifier", "");
-        h.handle(exchange);
-        assertEquals(2, h.actions.size());
-        assertEquals("export", h.actions.get(0));
-        QueryParameters qp = (QueryParameters) h.actions.get(1);
-        assertEquals(1, qp.size());
-        assertEquals("identifier", qp.singleValue("identifier"));
-    }
-
-    @Test public void testExport() throws Exception {
+    @Test 
+    public void testExport() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
 
-        HttpExchangeMock exchange = new HttpExchangeMock("/export?identifier=identifier", "");
-        h.handle(exchange);
+        requestMock.requestUri = "/export";
+        requestMock.parameters.put("identifier", "identifier");
+        h.handle(null, baseRequest, requestMock, responseMock);
         assertEquals(1, tsmock.actions.size());
         assertEquals("export:identifier", tsmock.actions.get(0));
     }
 
-    @Test public void testImport() throws Exception {
+    @Test 
+    public void testImport() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
         String trig = "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> . \n" +
@@ -524,147 +386,376 @@ public class HttpHandlerTest {
 "<uri:aContext> { \n" +
 "        <uri:aSubject> <uri:aPredicate> \"a literal  value\" . \n" +
 "}";
-
-        HttpExchangeMock exchange = new HttpExchangeMock("/import", trig);
-        h.handle(exchange);
+        requestMock.requestUri = "/import";
+        requestMock.body = trig;
+        h.handle(null, baseRequest, requestMock, responseMock);
         assertEquals(1, tsmock.actions.size());
         assertEquals("import:" + trig, tsmock.actions.get(0));
     }
 
+    class RequestMock implements HttpServletRequest {
 
-    class HttpHandlerMock extends HttpHandler {
-        public List<Object> actions = new ArrayList<Object>();
-        private Exception _exception = null;
+        String requestUri;
+        String body;
+        String method = "GET";
+        Map<String, String> parameters = new HashMap<>();
+        Map<String, String> headers = new HashMap<>();
 
-        public HttpHandlerMock() { super(null); }
-        public HttpHandlerMock(Exception e) {
-            super(null);
-            _exception = e;
-        }
         @Override
-        public void updateData(QueryParameters params, Headers headers, String httpBody) throws RDFParseException {
-            if (_exception != null) {
-                throw new RuntimeException(_exception);
-            }
-            actions.add("updateData");
-            actions.add(params);
-            actions.add(headers);
-            actions.add(httpBody);
-        }
+        public AsyncContext getAsyncContext() {return null;}
+
         @Override
-        public void addData(QueryParameters params, Headers headers, String httpBody) throws RDFParseException {
-            if (_exception != null) {
-                throw new RuntimeException(_exception);
-            }
-            actions.add("addData");
-            actions.add(params);
-            actions.add(headers);
-            actions.add(httpBody);
-        }
+        public Object getAttribute(String arg0) {return null;}
+
         @Override
-        public void deleteData(QueryParameters params) {
-            if (_exception != null) {
-                throw new RuntimeException(_exception);
-            }
-            actions.add("deleteData");
-            actions.add(params);
-        }
+        public Enumeration<String> getAttributeNames() {return null;}
+
         @Override
-        public String executeTupleQuery(String query, List<String> responseTypes, Headers responseHeaders) throws MalformedQueryException {
-            if (_exception != null) {
-                if (_exception instanceof MalformedQueryException) {
-                    throw (MalformedQueryException) _exception;
-                }
-                throw new RuntimeException(_exception);
-            }
-            actions.add("executeTupleQuery");
-            actions.add(responseTypes);
-            actions.add(query);
-            return "QUERYRESULT";
-        }
+        public String getCharacterEncoding() {return null;}
+
         @Override
-        public String executeGraphQuery(String query, List<String> responseTypes, Headers responseHeaders) throws MalformedQueryException {
-            if (_exception != null) {
-                if (_exception instanceof MalformedQueryException) {
-                    throw (MalformedQueryException) _exception;
-                }
-                throw new RuntimeException(_exception);
-            }
-            actions.add("executeGraphQuery");
-            actions.add(responseTypes);
-            actions.add(query);
-            return "QUERYRESULT";
-        }
+        public int getContentLength() {return 0;}
+
         @Override
-        public void validateRDF(QueryParameters params, String httpBody) {
-            actions.add("validateRDF");
-            actions.add(params);
-            actions.add(httpBody);
-        }
+        public long getContentLengthLong() {return 0;}
+
         @Override
-        public String sparqlForm(QueryParameters params) {
-            actions.add("sparqlForm");
-            actions.add(params);
-            return "SPARQLFORM";
-        }
+        public String getContentType() {return null;}
+
         @Override
-        public void export(QueryParameters params) {
-            actions.add("export");
-            actions.add(params);
+        public DispatcherType getDispatcherType() {return null;}
+
+        @Override
+        public ServletInputStream getInputStream() throws IOException {return null;}
+
+        @Override
+        public String getLocalAddr() {return null;}
+
+        @Override
+        public String getLocalName() {return null;}
+
+        @Override
+        public int getLocalPort() {return 0;}
+
+        @Override
+        public Locale getLocale() {return null;}
+
+        @Override
+        public Enumeration<Locale> getLocales() {return null;}
+
+        @Override
+        public String getParameter(String arg0) {
+            return this.parameters.get(arg0);
         }
+
+        @Override
+        public Map<String, String[]> getParameterMap() {
+            Map<String, String[]> params = new HashMap<>();
+            for (String key : parameters.keySet())
+                params.put(key, new String[] {parameters.get(key)});
+            return params;
+        }
+
+        @Override
+        public Enumeration<String> getParameterNames() {return null;}
+
+        @Override
+        public String[] getParameterValues(String arg0) {return null;}
+
+        @Override
+        public String getProtocol() {return null;}
+
+        @Override
+        public BufferedReader getReader() throws IOException {
+            return new BufferedReader(new StringReader(body));
+        }
+
+        @Override
+        public String getRealPath(String arg0) {return null;}
+
+        @Override
+        public String getRemoteAddr() {return null;}
+
+        @Override
+        public String getRemoteHost() {return null;}
+
+        @Override
+        public int getRemotePort() {return 0;}
+
+        @Override
+        public RequestDispatcher getRequestDispatcher(String arg0) {return null;}
+
+        @Override
+        public String getScheme() {return null;}
+
+        @Override
+        public String getServerName() {return null;}
+
+        @Override
+        public int getServerPort() {return 0;}
+
+        @Override
+        public ServletContext getServletContext() {return null;}
+
+        @Override
+        public boolean isAsyncStarted() {return false;}
+
+        @Override
+        public boolean isAsyncSupported() {return false;}
+
+        @Override
+        public boolean isSecure() {return false;}
+
+        @Override
+        public void removeAttribute(String arg0) {}
+
+        @Override
+        public void setAttribute(String arg0, Object arg1) {}
+
+        @Override
+        public void setCharacterEncoding(String arg0) throws UnsupportedEncodingException {}
+
+        @Override
+        public AsyncContext startAsync() throws IllegalStateException {return null;}
+
+        @Override
+        public AsyncContext startAsync(ServletRequest arg0, ServletResponse arg1) throws IllegalStateException {return null;}
+
+        @Override
+        public boolean authenticate(HttpServletResponse arg0) throws IOException, ServletException {return false;}
+
+        @Override
+        public String changeSessionId() {return null;}
+
+        @Override
+        public String getAuthType() {return null;}
+
+        @Override
+        public String getContextPath() {return null;}
+
+        @Override
+        public Cookie[] getCookies() {return null;}
+
+        @Override
+        public long getDateHeader(String arg0) {return 0;}
+
+        @Override
+        public String getHeader(String arg0) {
+            return headers.get(arg0);
+        }
+
+        @Override
+        public Enumeration<String> getHeaderNames() {return null;}
+
+        @Override
+        public Enumeration<String> getHeaders(String arg0) {return null;}
+
+        @Override
+        public int getIntHeader(String arg0) {return 0;}
+
+        @Override
+        public String getMethod() {return method;}
+
+        @Override
+        public Part getPart(String arg0) throws IOException, ServletException {return null;}
+
+        @Override
+        public Collection<Part> getParts() throws IOException, ServletException {return null;}
+
+        @Override
+        public String getPathInfo() {return null;}
+
+        @Override
+        public String getPathTranslated() {return null;}
+
+        @Override
+        public String getQueryString() {return null;}
+
+        @Override
+        public String getRemoteUser() {return null;}
+
+        @Override
+        public String getRequestURI() {return requestUri;}
+
+        @Override
+        public StringBuffer getRequestURL() {return null;}
+
+        @Override
+        public String getRequestedSessionId() {return null;}
+
+        @Override
+        public String getServletPath() {return null;}
+
+        @Override
+        public HttpSession getSession() {return null;}
+
+        @Override
+        public HttpSession getSession(boolean arg0) {return null;}
+
+        @Override
+        public Principal getUserPrincipal() {return null;}
+
+        @Override
+        public boolean isRequestedSessionIdFromCookie() {return false;}
+
+        @Override
+        public boolean isRequestedSessionIdFromURL() {return false;}
+
+        @Override
+        public boolean isRequestedSessionIdFromUrl() {return false;}
+
+        @Override
+        public boolean isRequestedSessionIdValid() {return false;}
+
+        @Override
+        public boolean isUserInRole(String arg0) {return false;}
+
+        @Override
+        public void login(String arg0, String arg1) throws ServletException {}
+
+        @Override
+        public void logout() throws ServletException {}
+
+        @Override
+        public <T extends HttpUpgradeHandler> T upgrade(Class<T> arg0) throws IOException, ServletException {return null;}
     }
 
+    class ResponseMock implements HttpServletResponse {
 
-    class HttpExchangeMock extends HttpExchange {
-        private java.net.URI _requestURI;
-        private String _requestBody;
-        private ByteArrayOutputStream _responseStream;
-        private Headers _requestHeaders;
-        private Headers _responseHeaders;
-        public int responseCode;
-        public String responseBody;
-		private String _requestMethod;
+        int statusCode;
+        StringBuilder response = new StringBuilder();
+        Map<String, String> headers = new HashMap<>();
 
-        public HttpExchangeMock(String requestURI, String requestBody, Headers requestHeaders) {
-            super();
-            try {
-                _requestURI = new java.net.URI(requestURI);
-                _requestBody = requestBody;
-                _responseStream = new ByteArrayOutputStream();
-                _requestHeaders = requestHeaders;
-                _responseHeaders = new Headers();
-                _requestMethod = "GET";
-            } catch (java.net.URISyntaxException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        public void setRequestMethod(String requestMethod) {
-			this._requestMethod = requestMethod;
-		}
-		public HttpExchangeMock(String requestURI, String requestBody) {
-            this(requestURI, requestBody, new Headers());
+        @Override
+        public void flushBuffer() throws IOException {}
+
+        @Override
+        public int getBufferSize() {return 0; }
+
+        @Override
+        public String getCharacterEncoding() {return null; }
+
+        @Override
+        public String getContentType() {return null; }
+
+        @Override
+        public Locale getLocale() {return null; }
+
+        @Override
+        public ServletOutputStream getOutputStream() throws IOException {return null; }
+
+        @Override
+        public PrintWriter getWriter() throws IOException {
+            return new PrintWriter(new StringBuilderWriter() {
+                @Override
+                public void write(String s, int off, int len) {
+                    response.append(s);
+                }
+            });
         }
 
-        public String getOutput() { return _responseStream.toString(); }
-        public java.net.URI getRequestURI() { return _requestURI; }
-        public HttpPrincipal getPrincipal() { return null; }
-        public void setStreams(InputStream i, OutputStream o) {}
-        public void setAttribute(Object o) {}
-        public void setAttribute(String s, Object o) {}
-        public Object getAttribute(String s) { return null; }
-        public String getProtocol() { return ""; }
-        public InetSocketAddress getLocalAddress() { return null; }
-        public InetSocketAddress getRemoteAddress() { return null; }
-        public int getResponseCode() { return 0; }
-        public void sendResponseHeaders(int responseCode, long l) {
-            this.responseCode = responseCode;
+        @Override
+        public boolean isCommitted() {return false; }
+
+        @Override
+        public void reset() {}
+
+        @Override
+        public void resetBuffer() {}
+
+        @Override
+        public void setBufferSize(int arg0) {}
+
+        @Override
+        public void setCharacterEncoding(String arg0) {}
+
+        @Override
+        public void setContentLength(int arg0) {}
+
+        @Override
+        public void setContentLengthLong(long arg0) {}
+
+        @Override
+        public void setContentType(String arg0) {}
+
+        @Override
+        public void setLocale(Locale arg0) {}
+
+        @Override
+        public void addCookie(Cookie arg0) {}
+
+        @Override
+        public void addDateHeader(String arg0, long arg1) {}
+
+        @Override
+        public void addHeader(String arg0, String arg1) {}
+
+        @Override
+        public void addIntHeader(String arg0, int arg1) {}
+
+        @Override
+        public boolean containsHeader(String arg0) {return false; }
+
+        @Override
+        public String encodeRedirectURL(String arg0) {return null; }
+
+        @Override
+        public String encodeRedirectUrl(String arg0) {return null; }
+
+        @Override
+        public String encodeURL(String arg0) {return null; }
+
+        @Override
+        public String encodeUrl(String arg0) {return null; }
+
+        @Override
+        public String getHeader(String arg0) {
+            return headers.get(arg0); 
         }
-        public OutputStream getResponseBody() { return _responseStream;  }
-        public InputStream getRequestBody() { return new ByteArrayInputStream(_requestBody.getBytes()); }
-        public void close() {};
-        public HttpContext getHttpContext() { return null; }
-        public String getRequestMethod() { return this._requestMethod; }
-        public Headers getResponseHeaders() { return this._responseHeaders; }
-        public Headers getRequestHeaders() { return this._requestHeaders; }
+
+        @Override
+        public Collection<String> getHeaderNames() {return null; }
+
+        @Override
+        public Collection<String> getHeaders(String arg0) {return null; }
+
+        @Override
+        public int getStatus() {return 0; }
+
+        @Override
+        public void sendError(int arg0) throws IOException {}
+
+        @Override
+        public void sendError(int arg0, String arg1) throws IOException {}
+
+        @Override
+        public void sendRedirect(String arg0) throws IOException {}
+
+        @Override
+        public void setDateHeader(String arg0, long arg1) {}
+
+        @Override
+        public void setHeader(String arg0, String arg1) {
+            headers.put(arg0, arg1);
+        }
+
+        @Override
+        public void setIntHeader(String arg0, int arg1) {}
+
+        @Override
+        public void setStatus(int arg0) {
+            statusCode = arg0;
+        }
+
+        @Override
+        public void setStatus(int arg0, String arg1) {}
+    }
+    
+    class BaseRequestMock extends Request {
+
+        public BaseRequestMock(HttpChannel<?> channel, HttpInput<?> input) {
+            super(channel, input);
+        }
+        
     }
 }

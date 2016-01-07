@@ -104,11 +104,14 @@ public class HttpHandler extends AbstractHandler {
                     List<String> responseTypes = getResponseTypes(request, parameters);
                     if (query != null) {
                         ParsedQuery p = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
+                        Map<String, String> headers = new HashMap<>();
                         if (p instanceof ParsedGraphQuery) {
-                            responseData = executeGraphQuery(query, responseTypes, response);
+                            responseData = executeGraphQuery(query, responseTypes, headers);
                         } else {
-                            responseData = executeTupleQuery(query, responseTypes, response);
+                            responseData = executeTupleQuery(query, responseTypes, headers);
                         }
+                        for (String header : headers.keySet())
+                            response.setHeader(header, headers.get(header));
                     }
                     long indexQueryTime = System.currentTimeMillis() - start;
                     if (responseData == null || responseData == "") {
@@ -133,6 +136,7 @@ public class HttpHandler extends AbstractHandler {
                     if (parameters.containsKey("outputContentType")) {
                         response.setHeader("Content-Type", parameters.get("outputContentType").get(0));
                     }
+                    response.setStatus(HttpServletResponse.SC_OK);
                     response.getWriter().write(responseData);
                 } catch (MalformedQueryException e) {
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -162,7 +166,6 @@ public class HttpHandler extends AbstractHandler {
                 importTrig(Utils.read(request.getReader()));
             }
             else {
-                System.out.println("SC_NOT_FOUND");
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -240,7 +243,7 @@ public class HttpHandler extends AbstractHandler {
     	return new ArrayList<>(0);
     }
 
-    public String executeTupleQuery(String query, List<String> responseTypes, HttpServletResponse response) throws MalformedQueryException {
+    public String executeTupleQuery(String query, List<String> responseTypes, Map<String, String> headers) throws MalformedQueryException {
         TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
         for (String responseType : responseTypes) {
         	TupleQueryResultFormat format = TupleQueryResultFormat.forMIMEType(responseType);
@@ -249,11 +252,11 @@ public class HttpHandler extends AbstractHandler {
                 break;
             }
         }
-        response.setHeader("Content-Type", resultFormat.getDefaultMIMEType());
+        headers.put("Content-Type", resultFormat.getDefaultMIMEType());
         return this.tripleStore.executeTupleQuery(query, resultFormat);
     }
 
-    public String executeGraphQuery(String query, List<String> responseTypes, HttpServletResponse response) throws MalformedQueryException {
+    public String executeGraphQuery(String query, List<String> responseTypes, Map<String, String> headers) throws MalformedQueryException {
     	RDFFormat resultFormat = RDFFormat.RDFXML;
         for (String responseType : responseTypes) {
     		RDFFormat format = Rio.getParserFormatForMIMEType(responseType);
@@ -262,7 +265,7 @@ public class HttpHandler extends AbstractHandler {
                 break;
             }
     	}
-        response.setHeader("Content-Type", resultFormat.getDefaultMIMEType());
+        headers.put("Content-Type", resultFormat.getDefaultMIMEType());
         return this.tripleStore.executeGraphQuery(query, resultFormat);
     }
 
