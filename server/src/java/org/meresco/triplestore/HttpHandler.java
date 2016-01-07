@@ -104,7 +104,7 @@ public class HttpHandler extends AbstractHandler {
                     List<String> responseTypes = getResponseTypes(request, parameters);
                     if (query != null) {
                         ParsedQuery p = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
-                        Map<String, String> headers = new HashMap<>();
+                        Map<String, String> headers = new HashMap<String, String>();
                         if (p instanceof ParsedGraphQuery) {
                             responseData = executeGraphQuery(query, responseTypes, headers);
                         } else {
@@ -189,7 +189,7 @@ public class HttpHandler extends AbstractHandler {
     }
 
     private Map<String, List<String>> combineArgumentsAndBody(HttpServletRequest request) throws IOException {
-        Map<String, List<String>> parameters = new HashMap<>();
+        Map<String, List<String>> parameters = new HashMap<String, List<String>>();
         Map<String, String[]> args = request.getParameterMap();
         for (String key : args.keySet()) {
             List<String> values = Arrays.asList(args.get(key));
@@ -240,7 +240,7 @@ public class HttpHandler extends AbstractHandler {
         } else if (acceptHeader != null) {
             return Arrays.asList(acceptHeader.replace(", ", ",").split(","));
         }
-    	return new ArrayList<>(0);
+    	return new ArrayList<String>(0);
     }
 
     public String executeTupleQuery(String query, List<String> responseTypes, Map<String, String> headers) throws MalformedQueryException {

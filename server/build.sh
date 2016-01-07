@@ -43,11 +43,7 @@ mkdir $BUILDDIR
 
 CP="$(echo $JARS | tr ' ' ':')"
 
-JAVA_VERSION=6
-if distro_is_debian_jessie || distro_is_centos_7; then
-    JAVA_VERSION=7
-fi
-
+JAVA_VERSION=7
 javac=/usr/lib/jvm/java-1.${JAVA_VERSION}.0/bin/javac
 if [ -f /etc/debian_version ]; then
     javac=/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64/bin/javac
