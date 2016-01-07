@@ -28,7 +28,7 @@
 package org.meresco.triplestore;
 
 import java.util.ArrayList;
-
+import java.util.List;
 import java.net.URLDecoder;
 
 import java.io.File;
@@ -60,7 +60,7 @@ class Utils {
                 try {
                     String key = URLDecoder.decode(pair[0], "UTF-8");
                     String value = URLDecoder.decode(pair[1], "UTF-8");
-                    ArrayList<String> values = params.get(key);
+                    List<String> values = params.get(key);
                     if (values == null) {
                         values = new ArrayList<String>();
                         params.put(key, values);

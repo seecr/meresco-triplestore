@@ -27,14 +27,13 @@
 
 package org.meresco.triplestore;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -45,12 +44,14 @@ import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.openrdf.model.Namespace;
 import org.openrdf.query.MalformedQueryException;
+import org.openrdf.query.QueryLanguage;
+import org.openrdf.query.parser.ParsedGraphQuery;
+import org.openrdf.query.parser.ParsedQuery;
+import org.openrdf.query.parser.QueryParserUtil;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParseException;
 import org.openrdf.rio.Rio;
-
-import com.sun.net.httpserver.Headers;
 
 
 public class HttpHandler extends AbstractHandler {
@@ -65,13 +66,7 @@ public class HttpHandler extends AbstractHandler {
 
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
-//        OutputStream outputStream = exchange.getResponseBody();
-//        URI requestURI = exchange.getRequestURI();
         String path = request.getRequestURI();
-//        String rawQueryString = requestURI.getRawQuery();
-//        String body = Utils.read(exchange.getRequestBody());
-//    	Headers requestHeaders = exchange.getRequestHeaders();
-//
         try {
             if ("/add".equals(path)) {
                 try {
@@ -101,110 +96,109 @@ public class HttpHandler extends AbstractHandler {
                 removeTriple(request);
             }
             else if ("/query".equals(path)) {
-//                String response = "";
-//                if(exchange.getRequestMethod().equals("POST"))
-//                	httpArguments.putAll(Utils.parseQS(body));
-//                Headers responseHeaders = exchange.getResponseHeaders();
-//                try {
-//                    long start = System.currentTimeMillis();
-//                    String query = httpArguments.singleValue("query");
-//                    List<String> responseTypes = getResponseTypes(requestHeaders, httpArguments);
-//                    if (query != null) {
-//                        ParsedQuery p = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
-//                        if (p instanceof ParsedGraphQuery) {
-//                            response = executeGraphQuery(query, responseTypes, responseHeaders);
-//                        } else {
-//                            response = executeTupleQuery(query, responseTypes, responseHeaders);
-//                        }
-//                    }
-//                    long indexQueryTime = System.currentTimeMillis() - start;
-//                    if (response == null || response == "") {
-//                        String responseBody = "Supported formats SELECT query:\n";
-//                        Iterator<TupleQueryResultFormat> i = TupleQueryResultFormat.values().iterator();
-//                        while (i.hasNext()) {
-//                            responseBody += "- " + i.next() + "\n";
-//                        }
-//
-//                        responseBody += "\nSupported formats DESCRIBE query:\n";
-//                        Iterator<RDFFormat> j = RDFFormat.values().iterator();
-//                        while (j.hasNext()) {
-//                            responseBody += "- " + j.next() + "\n";
-//                        }
-//
-//                        responseHeaders.set("Content-Type", "text/plain");
-//                        exchange.sendResponseHeaders(406, 0);
-//                        _writeResponse(responseBody, outputStream);
-//                        return;
-//                    }
-//                    responseHeaders.set("X-Meresco-Triplestore-QueryTime", String.valueOf(indexQueryTime));
-//                    if (httpArguments.containsKey("outputContentType")) {
-//                        responseHeaders.set("Content-Type", httpArguments.singleValue("outputContentType"));
-//                    }
-//                    exchange.sendResponseHeaders(200, 0);
-//                    _writeResponse(response, outputStream);
-//                } catch (MalformedQueryException e) {
-//                    exchange.sendResponseHeaders(400, 0);
-//                    _writeResponse(e.toString(), outputStream);
-//                }
-//                return;
-//            }
-//            else if ("/sparql".equals(path)) {
-//                String response = sparqlForm(httpArguments);
-//                Headers headers = exchange.getResponseHeaders();
-//                headers.set("Content-Type", "text/html");
-//                exchange.sendResponseHeaders(200, 0);
-//                _writeResponse(response, outputStream);
-//            }
-//            else if ("/validate".equals(path)) {
-//                exchange.sendResponseHeaders(200, 0);
-//                try {
-//                    validateRDF(httpArguments, body);
-//                    _writeResponse("Ok", outputStream);
-//                } catch (RDFParseException e) {
-//                    _writeResponse("Invalid\n" + e.toString(), outputStream);
-//                }
-//            }
-//            else if ("/export".equals(path)) {
-//                export(httpArguments);
-//            }
-//            else if ("/import".equals(path)) {
-//                importTrig(body);
-//            }
-//            else {
-//                exchange.sendResponseHeaders(404, 0);
-//                return;
-//            }
-//            exchange.sendResponseHeaders(200, 0);
-//        } catch (IllegalArgumentException e) {
-//            exchange.sendResponseHeaders(400, 0);
-//            _writeResponse(e.toString(), outputStream);
-//        } catch (RuntimeException e) {
-//            e.printStackTrace();
-//            exchange.sendResponseHeaders(500, 0);
-//            String response = Utils.getStackTrace(e);
-//            //System.out.println(response);
-//            _writeResponse(response, outputStream);
-//            return;
-//        } catch (Error e) {
-//            e.printStackTrace();
-//        	exchange.sendResponseHeaders(500, 0);
-//        	_writeResponse(e.getMessage(), outputStream);
-//            exchange.getHttpContext().getServer().stop(0);
-//            ((ExecutorService) exchange.getHttpContext().getServer().getExecutor()).shutdownNow();
-//            return;
+                String responseData = "";
+                Map<String, List<String>> parameters = combineArgumentsAndBody(request);
+                try {
+                    long start = System.currentTimeMillis();
+                    String query = request.getParameter("query");
+                    List<String> responseTypes = getResponseTypes(request, parameters);
+                    if (query != null) {
+                        ParsedQuery p = QueryParserUtil.parseQuery(QueryLanguage.SPARQL, query, null);
+                        if (p instanceof ParsedGraphQuery) {
+                            responseData = executeGraphQuery(query, responseTypes, response);
+                        } else {
+                            responseData = executeTupleQuery(query, responseTypes, response);
+                        }
+                    }
+                    long indexQueryTime = System.currentTimeMillis() - start;
+                    if (responseData == null || responseData == "") {
+                        String responseBody = "Supported formats SELECT query:\n";
+                        Iterator<TupleQueryResultFormat> i = TupleQueryResultFormat.values().iterator();
+                        while (i.hasNext()) {
+                            responseBody += "- " + i.next() + "\n";
+                        }
+
+                        responseBody += "\nSupported formats DESCRIBE query:\n";
+                        Iterator<RDFFormat> j = RDFFormat.values().iterator();
+                        while (j.hasNext()) {
+                            responseBody += "- " + j.next() + "\n";
+                        }
+  
+                        response.setHeader("Content-Type", "text/plain");
+                        response.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
+                        response.getWriter().write(responseBody);
+                        return;
+                    }
+                    response.setHeader("X-Meresco-Triplestore-QueryTime", String.valueOf(indexQueryTime));
+                    if (parameters.containsKey("outputContentType")) {
+                        response.setHeader("Content-Type", parameters.get("outputContentType").get(0));
+                    }
+                    response.getWriter().write(responseData);
+                } catch (MalformedQueryException e) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    response.getWriter().write(e.toString());
+                }
+                return;
+            }
+            else if ("/sparql".equals(path)) {
+                String form = sparqlForm(request);
+                response.setHeader("Content-Type", "text/html");
+                response.setStatus(HttpServletResponse.SC_OK);
+                response.getWriter().write(form);
+            }
+            else if ("/validate".equals(path)) {
+                response.setStatus(HttpServletResponse.SC_OK);
+                try {
+                    validateRDF(request);
+                    response.getWriter().write("Ok");
+                } catch (RDFParseException e) {
+                    response.getWriter().write("Invalid\n" + e.toString());
+                }
+            }
+            else if ("/export".equals(path)) {
+                export(request);
+            }
+            else if ("/import".equals(path)) {
+                importTrig(Utils.read(request.getReader()));
+            }
+            else {
+                System.out.println("SC_NOT_FOUND");
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+            response.setStatus(HttpServletResponse.SC_OK);
+        } catch (IllegalArgumentException e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().write(e.toString());
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().write(Utils.getStackTrace(e));
+            return;
+        } catch (Error e) {
+            e.printStackTrace();
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().write(e.getMessage());
+            return;
         } finally {
-//            exchange.close();
+            baseRequest.setHandled(true);
         }
     }
 
-    private void _writeResponse(String response, OutputStream stream) {
-        try {
-            Writer writer = new BufferedWriter(new OutputStreamWriter(stream, "UTF-8"));
-            writer.write(response, 0, response.length());
-            writer.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+    private Map<String, List<String>> combineArgumentsAndBody(HttpServletRequest request) throws IOException {
+        Map<String, List<String>> parameters = new HashMap<>();
+        Map<String, String[]> args = request.getParameterMap();
+        for (String key : args.keySet()) {
+            List<String> values = Arrays.asList(args.get(key));
+            if (parameters.containsKey(key))
+                parameters.get(key).addAll(values);
+            else
+                parameters.put(key, values);
         }
+        if (request.getMethod().equals("POST")) {
+            parameters.putAll(Utils.parseQS(Utils.read(request.getReader())));
+        }
+        return parameters;
     }
 
     private RDFFormat getRdfFormat(HttpServletRequest request) {
@@ -236,16 +230,17 @@ public class HttpHandler extends AbstractHandler {
     	this.tripleStore.removeTriple(request.getReader().readLine());
     }
 
-    public List<String> getResponseTypes(Headers requestHeaders, QueryParameters httpArguments) {
-    	if (httpArguments.containsKey("mimeType")) {
-            return httpArguments.get("mimeType");
-        } else if (requestHeaders.containsKey("Accept")) {
-            return Arrays.asList(requestHeaders.getFirst("Accept").replace(", ", ",").split(","));
+    public List<String> getResponseTypes(HttpServletRequest request, Map<String, List<String>> parameters) {
+        String acceptHeader = request.getHeader("Accept");
+        if (parameters.containsKey("mimeType")) {
+            return parameters.get("mimeType"); 
+        } else if (acceptHeader != null) {
+            return Arrays.asList(acceptHeader.replace(", ", ",").split(","));
         }
-    	return new ArrayList<String>(0);
+    	return new ArrayList<>(0);
     }
 
-    public String executeTupleQuery(String query, List<String> responseTypes, Headers responseHeaders) throws MalformedQueryException {
+    public String executeTupleQuery(String query, List<String> responseTypes, HttpServletResponse response) throws MalformedQueryException {
         TupleQueryResultFormat resultFormat = TupleQueryResultFormat.JSON;
         for (String responseType : responseTypes) {
         	TupleQueryResultFormat format = TupleQueryResultFormat.forMIMEType(responseType);
@@ -254,11 +249,11 @@ public class HttpHandler extends AbstractHandler {
                 break;
             }
         }
-        responseHeaders.set("Content-Type", resultFormat.getDefaultMIMEType());
+        response.setHeader("Content-Type", resultFormat.getDefaultMIMEType());
         return this.tripleStore.executeTupleQuery(query, resultFormat);
     }
 
-    public String executeGraphQuery(String query, List<String> responseTypes, Headers responseHeaders) throws MalformedQueryException {
+    public String executeGraphQuery(String query, List<String> responseTypes, HttpServletResponse response) throws MalformedQueryException {
     	RDFFormat resultFormat = RDFFormat.RDFXML;
         for (String responseType : responseTypes) {
     		RDFFormat format = Rio.getParserFormatForMIMEType(responseType);
@@ -267,16 +262,16 @@ public class HttpHandler extends AbstractHandler {
                 break;
             }
     	}
-        responseHeaders.set("Content-Type", resultFormat.getDefaultMIMEType());
+        response.setHeader("Content-Type", resultFormat.getDefaultMIMEType());
         return this.tripleStore.executeGraphQuery(query, resultFormat);
     }
 
-    public void validateRDF(QueryParameters httpArguments, String httpBody) throws RDFParseException {
-        validator.validate(httpBody);
+    public void validateRDF(HttpServletRequest request) throws RDFParseException, IOException {
+        validator.validate(Utils.read(request.getReader()));
     }
 
-    public void export(QueryParameters httpArguments) {
-        String identifier = httpArguments.singleValue("identifier");
+    public void export(HttpServletRequest request) {
+        String identifier = request.getParameter("identifier");
         this.tripleStore.export(identifier);
     }
 
@@ -284,10 +279,10 @@ public class HttpHandler extends AbstractHandler {
     	this.tripleStore.importTrig(trig);
     }
 
-    public String sparqlForm(QueryParameters httpArguments) {
+    public String sparqlForm(HttpServletRequest request) {
         String query;
-        if (httpArguments.containsKey("query")) {
-            query = httpArguments.singleValue("query");
+        if (request.getParameterMap().containsKey("query")) {
+            query = request.getParameter("query");
         } else {
             query = "";
             for (Namespace namespace : this.tripleStore.getNamespaces()) {
