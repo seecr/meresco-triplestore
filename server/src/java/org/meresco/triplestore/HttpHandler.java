@@ -66,6 +66,7 @@ public class HttpHandler extends AbstractHandler {
 
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        response.setCharacterEncoding("UTF-8");
         String path = request.getRequestURI();
         try {
             if ("/add".equals(path)) {
