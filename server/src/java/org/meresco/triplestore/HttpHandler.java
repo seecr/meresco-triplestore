@@ -66,6 +66,7 @@ public class HttpHandler extends AbstractHandler {
 
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        request.setCharacterEncoding("UTF-8");
         response.setCharacterEncoding("UTF-8");
         String path = request.getRequestURI();
         try {
@@ -127,7 +128,7 @@ public class HttpHandler extends AbstractHandler {
                         while (j.hasNext()) {
                             responseBody += "- " + j.next() + "\n";
                         }
-  
+
                         response.setHeader("Content-Type", "text/plain");
                         response.setStatus(HttpServletResponse.SC_NOT_ACCEPTABLE);
                         response.getWriter().write(responseBody);
@@ -237,7 +238,7 @@ public class HttpHandler extends AbstractHandler {
     public List<String> getResponseTypes(HttpServletRequest request, Map<String, List<String>> parameters) {
         String acceptHeader = request.getHeader("Accept");
         if (parameters.containsKey("mimeType")) {
-            return parameters.get("mimeType"); 
+            return parameters.get("mimeType");
         } else if (acceptHeader != null) {
             return Arrays.asList(acceptHeader.replace(", ", ",").split(","));
         }
