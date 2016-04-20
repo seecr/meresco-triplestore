@@ -166,6 +166,8 @@ public class HttpHandler extends AbstractHandler {
             }
             else if ("/import".equals(path)) {
                 importTrig(Utils.read(request.getReader()));
+            } else if ("/commit".equals(path)) {
+                commit();
             }
             else {
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -180,7 +182,7 @@ public class HttpHandler extends AbstractHandler {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             response.getWriter().write(Utils.getStackTrace(e));
             return;
-        } catch (Error e) {
+        } catch (Exception e) {
             e.printStackTrace();
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             response.getWriter().write(e.getMessage());
@@ -282,6 +284,10 @@ public class HttpHandler extends AbstractHandler {
 
     public synchronized void importTrig(String trig) {
     	this.tripleStore.importTrig(trig);
+    }
+
+    public synchronized void commit() throws Exception {
+        this.tripleStore.realCommit();
     }
 
     public String sparqlForm(HttpServletRequest request) {

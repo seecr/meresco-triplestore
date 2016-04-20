@@ -83,7 +83,7 @@ public class SesameTriplestore implements Triplestore {
 
     private int commitCount = 0;
     private Timer commitTimer;
-    private int maxCommitCount = 500;
+    private int maxCommitCount = 10000;
     private int maxCommitTimeout = 60;
 
     public SesameTriplestore() {}
@@ -95,7 +95,6 @@ public class SesameTriplestore implements Triplestore {
     public void startup() {
         try {
             repository.initialize();
-
             // Note: the following is an optimization that assumes tight integration of this process with the actual triple store.
             // If the triple store is its own process (think Virtuoso) this is problematic as the connection will become stale when that process
             // gets restarted independently.
@@ -322,10 +321,6 @@ public class SesameTriplestore implements Triplestore {
     }
 
     public synchronized void realCommit() throws Exception {
-        System.out.println("Do real commit");
-        System.out.println("Commitcount: " + this.commitCount);
-        System.out.flush();
-        long t0 = System.currentTimeMillis();
         this.commitCount = 0;
         if (commitTimer != null) {
             commitTimer.cancel();
@@ -334,7 +329,6 @@ public class SesameTriplestore implements Triplestore {
         }
         this.writeConnection.commit();
         this.writeConnection.begin();
-        System.out.println("Commit finished in " + (System.currentTimeMillis() - t0) + "ms");
     }
 
 
