@@ -335,7 +335,7 @@ public class SesameTriplestore implements Triplestore {
         this.writeConnection.commit();
     }
 
-    public void startTransaction() {
+    public void startTransaction() throws Exception {
         if (!this.writeConnection.isActive()) {
             this.writeConnection.begin();
         }
