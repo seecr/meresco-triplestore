@@ -42,7 +42,7 @@ JARS=$(find ../../jars -type f -name "*.jar")
 
 CP="$JUNIT:$(echo $JARS | tr ' ' ':'):../../build"
 
-JAVA_VERSION=7
+JAVA_VERSION=8
 javac=/usr/lib/jvm/java-1.${JAVA_VERSION}.0-openjdk.x86_64/bin/javac
 if [ -f /etc/debian_version ]; then
     javac=/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64/bin/javac

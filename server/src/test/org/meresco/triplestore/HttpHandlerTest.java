@@ -183,7 +183,7 @@ public class HttpHandlerTest {
         assertEquals(Arrays.asList("executeGraphQuery:DESCRIBE <uri:test>"), tsmock.actions);
     }
 
-    @Test 
+    @Test
     public void testValidate() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
@@ -228,7 +228,7 @@ public class HttpHandlerTest {
         }
     }
 
-    @Test 
+    @Test
     public void testValidateDispatch() throws Exception {
         HttpHandler h = new HttpHandler(null);
         requestMock.requestUri = "/validate";
@@ -247,7 +247,7 @@ public class HttpHandlerTest {
         assertEquals("Ok", responseMock.response.toString());
     }
 
-    @Test 
+    @Test
     public void test404() throws Exception {
         HttpHandler h = new HttpHandler(null);
         requestMock.requestUri = "/not_existing";
@@ -280,7 +280,7 @@ public class HttpHandlerTest {
         assertTrue(sparqlForm, sparqlForm.contains(expectedQuery));
     }
 
-     @Test 
+     @Test
      public void testAllAcceptHeaderReturnsJson() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
@@ -293,7 +293,7 @@ public class HttpHandlerTest {
         assertEquals("application/sparql-results+json", responseMock.headers.get("Content-Type"));
     }
 
-    @Test 
+    @Test
     public void testMultipleAcceptHeaderReturnsKnown() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
@@ -323,20 +323,20 @@ public class HttpHandlerTest {
             + "\n"
             + "\nSupported formats DESCRIBE query:"
             + "\n- RDF/XML (mimeTypes=application/rdf+xml, application/xml; ext=rdf, rdfs, owl, xml)"
-            + "\n- N-Triples (mimeTypes=text/plain; ext=nt)"
+            + "\n- N-Triples (mimeTypes=application/n-triples, text/plain; ext=nt)"
             + "\n- Turtle (mimeTypes=text/turtle, application/x-turtle; ext=ttl)"
             + "\n- N3 (mimeTypes=text/n3, text/rdf+n3; ext=n3)"
             + "\n- TriX (mimeTypes=application/trix; ext=xml, trix)"
-            + "\n- TriG (mimeTypes=application/x-trig; ext=trig)"
+            + "\n- TriG (mimeTypes=application/trig, application/x-trig; ext=trig)"
             + "\n- BinaryRDF (mimeTypes=application/x-binary-rdf; ext=brf)"
-            + "\n- N-Quads (mimeTypes=text/x-nquads; ext=nq)"
+            + "\n- N-Quads (mimeTypes=application/n-quads, text/x-nquads, text/nquads; ext=nq)"
             + "\n- JSON-LD (mimeTypes=application/ld+json; ext=jsonld)"
             + "\n- RDF/JSON (mimeTypes=application/rdf+json; ext=rj)"
             + "\n- RDFa (mimeTypes=application/xhtml+xml, application/html, text/html; ext=xhtml, html)\n", responseMock.response.toString());
         assertEquals("text/plain", responseMock.getHeader("Content-Type"));
     }
 
-    @Test 
+    @Test
     public void testContentType() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
@@ -363,7 +363,7 @@ public class HttpHandlerTest {
         assertTrue(time + "", time <= 1000);
     }
 
-    @Test 
+    @Test
     public void testExport() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
@@ -375,7 +375,7 @@ public class HttpHandlerTest {
         assertEquals("export:identifier", tsmock.actions.get(0));
     }
 
-    @Test 
+    @Test
     public void testImport() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);
@@ -710,7 +710,7 @@ public class HttpHandlerTest {
 
         @Override
         public String getHeader(String arg0) {
-            return headers.get(arg0); 
+            return headers.get(arg0);
         }
 
         @Override
@@ -750,12 +750,12 @@ public class HttpHandlerTest {
         @Override
         public void setStatus(int arg0, String arg1) {}
     }
-    
+
     class BaseRequestMock extends Request {
 
         public BaseRequestMock(HttpChannel<?> channel, HttpInput<?> input) {
             super(channel, input);
         }
-        
+
     }
 }

@@ -1,27 +1,27 @@
 #!/bin/bash
 ## begin license ##
 #
-# The Meresco Tripelstore package consists out of a HTTP server written in Java that
-# provides access to an Tripelstore with a Sesame Interface, as well as python bindings to
+# The Meresco Triplestore package consists out of a HTTP server written in Java that
+# provides access to an Triplestore with a Sesame Interface, as well as python bindings to
 # communicate as a client with the server.
 #
-# Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2011-2014, 2016 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
 #
-# This file is part of "Meresco Tripelstore"
+# This file is part of "Meresco Triplestore"
 #
-# "Meresco Tripelstore" is free software; you can redistribute it and/or modify
+# "Meresco Triplestore" is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
 #
-# "Meresco Tripelstore" is distributed in the hope that it will be useful,
+# "Meresco Triplestore" is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with "Meresco Tripelstore"; if not, write to the Free Software
+# along with "Meresco Triplestore"; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 ## end license ##
@@ -43,7 +43,7 @@ mkdir $BUILDDIR
 
 CP="$(echo $JARS | tr ' ' ':')"
 
-JAVA_VERSION=7
+JAVA_VERSION=8
 javac=/usr/lib/jvm/java-1.${JAVA_VERSION}.0/bin/javac
 if [ -f /etc/debian_version ]; then
     javac=/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64/bin/javac
