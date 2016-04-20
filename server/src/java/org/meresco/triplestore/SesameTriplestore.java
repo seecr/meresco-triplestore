@@ -109,6 +109,7 @@ public class SesameTriplestore implements Triplestore {
         URI context = new URIImpl(identifier);
         StringReader reader = new StringReader(data);
         try {
+            startTransaction();
             this.writeConnection.add(reader, "", format, context);
             commit();
         } catch (Exception e) {
@@ -128,6 +129,7 @@ public class SesameTriplestore implements Triplestore {
             object = new LiteralImpl(values[2]);
         }
         try {
+            startTransaction();
             this.writeConnection.add(new URIImpl(values[0]), new URIImpl(values[1]), object);
             commit();
         } catch (Exception e) {
@@ -138,6 +140,7 @@ public class SesameTriplestore implements Triplestore {
     public void delete(String identifier) {
         URI context = new URIImpl(identifier);
         try {
+            startTransaction();
             this.writeConnection.clear(context);
             commit();
         } catch (Exception e) {
@@ -154,6 +157,7 @@ public class SesameTriplestore implements Triplestore {
             object = new LiteralImpl(values[2]);
         }
         try {
+            startTransaction();
             this.writeConnection.remove(new URIImpl(values[0]), new URIImpl(values[1]), object);
             commit();
         } catch (Exception e) {
@@ -292,6 +296,7 @@ public class SesameTriplestore implements Triplestore {
     public void importTrig(String trigData) {
         StringReader reader = new StringReader(trigData);
         try {
+            startTransaction();
             this.writeConnection.add(reader, "", RDFFormat.TRIG);
             commit();
         } catch (Exception e) {
@@ -328,9 +333,13 @@ public class SesameTriplestore implements Triplestore {
             commitTimer = null;
         }
         this.writeConnection.commit();
-        this.writeConnection.begin();
     }
 
+    public void startTransaction() {
+        if (!this.writeConnection.isActive) {
+            this.writeConnection.begin();
+        }
+    }
 
     public void undoCommit() {}
 
