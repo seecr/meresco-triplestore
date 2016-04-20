@@ -1,26 +1,26 @@
 /* begin license *
  *
- * The Meresco Owlim package consists out of a HTTP server written in Java that
- * provides access to an Owlim Triple store, as well as python bindings to
+ * The Meresco Triplestore package consists out of a HTTP server written in Java that
+ * provides access to an Triplestore with a Sesame Interface, as well as python bindings to
  * communicate as a client with the server.
  *
- * Copyright (C) 2011-2014 Seecr (Seek You Too B.V.) http://seecr.nl
+ * Copyright (C) 2011-2014, 2016 Seecr (Seek You Too B.V.) http://seecr.nl
  * Copyright (C) 2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
  *
- * This file is part of "Meresco Owlim"
+ * This file is part of "Meresco Triplestore"
  *
- * "Meresco Owlim" is free software; you can redistribute it and/or modify
+ * "Meresco Triplestore" is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * "Meresco Owlim" is distributed in the hope that it will be useful,
+ * "Meresco Triplestore" is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with "Meresco Owlim"; if not, write to the Free Software
+ * along with "Meresco Triplestore"; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  * end license */
@@ -37,6 +37,8 @@ import java.io.FileOutputStream;
 import java.io.BufferedOutputStream;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import org.openrdf.query.parser.ParsedGraphQuery;
 import org.openrdf.query.parser.QueryParserUtil;
@@ -79,6 +81,11 @@ public class SesameTriplestore implements Triplestore {
     Repository repository;
     RepositoryConnection writeConnection = null;
 
+    private int commitCount = 0;
+    private Timer commitTimer;
+    private int maxCommitCount = 500;
+    private int maxCommitTimeout = 60;
+
     public SesameTriplestore() {}
 
     public SesameTriplestore(File directory) {
@@ -93,6 +100,7 @@ public class SesameTriplestore implements Triplestore {
             // If the triple store is its own process (think Virtuoso) this is problematic as the connection will become stale when that process
             // gets restarted independently.
             this.writeConnection = repository.getConnection();
+            this.writeConnection.setAutoCommit(false);
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         }
@@ -103,10 +111,8 @@ public class SesameTriplestore implements Triplestore {
         StringReader reader = new StringReader(data);
         try {
             this.writeConnection.add(reader, "", format, context);
-            this.writeConnection.commit();
-        } catch (RepositoryException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
+            commit();
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -124,8 +130,8 @@ public class SesameTriplestore implements Triplestore {
         }
         try {
             this.writeConnection.add(new URIImpl(values[0]), new URIImpl(values[1]), object);
-            this.writeConnection.commit();
-        } catch (RepositoryException e) {
+            commit();
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -134,8 +140,8 @@ public class SesameTriplestore implements Triplestore {
         URI context = new URIImpl(identifier);
         try {
             this.writeConnection.clear(context);
-            this.writeConnection.commit();
-        } catch (RepositoryException e) {
+            commit();
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -150,8 +156,8 @@ public class SesameTriplestore implements Triplestore {
         }
         try {
             this.writeConnection.remove(new URIImpl(values[0]), new URIImpl(values[1]), object);
-            this.writeConnection.commit();
-        } catch (RepositoryException e) {
+            commit();
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -245,7 +251,10 @@ public class SesameTriplestore implements Triplestore {
     }
 
     public void shutdown() throws Exception {
-    	try {
+        try {
+            if (commitTimer != null)
+                commitTimer.cancel();
+            this.writeConnection.commit();
             this.writeConnection.close();
             repository.shutDown();
         } catch (RepositoryException e) {
@@ -285,14 +294,49 @@ public class SesameTriplestore implements Triplestore {
         StringReader reader = new StringReader(trigData);
         try {
             this.writeConnection.add(reader, "", RDFFormat.TRIG);
-        } catch (RepositoryException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (RDFParseException e) {
+            commit();
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
+
+    public void commit() throws Exception {
+        commitCount++;
+        if (commitCount >= this.maxCommitCount) {
+            realCommit();
+            return;
+        }
+        if (commitTimer == null) {
+            TimerTask timerTask = new TimerTask() {
+                public void run() {
+                    try {
+                        realCommit();
+                    } catch (Exception e) {
+                        throw new RuntimeException();
+                    }
+                }
+            };
+            commitTimer = new Timer();
+            commitTimer.schedule(timerTask, this.maxCommitTimeout * 1000);
+        }
+    }
+
+    public synchronized void realCommit() throws Exception {
+        System.out.println("Do real commit");
+        System.out.println("Commitcount: " + this.commitCount);
+        System.out.flush();
+        long t0 = System.currentTimeMillis();
+        this.commitCount = 0;
+        if (commitTimer != null) {
+            commitTimer.cancel();
+            commitTimer.purge();
+            commitTimer = null;
+        }
+        this.writeConnection.commit();
+        this.writeConnection.begin();
+        System.out.println("Commit finished in " + (System.currentTimeMillis() - t0) + "ms");
+    }
+
 
     public void undoCommit() {}
 
