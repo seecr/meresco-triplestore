@@ -83,7 +83,7 @@ public class SesameTriplestore implements Triplestore {
 
     private int commitCount = 0;
     private Timer commitTimer;
-    private int maxCommitCount = 10000;
+    private int maxCommitCount = 100000;
     private int maxCommitTimeout = 60;
 
     public SesameTriplestore() {}
@@ -98,8 +98,6 @@ public class SesameTriplestore implements Triplestore {
             // Note: the following is an optimization that assumes tight integration of this process with the actual triple store.
             // If the triple store is its own process (think Virtuoso) this is problematic as the connection will become stale when that process
             // gets restarted independently.
-            this.writeConnection = repository.getConnection();
-            this.writeConnection.setAutoCommit(false);
         } catch (RepositoryException e) {
             throw new RuntimeException(e);
         }
@@ -316,7 +314,7 @@ public class SesameTriplestore implements Triplestore {
                     try {
                         realCommit();
                     } catch (Exception e) {
-                        throw new RuntimeException();
+                        throw new RuntimeException(e);
                     }
                 }
             };
@@ -326,16 +324,24 @@ public class SesameTriplestore implements Triplestore {
     }
 
     public synchronized void realCommit() throws Exception {
+        RepositoryConnection current = this.writeConnection;
+        this.writeConnection = null;
+
         this.commitCount = 0;
         if (commitTimer != null) {
             commitTimer.cancel();
             commitTimer.purge();
             commitTimer = null;
         }
-        this.writeConnection.commit();
+        current.commit();
+        current.close();
     }
 
-    public void startTransaction() throws Exception {
+    public synchronized void startTransaction() throws Exception {
+        if (this.writeConnection == null) {
+            this.writeConnection = repository.getConnection();
+            this.writeConnection.setAutoCommit(false);
+        }
         if (!this.writeConnection.isActive()) {
             this.writeConnection.begin();
         }
