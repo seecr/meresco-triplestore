@@ -85,6 +85,7 @@ public class SesameTriplestore implements Triplestore {
     private Timer commitTimer;
     private int maxCommitCount = 100000;
     private int maxCommitTimeout = 60;
+    private Object lock = new Object();
 
     public SesameTriplestore() {}
 
@@ -107,10 +108,14 @@ public class SesameTriplestore implements Triplestore {
         URI context = new URIImpl(identifier);
         StringReader reader = new StringReader(data);
         try {
-            startTransaction();
-            this.writeConnection.add(reader, "", format, context);
+            synchronized (lock) {
+                RepositoryConnection conn = getConnection();
+                startTransaction(conn);
+                conn.add(reader, "", format, context);
+            }
             commit();
         } catch (Exception e) {
+            System.out.println(this.writeConnection);
             throw new RuntimeException(e);
         }
     }
@@ -127,8 +132,11 @@ public class SesameTriplestore implements Triplestore {
             object = new LiteralImpl(values[2]);
         }
         try {
-            startTransaction();
-            this.writeConnection.add(new URIImpl(values[0]), new URIImpl(values[1]), object);
+            synchronized (lock) {
+                RepositoryConnection conn = getConnection();
+                startTransaction(conn);
+                conn.add(new URIImpl(values[0]), new URIImpl(values[1]), object);
+            }
             commit();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -138,8 +146,11 @@ public class SesameTriplestore implements Triplestore {
     public void delete(String identifier) {
         URI context = new URIImpl(identifier);
         try {
-            startTransaction();
-            this.writeConnection.clear(context);
+            synchronized (lock) {
+                RepositoryConnection conn = getConnection();
+                startTransaction(conn);
+                conn.clear(context);
+            }
             commit();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -155,8 +166,11 @@ public class SesameTriplestore implements Triplestore {
             object = new LiteralImpl(values[2]);
         }
         try {
-            startTransaction();
-            this.writeConnection.remove(new URIImpl(values[0]), new URIImpl(values[1]), object);
+            synchronized (lock) {
+                RepositoryConnection conn = getConnection();
+                startTransaction(conn);
+                conn.remove(new URIImpl(values[0]), new URIImpl(values[1]), object);
+            }
             commit();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -255,8 +269,7 @@ public class SesameTriplestore implements Triplestore {
         try {
             if (commitTimer != null)
                 commitTimer.cancel();
-            this.writeConnection.commit();
-            this.writeConnection.close();
+            realCommit();
             repository.shutDown();
         } catch (RepositoryException e) {
             e.printStackTrace();
@@ -294,8 +307,11 @@ public class SesameTriplestore implements Triplestore {
     public void importTrig(String trigData) {
         StringReader reader = new StringReader(trigData);
         try {
-            startTransaction();
-            this.writeConnection.add(reader, "", RDFFormat.TRIG);
+            synchronized (lock) {
+                RepositoryConnection conn = getConnection();
+                startTransaction(conn);
+                conn.add(reader, "", RDFFormat.TRIG);
+            }
             commit();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -323,28 +339,37 @@ public class SesameTriplestore implements Triplestore {
         }
     }
 
-    public synchronized void realCommit() throws Exception {
-        RepositoryConnection current = this.writeConnection;
-        this.writeConnection = null;
-
-        this.commitCount = 0;
-        if (commitTimer != null) {
-            commitTimer.cancel();
-            commitTimer.purge();
-            commitTimer = null;
+    public void realCommit() throws Exception {
+        synchronized (lock) {
+            if (this.writeConnection == null) {
+                return;
+            }
+            this.commitCount = 0;
+            if (commitTimer != null) {
+                commitTimer.cancel();
+                commitTimer.purge();
+                commitTimer = null;
+            }
+            this.writeConnection.commit();
+            this.writeConnection.close();
+            this.writeConnection = null;
         }
-        current.commit();
-        current.close();
     }
 
-    public synchronized void startTransaction() throws Exception {
-        if (this.writeConnection == null) {
-            this.writeConnection = repository.getConnection();
-            this.writeConnection.setAutoCommit(false);
+    public void startTransaction(RepositoryConnection conn) throws Exception {
+        if (!conn.isActive()) {
+            conn.begin();
         }
-        if (!this.writeConnection.isActive()) {
-            this.writeConnection.begin();
+    }
+
+    public RepositoryConnection getConnection() throws Exception {
+        RepositoryConnection conn = this.writeConnection;
+        if (conn == null) {
+            conn = repository.getConnection();
+            conn.setAutoCommit(false);
+            this.writeConnection = conn;
         }
+        return conn;
     }
 
     public void undoCommit() {}
