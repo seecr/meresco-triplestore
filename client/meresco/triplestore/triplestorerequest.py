@@ -6,7 +6,7 @@
 #
 # Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
 # Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
-# Copyright (C) 2011-2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2011-2016 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2015 Koninklijke Bibliotheek (KB) http://www.kb.nl
 #
 # This file is part of "Meresco Triplestore"
@@ -36,6 +36,7 @@ from meresco.rdf import BNode, Literal, Uri
 
 from decimal import Decimal
 from time import time
+from weightless.io.utils import asProcess
 
 
 class InvalidRdfXmlException(Exception):
@@ -72,6 +73,9 @@ class TriplestoreRequest(Observable):
     def delete(self, identifier, **kwargs):
         path = "/delete?%s" % urlencode(dict(identifier=identifier))
         yield self._send(path=path, body=None)
+
+    def commit(self, **kwargs):
+        asProcess(self._send(path="/commit", body=None))
 
     def validate(self, data):
         path = "/validate"

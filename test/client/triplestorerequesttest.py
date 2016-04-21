@@ -6,7 +6,7 @@
 #
 # Copyright (C) 2010-2011 Maastricht University Library http://www.maastrichtuniversity.nl/web/Library/home.htm
 # Copyright (C) 2010-2011 Seek You Too B.V. (CQ2) http://www.cq2.nl
-# Copyright (C) 2011-2015 Seecr (Seek You Too B.V.) http://seecr.nl
+# Copyright (C) 2011-2016 Seecr (Seek You Too B.V.) http://seecr.nl
 # Copyright (C) 2015 Koninklijke Bibliotheek (KB) http://www.kb.nl
 #
 # This file is part of "Meresco Triplestore"
@@ -143,6 +143,19 @@ class TriplestoreRequestTest(SeecrTestCase):
     def testValidateError(self):
         self.responseData = 'Invalid\nError Description'
         self.assertRaises(InvalidRdfXmlException, lambda: consume(self.request.validate(data=RDFDATA)))
+
+    def testCommit(self):
+        self.request.commit()
+        self.assertEqual(['httprequest'], self.observer.calledMethodNames())
+        httprequestKwargs = self.observer.calledMethods[-1].kwargs
+        self.assertEquals({
+                'body': None,
+                'headers': {},
+                'method': 'POST',
+                'host': 'example.org',
+                'port': 9999,
+                'request': '/commit',
+            }, httprequestKwargs)
 
     def testGetStatementsSparQL(self):
         self.assertEquals("SELECT DISTINCT ?s ?p ?o WHERE { ?s ?p ?o }", ''.join(self.request._getStatementsSparQL(subject=None, predicate=None, object=None)))
