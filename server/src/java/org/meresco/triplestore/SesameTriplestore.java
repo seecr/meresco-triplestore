@@ -318,7 +318,7 @@ public class SesameTriplestore implements Triplestore {
         }
     }
 
-    public void commit() throws Exception {
+    private void commit() throws Exception {
         commitCount++;
         if (commitCount >= this.maxCommitCount) {
             realCommit();
@@ -356,13 +356,13 @@ public class SesameTriplestore implements Triplestore {
         }
     }
 
-    public void startTransaction(RepositoryConnection conn) throws Exception {
+    private void startTransaction(RepositoryConnection conn) throws Exception {
         if (!conn.isActive()) {
             conn.begin();
         }
     }
 
-    public RepositoryConnection getConnection() throws Exception {
+    private RepositoryConnection getConnection() throws Exception {
         RepositoryConnection conn = this.writeConnection;
         if (conn == null) {
             conn = repository.getConnection();
@@ -373,5 +373,13 @@ public class SesameTriplestore implements Triplestore {
     }
 
     public void undoCommit() {}
+
+    public void setMaxCommitCount(int maxCommitCount) {
+        this.maxCommitCount = maxCommitCount;
+    }
+
+    public void setMaxCommitTimeout(int maxCommitTimeout) {
+        this.maxCommitTimeout = maxCommitTimeout;
+    }
 
 }
