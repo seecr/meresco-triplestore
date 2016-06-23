@@ -145,7 +145,7 @@ class TriplestoreRequestTest(SeecrTestCase):
         self.assertRaises(InvalidRdfXmlException, lambda: consume(self.request.validate(data=RDFDATA)))
 
     def testCommit(self):
-        self.request.commit()
+        consume(self.request.commit())
         self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[-1].kwargs
         self.assertEquals({

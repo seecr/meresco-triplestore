@@ -75,7 +75,7 @@ class TriplestoreRequest(Observable):
         yield self._send(path=path, body=None)
 
     def commit(self, **kwargs):
-        asProcess(self._send(path="/commit", body=None))
+        yield self._send(path="/commit", body=None)
 
     def validate(self, data):
         path = "/validate"

@@ -115,7 +115,6 @@ public class SesameTriplestore implements Triplestore {
             }
             commit();
         } catch (Exception e) {
-            System.out.println(this.writeConnection);
             throw new RuntimeException(e);
         }
     }
