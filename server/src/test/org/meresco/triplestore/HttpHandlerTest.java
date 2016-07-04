@@ -184,6 +184,16 @@ public class HttpHandlerTest {
     }
 
     @Test
+    public void testSparQLBoolean() throws TransactionLogException, MalformedQueryException {
+        TSMock tsmock = new TSMock();
+        HttpHandler h = new HttpHandler(tsmock);
+        String queryString = "ASK { <uri:test> ?p ?o } WHERE { <uri:test> ?p ?o }";
+        Map<String, String> headers = new HashMap<>();
+        h.executeBooleanQuery(queryString, new ArrayList<String>(), headers);
+        assertEquals(Arrays.asList("executeBooleanQuery:ASK { <uri:test> ?p ?o } WHERE { <uri:test> ?p ?o }"), tsmock.actions);
+    }
+    
+    @Test
     public void testValidate() throws Exception {
         TSMock tsmock = new TSMock();
         HttpHandler h = new HttpHandler(tsmock);

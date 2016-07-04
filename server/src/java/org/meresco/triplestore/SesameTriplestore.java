@@ -43,14 +43,18 @@ import java.util.TimerTask;
 import org.openrdf.query.parser.ParsedGraphQuery;
 import org.openrdf.query.parser.QueryParserUtil;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
+import org.openrdf.query.resultio.UnsupportedQueryResultFormatException;
+import org.openrdf.query.resultio.BooleanQueryResultFormat;
 import org.openrdf.query.resultio.QueryResultIO;
 
 import org.openrdf.query.MalformedQueryException;
 import org.openrdf.query.QueryEvaluationException;
 import org.openrdf.query.QueryLanguage;
+import org.openrdf.query.QueryResultHandlerException;
 import org.openrdf.query.TupleQuery;
 import org.openrdf.query.TupleQueryResult;
 import org.openrdf.query.TupleQueryResultHandlerException;
+import org.openrdf.query.BooleanQuery;
 import org.openrdf.query.GraphQuery;
 import org.openrdf.query.GraphQueryResult;
 
@@ -188,7 +192,7 @@ public class SesameTriplestore implements Triplestore {
         }
     }
 
-    public String executeGraphQuery(String sparQL, RDFFormat resultFormat) throws MalformedQueryException {
+    public String executeGraphQuery(String sparQL, RDFFormat format) throws MalformedQueryException {
         RepositoryConnection conn = null;
         String result = null;
         try {
@@ -197,14 +201,10 @@ public class SesameTriplestore implements Triplestore {
                 GraphQuery graphQuery = conn.prepareGraphQuery(QueryLanguage.SPARQL, sparQL);
                 GraphQueryResult graphQueryResult = graphQuery.evaluate();
                 ByteArrayOutputStream o = new ByteArrayOutputStream();
-                QueryResultIO.write(graphQueryResult, resultFormat, o);
+                QueryResultIO.write(graphQueryResult, format, o);
                 result = o.toString("UTF-8");
                 graphQueryResult.close();
-            } catch (QueryEvaluationException e) {
-                throw new RuntimeException(e);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (RDFHandlerException e) {
+            } catch (QueryEvaluationException | RDFHandlerException | IOException e) {
                 throw new RuntimeException(e);
             } finally {
                 close(conn);
@@ -215,7 +215,7 @@ public class SesameTriplestore implements Triplestore {
         }
     }
 
-    public String executeTupleQuery(String sparQL, TupleQueryResultFormat resultFormat) throws MalformedQueryException {
+    public String executeTupleQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException {
         RepositoryConnection conn = null;
         String result = null;
         try {
@@ -224,14 +224,10 @@ public class SesameTriplestore implements Triplestore {
                 TupleQuery tupleQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, sparQL);
                 TupleQueryResult tupleQueryResult = tupleQuery.evaluate();
                 ByteArrayOutputStream o = new ByteArrayOutputStream();
-                QueryResultIO.write(tupleQueryResult, resultFormat, o);
+                QueryResultIO.write(tupleQueryResult, format, o);
                 result = o.toString("UTF-8");
                 tupleQueryResult.close();
-            } catch (QueryEvaluationException e) {
-                throw new RuntimeException(e);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (TupleQueryResultHandlerException e) {
+            } catch (QueryEvaluationException| TupleQueryResultHandlerException | IOException e) {
                 throw new RuntimeException(e);
             } finally {
                 close(conn);
@@ -241,7 +237,29 @@ public class SesameTriplestore implements Triplestore {
             throw new RuntimeException(e);
         }
     }
-
+    
+    public String executeBooleanQuery(String sparQL, BooleanQueryResultFormat format) throws MalformedQueryException {
+        RepositoryConnection conn = null;
+        String result = null;
+        try {
+            try {
+                conn = repository.getConnection();
+                BooleanQuery query = conn.prepareBooleanQuery(QueryLanguage.SPARQL, sparQL);
+                boolean queryResult = query.evaluate();
+                ByteArrayOutputStream o = new ByteArrayOutputStream();
+                QueryResultIO.writeBoolean(queryResult, format, o);
+                result = o.toString("UTF-8");
+            } catch (QueryResultHandlerException | UnsupportedQueryResultFormatException | QueryEvaluationException | IOException e) {
+                throw new RuntimeException(e);
+            } finally {
+                close(conn);
+            }
+            return result;
+        } catch (RepositoryException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
     public List<Namespace> getNamespaces() {
         RepositoryConnection conn = null;
         try {
@@ -380,5 +398,4 @@ public class SesameTriplestore implements Triplestore {
     public void setMaxCommitTimeout(int maxCommitTimeout) {
         this.maxCommitTimeout = maxCommitTimeout;
     }
-
 }

@@ -35,6 +35,8 @@ import org.openrdf.model.URI;
 import org.openrdf.model.Value;
 import org.openrdf.model.Namespace;
 import org.openrdf.model.impl.NamespaceImpl;
+import org.openrdf.query.MalformedQueryException;
+import org.openrdf.query.resultio.BooleanQueryResultFormat;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
 import org.openrdf.rio.RDFFormat;
@@ -69,6 +71,11 @@ public class TSMock implements Triplestore {
         return "<result/>";
     }
 
+    public String executeBooleanQuery(String sparQL, BooleanQueryResultFormat format) throws MalformedQueryException {
+        actions.add("executeBooleanQuery:" + sparQL);
+        return "<result/>";
+    }
+    
     public String executeQuery(String sparQL) {
         actions.add("executeQuery:" + sparQL);
         return "<result/>";
@@ -113,4 +120,5 @@ public class TSMock implements Triplestore {
 
     @Override
     public void realCommit() {}
+
 }

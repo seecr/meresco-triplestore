@@ -45,9 +45,11 @@ import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.openrdf.model.Namespace;
 import org.openrdf.query.MalformedQueryException;
 import org.openrdf.query.QueryLanguage;
+import org.openrdf.query.parser.ParsedBooleanQuery;
 import org.openrdf.query.parser.ParsedGraphQuery;
 import org.openrdf.query.parser.ParsedQuery;
 import org.openrdf.query.parser.QueryParserUtil;
+import org.openrdf.query.resultio.BooleanQueryResultFormat;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.rio.RDFFormat;
 import org.openrdf.rio.RDFParseException;
@@ -109,6 +111,8 @@ public class HttpHandler extends AbstractHandler {
                         Map<String, String> headers = new HashMap<String, String>();
                         if (p instanceof ParsedGraphQuery) {
                             responseData = executeGraphQuery(query, responseTypes, headers);
+                        } else if (p instanceof ParsedBooleanQuery ) {
+                            responseData = executeBooleanQuery(query, responseTypes, headers);
                         } else {
                             responseData = executeTupleQuery(query, responseTypes, headers);
                         }
@@ -271,6 +275,19 @@ public class HttpHandler extends AbstractHandler {
     	}
         headers.put("Content-Type", resultFormat.getDefaultMIMEType());
         return this.tripleStore.executeGraphQuery(query, resultFormat);
+    }
+    
+    public String executeBooleanQuery(String query, List<String> responseTypes, Map<String, String> headers) throws MalformedQueryException {
+        BooleanQueryResultFormat resultFormat = BooleanQueryResultFormat.TEXT;
+        for (String responseType : responseTypes) {
+            BooleanQueryResultFormat format = BooleanQueryResultFormat.forMIMEType(responseType);
+            if (format != null) {
+                resultFormat = format;
+                break;
+            }
+        }
+        headers.put("Content-Type", resultFormat.getDefaultMIMEType());
+        return this.tripleStore.executeBooleanQuery(query, resultFormat);
     }
 
     public void validateRDF(HttpServletRequest request) throws RDFParseException, IOException {

@@ -27,17 +27,14 @@
 
 package org.meresco.triplestore;
 
-import org.openrdf.model.Resource;
-import org.openrdf.model.Statement;
-import org.openrdf.model.URI;
-import org.openrdf.model.Value;
-import org.openrdf.model.Namespace;
-import org.openrdf.query.resultio.TupleQueryResultFormat;
-import org.openrdf.repository.RepositoryResult;
 import java.util.List;
+
+import org.openrdf.model.Namespace;
 import org.openrdf.query.MalformedQueryException;
-import org.openrdf.rio.RDFParseException;
+import org.openrdf.query.resultio.BooleanQueryResultFormat;
+import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.rio.RDFFormat;
+import org.openrdf.rio.RDFParseException;
 
 
 public interface Triplestore {
@@ -49,7 +46,8 @@ public interface Triplestore {
 
     String executeTupleQuery(String sparQL, TupleQueryResultFormat format) throws MalformedQueryException;
     String executeGraphQuery(String sparQL, RDFFormat format) throws MalformedQueryException;
-
+    String executeBooleanQuery(String sparQL, BooleanQueryResultFormat format) throws MalformedQueryException;
+    
     List<Namespace> getNamespaces();
 
     void shutdown() throws Exception;

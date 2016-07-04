@@ -43,6 +43,7 @@ import org.openrdf.model.Value;
 import org.openrdf.model.URI;
 import org.openrdf.model.Resource;
 import org.openrdf.query.MalformedQueryException;
+import org.openrdf.query.resultio.BooleanQueryResultFormat;
 import org.openrdf.query.resultio.TupleQueryResultFormat;
 import org.openrdf.repository.RepositoryResult;
 import org.openrdf.rio.RDFParseException;
@@ -355,6 +356,11 @@ public class TransactionLog implements Triplestore {
     @Override
     public String executeGraphQuery(String sparQL, RDFFormat format) throws MalformedQueryException {
         return this.tripleStore.executeGraphQuery(sparQL, format);
+    }
+    
+    @Override
+    public String executeBooleanQuery(String sparQL, BooleanQueryResultFormat format) throws MalformedQueryException {
+        return this.tripleStore.executeBooleanQuery(sparQL, format);
     }
 
     @Override
