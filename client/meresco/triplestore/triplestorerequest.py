@@ -27,7 +27,7 @@
 #
 ## end license ##
 
-from urllib import urlencode
+from urllib.parse import urlencode
 from simplejson import loads, JSONDecodeError
 
 from meresco.core import Observable
@@ -93,7 +93,7 @@ class TriplestoreRequest(Observable):
             except JSONDecodeError:
                 pass
             self._handleQueryTimes(header=header, queryTime=time() - t0, localLogCollector=localLogCollector)
-            raise StopIteration(queryResult)
+            return queryResult
         finally:
             self._collectLogForScope(triplestoreResponse=localLogCollector)
 
@@ -104,7 +104,7 @@ class TriplestoreRequest(Observable):
             query = ''.join(self._getStatementsSparQL(subject=subject, predicate=predicate, object=object))
             header, jsonString = yield self._sparqlQuery(query)
             self._handleQueryTimes(header=header, queryTime=time() - t0, localLogCollector=localLogCollector)
-            raise StopIteration(self._getStatementsResults(jsonString, subject=subject, predicate=predicate, object=object))
+            return self._getStatementsResults(jsonString, subject=subject, predicate=predicate, object=object)
         finally:
             self._collectLogForScope(triplestoreResponse=localLogCollector)
 
@@ -126,14 +126,14 @@ class TriplestoreRequest(Observable):
         body = None
         try:
             response = yield self.any.httprequest(method='GET', host=host, port=port, request=path, headers=headers)
-            header, body = response.split("\r\n\r\n", 1)
+            header, body = response.decode().split("\r\n\r\n", 1)
             self._verify20x(header, response)
-        except Exception, e:
+        except Exception as e:
             errorStr = body or str(e)
             if 'MalformedQueryException' in errorStr or 'QueryEvaluationException' in errorStr or 'Parse error:' in errorStr:
                 raise MalformedQueryException(errorStr)
             raise e
-        raise StopIteration((header, body))
+        return [header, body]
 
     def _send(self, path, body, additionalHeaders=None):
         headers = additionalHeaders or {}
@@ -143,14 +143,14 @@ class TriplestoreRequest(Observable):
             response = yield self.any.httprequest(method='POST', host=host, port=port, request=path, body=body, headers=headers)
             header, responseBody = response.split("\r\n\r\n", 1)
             self._verify20x(header, response)
-        except Exception, e:
+        except Exception as e:
             errorStr = responseBody or str(e)
             if 'RDFParseException' in errorStr:
                 raise InvalidRdfXmlException(errorStr)
             elif 'IllegalArgumentException' in errorStr:
                 raise ValueError(errorStr)
             raise e
-        raise StopIteration((header, responseBody))
+        return [header, responseBody]
 
     def _getStatementsSparQL(self, subject=None, predicate=None, object=None):
         if not subject is None and not Uri.matchesUriSyntax(subject):

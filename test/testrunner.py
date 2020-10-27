@@ -77,7 +77,7 @@ class TestResult(UnitTestResult):
         self._write("\n")
         if not self.wasSuccessful():
             output = "FAILED ("
-            failed, errored = map(len, (self.failures, self.errors))
+            failed, errored = list(map(len, (self.failures, self.errors)))
             if failed:
                 output += "failures=%d" % failed
             if errored:

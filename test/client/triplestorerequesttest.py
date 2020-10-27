@@ -37,7 +37,7 @@ from meresco.triplestore.triplestorerequest import X_MERESCO_TRIPLESTORE_QUERYTI
 from meresco.rdf import BNode, Literal, Uri
 from decimal import Decimal
 from time import sleep
-from urlparse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs
 
 
 class TriplestoreRequestTest(SeecrTestCase):
@@ -58,9 +58,9 @@ class TriplestoreRequestTest(SeecrTestCase):
 
     def testAdd(self):
         consume(self.request.add(identifier="id", partname="ignored", data=RDFDATA))
-        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[-1].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'body': RDFDATA,
                 'headers': {
                     'Content-Type': 'text/xml'
@@ -79,15 +79,15 @@ class TriplestoreRequestTest(SeecrTestCase):
 
     def testAddAsNTRIPLES(self):
         consume(self.request.add(identifier="id", partname="ignored", data=RDFDATA, format=NTRIPLES))
-        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[-1].kwargs
-        self.assertEquals({'Content-Type': 'text/plain'}, httprequestKwargs['headers'])
+        self.assertEqual({'Content-Type': 'text/plain'}, httprequestKwargs['headers'])
 
     def testAddTriple(self):
         consume(self.request.addTriple(subject="uri:subj", predicate="uri:pred", object="uri:obj"))
-        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[-1].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'body': 'uri:subj|uri:pred|uri:obj',
                 'headers': {},
                 'method': 'POST',
@@ -98,9 +98,9 @@ class TriplestoreRequestTest(SeecrTestCase):
 
     def testRemoveTriple(self):
         consume(self.request.removeTriple(subject="uri:subj", predicate="uri:pred", object="uri:obj"))
-        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[-1].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'body': 'uri:subj|uri:pred|uri:obj',
                 'headers': {},
                 'method': 'POST',
@@ -111,9 +111,9 @@ class TriplestoreRequestTest(SeecrTestCase):
 
     def testDelete(self):
         consume(self.request.delete(identifier="id"))
-        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[-1].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'body': None,
                 'headers': {},
                 'method': 'POST',
@@ -129,9 +129,9 @@ class TriplestoreRequestTest(SeecrTestCase):
     def testValidate(self):
         self.responseData = 'Ok'
         consume(self.request.validate(data=RDFDATA))
-        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[-1].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'body': RDFDATA,
                 'headers': {},
                 'method': 'POST',
@@ -148,7 +148,7 @@ class TriplestoreRequestTest(SeecrTestCase):
         consume(self.request.commit())
         self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[-1].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'body': None,
                 'headers': {},
                 'method': 'POST',
@@ -158,23 +158,23 @@ class TriplestoreRequestTest(SeecrTestCase):
             }, httprequestKwargs)
 
     def testGetStatementsSparQL(self):
-        self.assertEquals("SELECT DISTINCT ?s ?p ?o WHERE { ?s ?p ?o }", ''.join(self.request._getStatementsSparQL(subject=None, predicate=None, object=None)))
+        self.assertEqual("SELECT DISTINCT ?s ?p ?o WHERE { ?s ?p ?o }", ''.join(self.request._getStatementsSparQL(subject=None, predicate=None, object=None)))
 
-        self.assertEquals("SELECT DISTINCT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001")))
+        self.assertEqual("SELECT DISTINCT ?p ?o WHERE { <http://cq2.org/person/0001> ?p ?o }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001")))
 
-        self.assertEquals("SELECT DISTINCT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name")))
+        self.assertEqual("SELECT DISTINCT ?o WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> ?o }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name")))
 
-        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> <uri:obj> }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="uri:obj")))
+        self.assertEqual("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> <uri:obj> }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="uri:obj")))
 
-        self.assertEquals("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> \"object\" }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="object")))
+        self.assertEqual("SELECT DISTINCT * WHERE { <http://cq2.org/person/0001> <http://xmlns.com/foaf/0.1/name> \"object\" }", ''.join(self.request._getStatementsSparQL(subject="http://cq2.org/person/0001", predicate="http://xmlns.com/foaf/0.1/name", object="object")))
 
     def testExecuteQuery(self):
         self.responseData = RESULT_JSON
         result = retval(self.request.executeQuery('SPARQL'))
-        self.assertEquals(PARSED_RESULT_JSON, result)
-        self.assertEquals(['httprequest', 'handleQueryTimes'], self.observer.calledMethodNames())
+        self.assertEqual(PARSED_RESULT_JSON, result)
+        self.assertEqual(['httprequest', 'handleQueryTimes'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[0].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'headers': None,
                 'method': 'GET',
                 'host': 'example.org',
@@ -197,24 +197,24 @@ class TriplestoreRequestTest(SeecrTestCase):
 </sparql>"""
         self.responseData = SPARQL_XML
         result = retval(self.request.executeQuery('SPARQL', queryResultFormat="application/sparql-results+xml"))
-        self.assertEquals(SPARQL_XML, result)
+        self.assertEqual(SPARQL_XML, result)
 
     def testGetStatements(self):
         self.responseData = RESULT_JSON
         result = retval(self.request.getStatements(subject='uri:subject'))
-        self.assertEquals(RESULT_SPO, list(result))
-        self.assertEquals(['httprequest', 'handleQueryTimes'], self.observer.calledMethodNames())
+        self.assertEqual(RESULT_SPO, list(result))
+        self.assertEqual(['httprequest', 'handleQueryTimes'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[0].kwargs
         request = httprequestKwargs.pop('request')
-        self.assertEquals({
+        self.assertEqual({
                 'headers': None,
                 'method': 'GET',
                 'host': 'example.org',
                 'port': 9999,
             }, httprequestKwargs)
         parsed = urlparse(request)
-        self.assertEquals('/query', parsed.path)
-        self.assertEquals({'query': ['''SELECT DISTINCT ?p ?o WHERE { <uri:subject> ?p ?o }''']}, parse_qs(parsed.query))
+        self.assertEqual('/query', parsed.path)
+        self.assertEqual({'query': ['''SELECT DISTINCT ?p ?o WHERE { <uri:subject> ?p ?o }''']}, parse_qs(parsed.query))
 
     def testGetStatementsGuards(self):
         self.assertRaises(ValueError, lambda: consume(self.request.getStatements(subject='literal')))
@@ -222,9 +222,9 @@ class TriplestoreRequestTest(SeecrTestCase):
 
     def testExport(self):
         consume(self.request.export(identifier="id"))
-        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[0].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'body': None,
                 'headers': {},
                 'method': 'POST',
@@ -242,9 +242,9 @@ class TriplestoreRequestTest(SeecrTestCase):
         <uri:aSubject> <uri:aPredicate> "a literal  value" .
 }"""
         consume(self.request.importTrig(data=trigData))
-        self.assertEquals(['httprequest'], self.observer.calledMethodNames())
+        self.assertEqual(['httprequest'], self.observer.calledMethodNames())
         httprequestKwargs = self.observer.calledMethods[0].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'body': trigData,
                 'headers': {},
                 'method': 'POST',
@@ -259,23 +259,23 @@ class TriplestoreRequestTest(SeecrTestCase):
         self.observer.returnValues['triplestoreServer'] = ('this.server.nl', 1234)
         self.responseData = RESULT_JSON
         consume(self.request.executeQuery("select ?x where {}"))
-        self.assertEquals(['triplestoreServer', 'httprequest', 'handleQueryTimes'], self.observer.calledMethodNames())
+        self.assertEqual(['triplestoreServer', 'httprequest', 'handleQueryTimes'], self.observer.calledMethodNames())
 
         httprequestKwargs = self.observer.calledMethods[1].kwargs
         request = httprequestKwargs.pop('request')
-        self.assertEquals({
+        self.assertEqual({
                 'headers': None,
                 'method': 'GET',
                 'host': 'this.server.nl',
                 'port': 1234,
             }, httprequestKwargs)
         parsed = urlparse(request)
-        self.assertEquals('/query', parsed.path)
-        self.assertEquals({'query': ['''select ?x where {}''']}, parse_qs(parsed.query))
+        self.assertEqual('/query', parsed.path)
+        self.assertEqual({'query': ['''select ?x where {}''']}, parse_qs(parsed.query))
 
         handleQueryTimesKwargs = self.observer.calledMethods[2].kwargs
-        self.assertEquals(['index', 'queryTime'], handleQueryTimesKwargs.keys())
-        self.assertEquals(Decimal('0.042'), handleQueryTimesKwargs['index'])
+        self.assertEqual(['index', 'queryTime'], list(handleQueryTimesKwargs.keys()))
+        self.assertEqual(Decimal('0.042'), handleQueryTimesKwargs['index'])
         qt = float(handleQueryTimesKwargs['queryTime'])
         self.assertTrue(0.0 <= qt <0.1, qt)
 
@@ -284,10 +284,10 @@ class TriplestoreRequestTest(SeecrTestCase):
         self.request.addObserver(self.observer)
         self.observer.returnValues['triplestoreServer'] = ('this.server.nl', 1234)
         consume(self.request.addTriple("uri:subject", "uri:predicate", "value"))
-        self.assertEquals(['triplestoreServer', 'httprequest'], self.observer.calledMethodNames())
+        self.assertEqual(['triplestoreServer', 'httprequest'], self.observer.calledMethodNames())
 
         httprequestKwargs = self.observer.calledMethods[1].kwargs
-        self.assertEquals({
+        self.assertEqual({
                 'body': 'uri:subject|uri:predicate|value',
                 'headers': {},
                 'method': 'POST',
@@ -302,21 +302,21 @@ class TriplestoreRequestTest(SeecrTestCase):
 
 PARSED_RESULT_JSON = [
     {
-        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-        u'o': Literal(u'word', lang="eng")
+        'p': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+        's': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+        'o': Literal('word', lang="eng")
     }, {
-        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
-        u'o': Literal(u'woord', lang="dut")
+        'p': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+        's': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
+        'o': Literal('woord', lang="dut")
     }, {
-        u'p': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-        u's': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
-        u'o': BNode('node12345')
+        'p': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+        's': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
+        'o': BNode('node12345')
     }, {
-        u'p': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-        u's': Uri(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
-        u'o': Literal(u'3.14')
+        'p': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
+        's': Uri('http://www.w3.org/1999/02/22-rdf-syntax-ns#subject'),
+        'o': Literal('3.14')
     }
 ]
 RESULT_SPO = [ (d['s'], d['p'], d['o']) for d in PARSED_RESULT_JSON]

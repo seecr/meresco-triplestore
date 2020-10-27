@@ -29,8 +29,8 @@ from seecr.test.mockserver import MockServer
 from random import randint
 from meresco.components.http.utils import CRLF
 from meresco.triplestore import HttpClient
-from triplestorerequesttest import RESULT_JSON, RESULT_HEADER, PARSED_RESULT_JSON
-from urllib2 import urlopen
+from .triplestorerequesttest import RESULT_JSON, RESULT_HEADER, PARSED_RESULT_JSON
+from urllib.request import urlopen
 from weightless.core import retval
 from weightless.io.utils import asProcess
 
@@ -54,14 +54,14 @@ class HttpClientTest(SeecrTestCase):
 
     def testMockSetup(self):
         result = urlopen('http://localhost:%s/a/path' % self.port).read()
-        self.assertEquals(RESULT_JSON, result)
+        self.assertEqual(RESULT_JSON, result.decode())
         kwargs = self.requests[0]
-        self.assertEquals('/a/path', kwargs['path'])
+        self.assertEqual('/a/path', kwargs['path'])
 
     def testExecuteQuery(self):
         result = asProcess(HttpClient(host='localhost', port=self.port).executeQuery('SPARQL'))
-        self.assertEquals(PARSED_RESULT_JSON, result)
+        self.assertEqual(PARSED_RESULT_JSON, result)
 
     def testExecuteQuerySynchronous(self):
         result = retval(HttpClient(host='localhost', port=self.port, synchronous=True).executeQuery('SPARQL'))
-        self.assertEquals(PARSED_RESULT_JSON, result)
+        self.assertEqual(PARSED_RESULT_JSON, result)

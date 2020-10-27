@@ -45,5 +45,5 @@ class HttpClient(object):
 
 class SyncHttpRequest(object):
     def httprequest(self, **kwargs):
-        raise StopIteration(asProcess(HttpRequest.httprequest(**kwargs)))
+        return asProcess(HttpRequest.httprequest(**kwargs))
         yield
