@@ -46,11 +46,12 @@ class TriplestoreRequestTest(SeecrTestCase):
         self.responseStatus = '200'
         self.responseData = 'SOME RESPONSE'
         def httprequest(**kwargs):
-            raise StopIteration(''.join([
+            r = ''.join([
                     _RESULT_HEADER % self.responseStatus,
                     CRLF*2,
                     self.responseData,
-                ]))
+                ])
+            return r.encode("utf-8")
             yield
         self.observer = CallTrace(methods={'httprequest':httprequest})
         self.request = TriplestoreRequest(host='example.org', port=9999)

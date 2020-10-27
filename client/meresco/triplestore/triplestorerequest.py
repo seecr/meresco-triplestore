@@ -141,7 +141,7 @@ class TriplestoreRequest(Observable):
         responseBody = None
         try:
             response = yield self.any.httprequest(method='POST', host=host, port=port, request=path, body=body, headers=headers)
-            header, responseBody = response.split("\r\n\r\n", 1)
+            header, responseBody = response.decode().split("\r\n\r\n", 1)
             self._verify20x(header, response)
         except Exception as e:
             errorStr = responseBody or str(e)
@@ -202,7 +202,7 @@ class TriplestoreRequest(Observable):
 
     def _verify20x(self, header, response):
         if not header.startswith('HTTP/1.1 20'):
-            raise IOError("Expected status 'HTTP/1.1 20x' from triplestore, but got: " + response)
+            raise IOError("Expected status 'HTTP/1.1 20x' from triplestore, but got: " + response.decode())
 
     def _triplestoreServer(self):
         if self.host:
