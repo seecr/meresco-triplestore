@@ -1,4 +1,4 @@
+#buster:openjdk-8-jdk
 #wheezy:openjdk-8-jdk
-#jessie:openjdk-8-jdk
-#centos6:java-1.8.0-openjdk-devel
 #centos7:java-1.8.0-openjdk-devel
+#centos8:java-1.8.0-openjdk-devel

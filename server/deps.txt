@@ -1,4 +1,4 @@
-#wheezy:openjdk-8-jre-headless
-#jessie:openjdk-8-jre-headless
-#centos6:java-1.8.0-openjdk
+#wheezy:openjdk-8-jdk
+#buster:openjdk-8-jdk
 #centos7:java-1.8.0-openjdk
+#centos8:java-1.8.0-openjdk
